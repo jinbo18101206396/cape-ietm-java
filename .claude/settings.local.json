@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:9999/jeecg-boot/test/agency/list)",
+      "Bash(taskkill /F /IM java.exe)",
+      "Bash(awk '{print $1}')",
+      "Bash(xargs -r kill -9 sleep 3)",
+      "Bash(mvn package *)",
+      "mcp__ide__getDiagnostics"
+    ]
+  }
+}

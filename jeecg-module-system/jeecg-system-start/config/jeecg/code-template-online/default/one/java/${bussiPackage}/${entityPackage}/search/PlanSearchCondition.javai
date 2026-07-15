@@ -1,0 +1,11 @@
+import plan;
+
+
+publi class search.org.jeecg.modules.devops.PlanSearchCondition extends SearchConditionBase{
+
+    private String name;
+    private String age;
+
+
+
+}
