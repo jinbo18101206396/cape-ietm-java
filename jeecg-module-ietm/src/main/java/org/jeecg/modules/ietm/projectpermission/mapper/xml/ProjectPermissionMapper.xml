@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.projectpermission.mapper.ProjectPermissionMapper">
+
+    <select id="getUserPage" resultType="org.jeecg.common.system.vo.LoginUser">
+        select su.* from ietm_project_permission pp
+        left join sys_user su
+        on pp.user_id=su.id
+        <where>
+             target_id=#{param.targetId}
+            <if test="param.username != null and param.username != ''">
+                and su.username like concat(concat('%',#{param.username}),'%')
+            </if>
+            <if test="param.realname != null and param.realname != ''">
+                and su.realname like concat(concat('%',#{param.realname}),'%')
+            </if>
+        </where>
+        order by su.realname asc
+    </select>
+</mapper>

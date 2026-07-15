@@ -1,0 +1,13 @@
+${AnsiColor.BRIGHT_BLUE}
+   _____          _____  ______    _____ ______ _______ __  __
+  / ____|   /\   |  __ \|  ____|  |_   _|  ____|__   __|  \/  |
+ | |       /  \  | |__) | |__       | | | |__     | |  | \  / |
+ | |      / /\ \ |  ___/|  __|      | | |  __|    | |  | |\/| |
+ | |____ / ____ \| |    | |____    _| |_| |____   | |  | |  | |
+  \_____/_/    \_\_|    |______|  |_____|______|  |_|  |_|  |_|
+
+
+${AnsiColor.BRIGHT_GREEN}
+Jeecg  Boot Version: 3.4.4
+Spring Boot Version: ${spring-boot.version}${spring-boot.formatted-version}
+${AnsiColor.BLACK}
