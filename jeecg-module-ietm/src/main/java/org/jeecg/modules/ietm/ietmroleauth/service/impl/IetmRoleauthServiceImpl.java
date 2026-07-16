@@ -35,6 +35,11 @@ public class IetmRoleauthServiceImpl extends ServiceImpl<IetmRoleauthMapper, Iet
     @Transactional(rollbackFor = Exception.class)
     public boolean batchSaveOrUpdateWithOverride(List<IetmRoleauth> roleauthList) {
         for (IetmRoleauth roleauth : roleauthList) {
+            // 如果ID以'new_'开头，说明是前端新增的临时ID，清除它让数据库自动生成
+            if (roleauth.getId() != null && roleauth.getId().startsWith("new_")) {
+                roleauth.setId(null);
+            }
+
             // 查找是否存在相同角色、对象类型、对象ID的记录
             LambdaQueryWrapper<IetmRoleauth> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(IetmRoleauth::getRoleId, roleauth.getRoleId());

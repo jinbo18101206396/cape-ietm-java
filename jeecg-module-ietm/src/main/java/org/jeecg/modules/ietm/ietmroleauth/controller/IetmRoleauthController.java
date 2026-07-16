@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @Description: 手册授权管理
@@ -125,8 +126,34 @@ public class IetmRoleauthController extends JeecgController<IetmRoleauth, IIetmR
     @ApiOperation(value="手册授权管理-批量删除", notes="手册授权管理-批量删除")
     @DeleteMapping(value = "/deleteBatch")
     public Result<String> deleteBatch(@RequestParam(name="ids") String ids) {
-        this.ietmRoleauthService.removeByIds(Arrays.asList(ids.split(",")));
-        return Result.OK("批量删除成功！");
+        log.info("=== 批量删除角色授权 ===");
+        log.info("接收到的ids参数: {}", ids);
+
+        if (ids == null || ids.trim().isEmpty()) {
+            log.warn("ids参数为空");
+            return Result.error("未指定要删除的记录");
+        }
+
+        // 清理ID列表，去除空白字符
+        List<String> idList = Arrays.stream(ids.split(","))
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .collect(Collectors.toList());
+        log.info("解析后的ID列表: {}", idList);
+
+        if (idList.isEmpty()) {
+            log.warn("解析后ID列表为空");
+            return Result.error("未指定有效的记录ID");
+        }
+
+        boolean result = this.ietmRoleauthService.removeByIds(idList);
+        log.info("删除操作返回结果: {}", result);
+
+        if (result) {
+            return Result.OK("批量删除成功！");
+        } else {
+            return Result.error("删除失败，请稍后重试");
+        }
     }
 
     /**

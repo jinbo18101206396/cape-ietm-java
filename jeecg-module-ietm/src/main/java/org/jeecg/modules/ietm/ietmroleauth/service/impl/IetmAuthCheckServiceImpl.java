@@ -47,6 +47,11 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
      */
     @Override
     public boolean hasProjectReadAuth(String userId, String projectId) {
+        // 管理员拥有所有权限
+        if (isAdmin(userId)) {
+            return true;
+        }
+
         String authType = getAuthType();
 
         // 授权类型为"不限制"
@@ -79,6 +84,11 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
      */
     @Override
     public boolean hasProjectEditAuth(String userId, String projectId) {
+        // 管理员拥有所有权限
+        if (isAdmin(userId)) {
+            return true;
+        }
+
         String authType = getAuthType();
 
         // 授权类型为"不限制"
@@ -111,6 +121,11 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
      */
     @Override
     public boolean hasCmReadAuth(String userId, String objId) {
+        // 管理员拥有所有权限
+        if (isAdmin(userId)) {
+            return true;
+        }
+
         String authType = getAuthType();
 
         // 授权类型为"不限制"或"项目按角色授权"
@@ -142,6 +157,11 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
      */
     @Override
     public boolean hasCmEditAuth(String userId, String objId) {
+        // 管理员拥有所有权限
+        if (isAdmin(userId)) {
+            return true;
+        }
+
         String authType = getAuthType();
 
         // 授权类型为"不限制"或"项目按角色授权"
@@ -173,6 +193,11 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
      */
     @Override
     public List<String> getUserAuthorizedProjectIds(String userId) {
+        // 管理员拥有所有权限
+        if (isAdmin(userId)) {
+            return null; // null表示不限制
+        }
+
         String authType = getAuthType();
 
         // 授权类型为"不限制"
@@ -210,6 +235,11 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
      */
     @Override
     public List<String> getUserAuthorizedCmIds(String userId, String projectId) {
+        // 管理员拥有所有权限
+        if (isAdmin(userId)) {
+            return null; // null表示不限制
+        }
+
         String authType = getAuthType();
 
         // 授权类型为"不限制"或"项目按角色授权"
@@ -252,5 +282,26 @@ public class IetmAuthCheckServiceImpl implements IIetmAuthCheckService {
     private List<String> getUserRoleIds(String userId) {
         String sql = "SELECT role_id FROM sys_user_role WHERE user_id = ?";
         return jdbcTemplate.queryForList(sql, String.class, userId);
+    }
+
+    /**
+     * 判断用户是否为管理员
+     * 管理员判断规则：用户名为admin 或 拥有admin角色
+     */
+    @Override
+    public boolean isAdmin(String userId) {
+        // 方式1：查询用户名是否为admin
+        String usernameSql = "SELECT username FROM sys_user WHERE id = ?";
+        List<String> usernames = jdbcTemplate.queryForList(usernameSql, String.class, userId);
+        if (!usernames.isEmpty() && "admin".equalsIgnoreCase(usernames.get(0))) {
+            return true;
+        }
+
+        // 方式2：查询用户是否拥有admin角色
+        String adminRoleSql = "SELECT COUNT(*) FROM sys_user_role ur " +
+                "JOIN sys_role r ON ur.role_id = r.id " +
+                "WHERE ur.user_id = ? AND r.role_code = 'admin'";
+        Integer count = jdbcTemplate.queryForObject(adminRoleSql, Integer.class, userId);
+        return count != null && count > 0;
     }
 }

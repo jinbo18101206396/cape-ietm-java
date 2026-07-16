@@ -62,4 +62,11 @@ public interface IIetmAuthCheckService {
      * @return 构型ID列表
      */
     List<String> getUserAuthorizedCmIds(String userId, String projectId);
+
+    /**
+     * 判断用户是否为管理员
+     * @param userId 用户ID
+     * @return true=是管理员, false=不是管理员
+     */
+    boolean isAdmin(String userId);
 }

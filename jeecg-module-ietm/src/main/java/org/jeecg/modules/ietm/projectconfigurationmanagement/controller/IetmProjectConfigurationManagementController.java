@@ -1,5 +1,6 @@
 package org.jeecg.modules.ietm.projectconfigurationmanagement.controller;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,9 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.jeecg.common.system.vo.LoginUser;
+import org.apache.shiro.SecurityUtils;
+import org.jeecg.modules.ietm.ietmroleauth.service.IIetmAuthCheckService;
 
  /**
  * @Description: 项目管理-项目构型管理
@@ -53,6 +57,8 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 public class IetmProjectConfigurationManagementController extends JeecgController<IetmProjectConfigurationManagement, IIetmProjectConfigurationManagementService>{
 	@Autowired
 	private IIetmProjectConfigurationManagementService ietmProjectConfigurationManagementService;
+	@Autowired
+	private IIetmAuthCheckService authCheckService;
 
 	/**
 	 * 分页列表查询
@@ -102,10 +108,48 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 	 public Result<List<IetmProjectGxTreeVo>> getTreeList(@RequestParam(value = "projectId", required = true) String projectId, HttpServletRequest req){
 	 	log.info("=== 查询项目构型树 ===");
 		log.info("projectId: {}", projectId);
+
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+		log.info("当前用户: userId={}, username={}", sysUser.getId(), sysUser.getUsername());
+
+		// 检查是否为管理员
+		boolean isAdmin = authCheckService.isAdmin(sysUser.getId());
+		log.info("是否为管理员: {}", isAdmin);
+
+		// 检查授权类型
+		String authType = authCheckService.getAuthType();
+		log.info("当前授权类型: {} (0=不限制, 1=项目按角色授权, 2=构型按角色授权)", authType);
+
 		QueryWrapper queryWrapper = new QueryWrapper();
 		queryWrapper.eq("project_id", projectId);
 		List<IetmProjectConfigurationManagement> list = ietmProjectConfigurationManagementService.list(queryWrapper);
 		log.info("查询到构型数据数量: {}", list.size());
+
+		// 根据授权类型过滤构型列表
+		List<String> authorizedCmIds = authCheckService.getUserAuthorizedCmIds(sysUser.getId(), projectId);
+		log.info("用户授权的构型ID列表: {}", authorizedCmIds);
+		if (authorizedCmIds != null) {
+			if (authorizedCmIds.isEmpty()) {
+				// 用户无任何构型权限，返回空列表
+				log.warn("用户无任何构型权限，返回空列表");
+				return Result.OK(new ArrayList<>());
+			}
+			// 保留被授权的构型节点，以及它们的所有父节点路径
+			List<IetmProjectConfigurationManagement> filteredList = new ArrayList<>();
+			for (IetmProjectConfigurationManagement cm : list) {
+				if (authorizedCmIds.contains(cm.getId())) {
+					// 这是被授权的节点，保留它
+					filteredList.add(cm);
+					// 递归查找并添加所有父节点
+					addParentNodes(cm.getPid(), list, filteredList);
+				}
+			}
+			list = filteredList;
+			log.info("过滤后构型数据数量（含父节点路径）: {}", list.size());
+		}
+		// authorizedCmIds == null 表示授权类型为"不限制"或"项目授权"，不做过滤
+
 		if (!list.isEmpty()) {
 			log.info("第一条数据: id={}, title={}, pid={}", list.get(0).getId(), list.get(0).getTitle(), list.get(0).getPid());
 		}
@@ -229,6 +273,17 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
     //@RequiresPermissions("projectconfigurationmanagement:ietm_project_configuration_management:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody IetmProjectConfigurationManagement ietmProjectConfigurationManagement) {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验：检查用户是否有父节点的编辑权限
+		String pid = ietmProjectConfigurationManagement.getPid();
+		if (pid != null && !"0".equals(pid)) {
+			if (!authCheckService.hasCmEditAuth(sysUser.getId(), pid)) {
+				return Result.error("无权限在该构型节点下添加子节点！请联系管理员授权。");
+			}
+		}
+
 		ietmProjectConfigurationManagementService.addIetmProjectConfigurationManagement(ietmProjectConfigurationManagement);
 		return Result.OK("添加成功！");
 	}
@@ -244,6 +299,14 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
     //@RequiresPermissions("projectconfigurationmanagement:ietm_project_configuration_management:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody IetmProjectConfigurationManagement ietmProjectConfigurationManagement) {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验：检查用户是否有该构型的编辑权限
+		if (!authCheckService.hasCmEditAuth(sysUser.getId(), ietmProjectConfigurationManagement.getId())) {
+			return Result.error("无权限编辑该构型节点！请联系管理员授权。");
+		}
+
 		ietmProjectConfigurationManagementService.updateIetmProjectConfigurationManagement(ietmProjectConfigurationManagement);
 		return Result.OK("编辑成功!");
 	}
@@ -259,6 +322,14 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
     //@RequiresPermissions("projectconfigurationmanagement:ietm_project_configuration_management:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验：检查用户是否有该构型的编辑权限
+		if (!authCheckService.hasCmEditAuth(sysUser.getId(), id)) {
+			return Result.error("无权限删除该构型节点！请联系管理员授权。");
+		}
+
 		ietmProjectConfigurationManagementService.deleteIetmProjectConfigurationManagement(id);
 		return Result.OK("删除成功!");
 	}
@@ -292,6 +363,15 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 		if(ietmProjectConfigurationManagement==null) {
 			return Result.error("未找到对应数据");
 		}
+
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验：检查用户是否有该构型的浏览权限
+		if (!authCheckService.hasCmReadAuth(sysUser.getId(), id)) {
+			return Result.error("无权限查看该构型节点！请联系管理员授权。");
+		}
+
 		return Result.OK(ietmProjectConfigurationManagement);
 	}
 
@@ -385,6 +465,34 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 		} catch (Exception e) {
 			log.error("复制所有构型失败", e);
 			return Result.error("复制所有构型失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 递归添加父节点到结果列表
+	 */
+	private void addParentNodes(String pid, List<IetmProjectConfigurationManagement> allNodes, List<IetmProjectConfigurationManagement> resultList) {
+		if (pid == null || "0".equals(pid)) {
+			return;
+		}
+		// 查找父节点
+		for (IetmProjectConfigurationManagement node : allNodes) {
+			if (node.getId().equals(pid)) {
+				// 避免重复添加
+				boolean exists = false;
+				for (IetmProjectConfigurationManagement existing : resultList) {
+					if (existing.getId().equals(node.getId())) {
+						exists = true;
+						break;
+					}
+				}
+				if (!exists) {
+					resultList.add(node);
+					// 继续递归查找上级父节点
+					addParentNodes(node.getPid(), allNodes, resultList);
+				}
+				break;
+			}
 		}
 	}
 
