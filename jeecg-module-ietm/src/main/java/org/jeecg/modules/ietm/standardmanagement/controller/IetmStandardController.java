@@ -196,11 +196,14 @@ public class IetmStandardController extends JeecgController<IetmStandard, IIetmS
         // 处理标准名称参数，转换为关联查询
         String standard = req.getParameter("standard");
         if (oConvertUtils.isNotEmpty(standard)) {
-            queryWrapper.inSql("pid", "SELECT id FROM ietm_standard WHERE name = '" + standard.replace("'", "''") + "'");
+            // pid 字段直接存储标准名称，不是外键
+            log.info("查询标准DM类型，标准名称: {}", standard);
+            queryWrapper.eq("pid", standard);
         }
 
         Page<IetmStandardDmtype> page = new Page<IetmStandardDmtype>(pageNo, pageSize);
         IPage<IetmStandardDmtype> pageList = ietmStandardDmtypeService.page(page, queryWrapper);
+        log.info("DM类型查询结果，总记录数: {}, 当前页记录数: {}", pageList.getTotal(), pageList.getRecords().size());
         return Result.OK(pageList);
     }
 

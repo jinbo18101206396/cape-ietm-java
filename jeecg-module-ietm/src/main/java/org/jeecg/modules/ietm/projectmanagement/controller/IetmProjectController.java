@@ -3,8 +3,10 @@ package org.jeecg.modules.ietm.projectmanagement.controller;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -14,6 +16,7 @@ import org.jeecgframework.poi.excel.def.NormalExcelConstants;
 import org.jeecgframework.poi.excel.entity.ExportParams;
 import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.jeecg.common.system.vo.LoginUser;
 import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.api.vo.Result;
@@ -57,6 +60,8 @@ public class IetmProjectController {
 	private IIetmProjectParamsService ietmProjectParamsService;
 	@Autowired
 	private IIetmAuthCheckService authCheckService;
+	@Autowired
+	private RedisTemplate<String, Object> redisTemplate;
 
 	/**
 	 * 分页列表查询
@@ -384,6 +389,102 @@ public class IetmProjectController {
 		} else {
 			return Result.error("状态修改失败！");
 		}
+	}
+
+	/**
+	 * 打开项目
+	 *
+	 * @param params
+	 * @return
+	 */
+	@AutoLog(value = "手册管理-手册项目管理列表-打开项目")
+	@ApiOperation(value="手册管理-手册项目管理列表-打开项目", notes="手册管理-手册项目管理列表-打开项目")
+	@PostMapping(value = "/openProject")
+	public Result<Map<String, Object>> openProject(@RequestBody Map<String, String> params) {
+		String projectId = params.get("projectId");
+		if (projectId == null || projectId.trim().isEmpty()) {
+			return Result.error("项目ID不能为空！");
+		}
+
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 查询项目信息
+		IetmProject project = ietmProjectService.getById(projectId);
+		if (project == null) {
+			return Result.error("项目不存在！");
+		}
+
+		// 检查项目状态
+		if (project.getStatus() != 1) {
+			return Result.error("该项目已被禁用，无法打开！");
+		}
+
+		// 权限校验
+		if (!authCheckService.hasProjectReadAuth(sysUser.getId(), projectId)) {
+			return Result.error("无权限打开该项目！请联系管理员授权。");
+		}
+
+		// 保存当前项目到Redis
+		String redisKey = "ietm:current_project:" + sysUser.getId();
+		Map<String, Object> projectInfo = new HashMap<>();
+		projectInfo.put("projectId", project.getId());
+		projectInfo.put("projectName", project.getName());
+		projectInfo.put("equipmentCode", project.getEquipmentCode());
+		projectInfo.put("ietmStandard", project.getIetmStandard());
+		projectInfo.put("openTime", System.currentTimeMillis());
+
+		redisTemplate.opsForValue().set(redisKey, projectInfo, 6, TimeUnit.HOURS);
+
+		log.info("用户[{}]打开项目[{}]", sysUser.getUsername(), project.getName());
+
+		return Result.OK(projectInfo);
+	}
+
+	/**
+	 * 关闭项目
+	 *
+	 * @return
+	 */
+	@AutoLog(value = "手册管理-手册项目管理列表-关闭项目")
+	@ApiOperation(value="手册管理-手册项目管理列表-关闭项目", notes="手册管理-手册项目管理列表-关闭项目")
+	@PostMapping(value = "/closeProject")
+	public Result<String> closeProject() {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 从Redis删除当前项目
+		String redisKey = "ietm:current_project:" + sysUser.getId();
+		redisTemplate.delete(redisKey);
+
+		log.info("用户[{}]关闭项目", sysUser.getUsername());
+
+		return Result.OK("项目已关闭");
+	}
+
+	/**
+	 * 获取当前打开的项目
+	 *
+	 * @return
+	 */
+	@ApiOperation(value="手册管理-手册项目管理列表-获取当前项目", notes="手册管理-手册项目管理列表-获取当前项目")
+	@GetMapping(value = "/getCurrentProject")
+	public Result<Map<String, Object>> getCurrentProject() {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 从Redis获取当前项目
+		String redisKey = "ietm:current_project:" + sysUser.getId();
+		Object obj = redisTemplate.opsForValue().get(redisKey);
+
+		if (obj == null) {
+			return Result.OK(null);
+		}
+
+		@SuppressWarnings("unchecked")
+		Map<String, Object> projectInfo = (Map<String, Object>) obj;
+
+		return Result.OK(projectInfo);
 	}
 
 }
