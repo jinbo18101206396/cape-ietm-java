@@ -24,6 +24,7 @@ import org.jeecg.modules.ietm.projectmanagement.entity.IetmProject;
 import org.jeecg.modules.ietm.projectmanagement.vo.IetmProjectPage;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectService;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectParamsService;
+import org.jeecg.modules.ietm.ietmroleauth.service.IIetmAuthCheckService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -54,6 +55,8 @@ public class IetmProjectController {
 	private IIetmProjectService ietmProjectService;
 	@Autowired
 	private IIetmProjectParamsService ietmProjectParamsService;
+	@Autowired
+	private IIetmAuthCheckService authCheckService;
 
 	/**
 	 * 分页列表查询
@@ -71,7 +74,25 @@ public class IetmProjectController {
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 构建查询条件
 		QueryWrapper<IetmProject> queryWrapper = QueryGenerator.initQueryWrapper(ietmProject, req.getParameterMap());
+
+		// 根据授权类型过滤项目列表
+		List<String> authorizedProjectIds = authCheckService.getUserAuthorizedProjectIds(sysUser.getId());
+		if (authorizedProjectIds != null) {
+			if (authorizedProjectIds.isEmpty()) {
+				// 用户无任何项目权限，返回空列表
+				Page<IetmProject> page = new Page<IetmProject>(pageNo, pageSize);
+				return Result.OK(page);
+			}
+			// 只查询用户有权限的项目
+			queryWrapper.in("id", authorizedProjectIds);
+		}
+		// authorizedProjectIds == null 表示授权类型为"不限制"，不做过滤
+
 		Page<IetmProject> page = new Page<IetmProject>(pageNo, pageSize);
 		IPage<IetmProject> pageList = ietmProjectService.page(page, queryWrapper);
 		return Result.OK(pageList);
@@ -88,7 +109,24 @@ public class IetmProjectController {
 	@ApiOperation(value="手册管理-手册项目管理列表-列表查询", notes="手册管理-手册项目管理列表-列表查询")
 	@GetMapping(value = "/listData")
 	public Result<List<IetmProject>> listData(IetmProject ietmProject, HttpServletRequest req) {
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 构建查询条件
 		QueryWrapper<IetmProject> queryWrapper = QueryGenerator.initQueryWrapper(ietmProject, req.getParameterMap());
+
+		// 根据授权类型过滤项目列表
+		List<String> authorizedProjectIds = authCheckService.getUserAuthorizedProjectIds(sysUser.getId());
+		if (authorizedProjectIds != null) {
+			if (authorizedProjectIds.isEmpty()) {
+				// 用户无任何项目权限，返回空列表
+				return Result.OK(new ArrayList<>());
+			}
+			// 只查询用户有权限的项目
+			queryWrapper.in("id", authorizedProjectIds);
+		}
+		// authorizedProjectIds == null 表示授权类型为"不限制"，不做过滤
+
 		List<IetmProject> list = ietmProjectService.list(queryWrapper);
 		return Result.OK(list);
 	}
@@ -128,8 +166,15 @@ public class IetmProjectController {
 			return Result.error("未找到对应数据");
 		}
 
-		// 权限校验：仅能编辑自己创建的项目
+		// 获取当前登录用户
 		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验1：基于授权配置的编辑权限
+		if (!authCheckService.hasProjectEditAuth(sysUser.getId(), ietmProject.getId())) {
+			return Result.error("无权限编辑该项目！请联系管理员授权。");
+		}
+
+		// 权限校验2：仅能编辑自己创建的项目
 		if(!ietmProjectEntity.getCreateBy().equals(sysUser.getUsername())) {
 			return Result.error("无权限编辑该项目！只能编辑自己创建的项目。");
 		}
@@ -155,8 +200,15 @@ public class IetmProjectController {
 			return Result.error("未找到对应数据");
 		}
 
-		// 权限校验：仅能删除自己创建的项目
+		// 获取当前登录用户
 		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验1：基于授权配置的编辑权限
+		if (!authCheckService.hasProjectEditAuth(sysUser.getId(), id)) {
+			return Result.error("无权限删除该项目！请联系管理员授权。");
+		}
+
+		// 权限校验2：仅能删除自己创建的项目
 		if(!ietmProject.getCreateBy().equals(sysUser.getUsername())) {
 			return Result.error("无权限删除该项目！只能删除自己创建的项目。");
 		}
@@ -194,8 +246,16 @@ public class IetmProjectController {
 		if(ietmProject==null) {
 			return Result.error("未找到对应数据");
 		}
-		return Result.OK(ietmProject);
 
+		// 获取当前登录用户
+		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+		// 权限校验：检查用户是否有该项目的浏览权限
+		if (!authCheckService.hasProjectReadAuth(sysUser.getId(), id)) {
+			return Result.error("无权限查看该项目！请联系管理员授权。");
+		}
+
+		return Result.OK(ietmProject);
 	}
 
 	/**
