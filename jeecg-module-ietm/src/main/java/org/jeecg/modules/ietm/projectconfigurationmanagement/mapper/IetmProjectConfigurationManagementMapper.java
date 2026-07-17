@@ -41,4 +41,18 @@ public interface IetmProjectConfigurationManagementMapper extends BaseMapper<Iet
 	@Select("SELECT * FROM ietm_project WHERE id = #{projectId}")
 	org.jeecg.modules.ietm.projectmanagement.entity.IetmProject selectProjectById(@Param("projectId") String projectId);
 
+	/**
+	 * 检查DM引用数量
+	 * @param cmNodeId
+	 * @return
+	 */
+	int countDmReference(@Param("cmNodeId") String cmNodeId);
+
+	/**
+	 * 检查ICN引用数量
+	 * @param cmNodeId
+	 * @return
+	 */
+	int countIcnReference(@Param("cmNodeId") String cmNodeId);
+
 }

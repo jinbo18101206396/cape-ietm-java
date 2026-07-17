@@ -97,4 +97,8 @@ public class IetmProjectConfigurationManagement implements Serializable {
 	@Dict(dicCode = "yn")
     @ApiModelProperty(value = "是否有子节点")
     private java.lang.String hasChild;
+	/**节点层级（0-7级，根节点为0级，不存储到数据库，仅用于前端显示）*/
+	@com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    @ApiModelProperty(value = "节点层级")
+    private Integer level;
 }

@@ -22,4 +22,26 @@
 		</if>
 	</select>
 
+	<!-- 查询项目信息（用于构建根节点标题） -->
+	<select id="selectProjectById" parameterType="java.lang.String" resultType="org.jeecg.modules.ietm.projectmanagement.entity.IetmProject">
+		select id, name, equipment_code as equipmentCode
+		from ietm_project
+		where id = #{projectId}
+	</select>
+
+	<!-- 检查DM引用数量 -->
+	<select id="countDmReference" parameterType="java.lang.String" resultType="int">
+		SELECT COUNT(*)
+		FROM ietm_dm
+		WHERE cm_node_id = #{cmNodeId}
+		AND status = '1'
+	</select>
+
+	<!-- 检查ICN引用数量 -->
+	<select id="countIcnReference" parameterType="java.lang.String" resultType="int">
+		SELECT COUNT(*)
+		FROM ietm_icn
+		WHERE cm_node_id = #{cmNodeId}
+	</select>
+
 </mapper>

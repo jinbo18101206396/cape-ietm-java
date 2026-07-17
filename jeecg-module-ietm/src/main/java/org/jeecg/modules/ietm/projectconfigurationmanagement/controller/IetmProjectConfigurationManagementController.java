@@ -76,10 +76,28 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
+		// 获取项目ID参数
+		String projectId = req.getParameter("projectId");
+		log.info("查询构型列表，projectId={}", projectId);
+
+		// 如果没有项目ID，返回空列表
+		if (oConvertUtils.isEmpty(projectId)) {
+			log.warn("未提供projectId参数，返回空列表");
+			IPage<IetmProjectConfigurationManagement> pageList = new Page<>(1, 10, 0);
+			pageList.setRecords(new ArrayList<>());
+			return Result.OK(pageList);
+		}
+
 		String hasQuery = req.getParameter("hasQuery");
         if(hasQuery != null && "true".equals(hasQuery)){
             QueryWrapper<IetmProjectConfigurationManagement> queryWrapper =  QueryGenerator.initQueryWrapper(ietmProjectConfigurationManagement, req.getParameterMap());
+            // 添加项目ID过滤条件
+            queryWrapper.eq("project_id", projectId);
+            // ✅ 修复：只查询根节点 (pid='0')
+            queryWrapper.eq("pid", "0");
             List<IetmProjectConfigurationManagement> list = ietmProjectConfigurationManagementService.queryTreeListNoPage(queryWrapper);
+            // 填充层级信息
+            ietmProjectConfigurationManagementService.fillNodeLevels(list);
             IPage<IetmProjectConfigurationManagement> pageList = new Page<>(1, 10, list.size());
             pageList.setRecords(list);
             return Result.OK(pageList);
@@ -92,8 +110,12 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
             QueryWrapper<IetmProjectConfigurationManagement> queryWrapper = QueryGenerator.initQueryWrapper(ietmProjectConfigurationManagement, req.getParameterMap());
             // 使用 eq 防止模糊查询
             queryWrapper.eq("pid", parentId);
+            // 添加项目ID过滤条件
+            queryWrapper.eq("project_id", projectId);
             Page<IetmProjectConfigurationManagement> page = new Page<IetmProjectConfigurationManagement>(pageNo, pageSize);
             IPage<IetmProjectConfigurationManagement> pageList = ietmProjectConfigurationManagementService.page(page, queryWrapper);
+            // 填充层级信息
+            ietmProjectConfigurationManagementService.fillNodeLevels(pageList.getRecords());
             return Result.OK(pageList);
         }
 	}
@@ -231,7 +253,19 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 	@GetMapping(value = "/childList")
 	public Result<IPage<IetmProjectConfigurationManagement>> queryPageList(IetmProjectConfigurationManagement ietmProjectConfigurationManagement,HttpServletRequest req) {
 		QueryWrapper<IetmProjectConfigurationManagement> queryWrapper = QueryGenerator.initQueryWrapper(ietmProjectConfigurationManagement, req.getParameterMap());
+
+		// 添加项目ID过滤条件，防止查询所有项目的数据
+		String projectId = req.getParameter("projectId");
+		if (oConvertUtils.isNotEmpty(projectId)) {
+			queryWrapper.eq("project_id", projectId);
+			log.info("查询子节点，pid={}, projectId={}", ietmProjectConfigurationManagement.getPid(), projectId);
+		} else {
+			log.warn("childList接口未提供projectId参数，可能导致性能问题");
+		}
+
 		List<IetmProjectConfigurationManagement> list = ietmProjectConfigurationManagementService.list(queryWrapper);
+		// 填充层级信息
+		ietmProjectConfigurationManagementService.fillNodeLevels(list);
 		IPage<IetmProjectConfigurationManagement> pageList = new Page<>(1, 10, list.size());
         pageList.setRecords(list);
 		return Result.OK(pageList);
@@ -240,19 +274,30 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
     /**
       * 批量查询子节点
       * @param parentIds 父ID（多个采用半角逗号分割）
+      * @param projectId 项目ID
       * @return 返回 IPage
-      * @param parentIds
-      * @return
       */
 	//@AutoLog(value = "项目管理-项目构型管理-批量获取子数据")
     @ApiOperation(value="项目管理-项目构型管理-批量获取子数据", notes="项目管理-项目构型管理-批量获取子数据")
     @GetMapping("/getChildListBatch")
-    public Result getChildListBatch(@RequestParam("parentIds") String parentIds) {
+    public Result getChildListBatch(@RequestParam("parentIds") String parentIds,
+                                     @RequestParam(value = "projectId", required = false) String projectId) {
         try {
             QueryWrapper<IetmProjectConfigurationManagement> queryWrapper = new QueryWrapper<>();
             List<String> parentIdList = Arrays.asList(parentIds.split(","));
             queryWrapper.in("pid", parentIdList);
+
+            // 添加项目ID过滤条件
+            if (oConvertUtils.isNotEmpty(projectId)) {
+                queryWrapper.eq("project_id", projectId);
+                log.info("批量查询子节点，parentIds={}, projectId={}", parentIds, projectId);
+            } else {
+                log.warn("批量查询子节点未提供projectId参数，parentIds={}", parentIds);
+            }
+
             List<IetmProjectConfigurationManagement> list = ietmProjectConfigurationManagementService.list(queryWrapper);
+            // 填充层级信息
+            ietmProjectConfigurationManagementService.fillNodeLevels(list);
             IPage<IetmProjectConfigurationManagement> pageList = new Page<>(1, 10, list.size());
             pageList.setRecords(list);
             return Result.OK(pageList);
@@ -523,6 +568,88 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 		}
 
 		return count;
+	}
+
+	/**
+	 * 验证编码是否重复
+	 *
+	 * @param code 编码
+	 * @param pid 父节点ID
+	 * @param id 当前节点ID（编辑时传入，新增时不传）
+	 * @return
+	 */
+	@ApiOperation(value="项目管理-项目构型管理-验证编码", notes="项目管理-项目构型管理-验证编码")
+	@GetMapping(value = "/checkCode")
+	public Result<Boolean> checkCode(
+			@RequestParam(name="code", required=true) String code,
+			@RequestParam(name="pid", required=true) String pid,
+			@RequestParam(name="id", required=false) String id) {
+		try {
+			boolean isDuplicate = ietmProjectConfigurationManagementService.checkCodeDuplicate(code, pid, id);
+			if (isDuplicate) {
+				return Result.error("同级节点下编码【" + code + "】已存在！");
+			}
+			return Result.OK(false);
+		} catch (Exception e) {
+			log.error("验证编码失败", e);
+			return Result.error("验证编码失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 删除前检查
+	 *
+	 * @param id 节点ID
+	 * @return
+	 */
+	@ApiOperation(value="项目管理-项目构型管理-删除前检查", notes="项目管理-项目构型管理-删除前检查")
+	@GetMapping(value = "/checkDelete")
+	public Result<String> checkDelete(@RequestParam(name="id", required=true) String id) {
+		try {
+			String errorMsg = ietmProjectConfigurationManagementService.checkCanDelete(id);
+			if (errorMsg != null) {
+				return Result.error(errorMsg);
+			}
+			return Result.OK("可以删除");
+		} catch (Exception e) {
+			log.error("删除检查失败", e);
+			return Result.error("删除检查失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 批量生成路径
+	 *
+	 * @param projectId 项目ID
+	 * @return
+	 */
+	@AutoLog(value = "项目管理-项目构型管理-批量生成路径")
+	@ApiOperation(value="项目管理-项目构型管理-批量生成路径", notes="项目管理-项目构型管理-批量生成路径")
+	@PostMapping(value = "/batchGeneratePaths")
+	public Result<String> batchGeneratePaths(@RequestParam(name="projectId", required=true) String projectId) {
+		try {
+			log.info("接收到批量生成路径请求，项目ID: {}", projectId);
+
+			// 获取当前登录用户
+			LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+
+			// 权限校验：检查是否为管理员（批量操作需要管理员权限）
+			boolean isAdmin = authCheckService.isAdmin(sysUser.getId());
+			if (!isAdmin) {
+				return Result.error("此操作需要管理员权限！");
+			}
+
+			int updateCount = ietmProjectConfigurationManagementService.batchGeneratePaths(projectId);
+
+			if (updateCount == 0) {
+				return Result.OK("该项目下没有需要更新的构型节点");
+			}
+
+			return Result.OK("批量生成路径成功，共更新 " + updateCount + " 个节点！");
+		} catch (Exception e) {
+			log.error("批量生成路径失败", e);
+			return Result.error("批量生成路径失败：" + e.getMessage());
+		}
 	}
 
 }

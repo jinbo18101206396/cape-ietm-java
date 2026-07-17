@@ -83,4 +83,45 @@ public interface IIetmProjectConfigurationManagementService extends IService<Iet
 
     List<IetmProjectGxTreeVo> buildTree(List<IetmProjectConfigurationManagement> list, String projectId);
 
+	/**
+	 * 验证编码是否重复（同级）
+	 * @param code 编码
+	 * @param pid 父节点ID
+	 * @param excludeId 排除的节点ID（编辑时使用）
+	 * @return true-重复，false-不重复
+	 */
+	boolean checkCodeDuplicate(String code, String pid, String excludeId);
+
+	/**
+	 * 检查节点是否可删除
+	 * @param id 节点ID
+	 * @return null-可删除，非空-返回错误信息
+	 */
+	String checkCanDelete(String id);
+
+	/**
+	 * 更新父节点的hasChild标记
+	 * @param pid 父节点ID
+	 */
+	void updateParentHasChild(String pid);
+
+	/**
+	 * 批量生成路径
+	 * @param projectId 项目ID
+	 * @return 更新的节点数量
+	 */
+	int batchGeneratePaths(String projectId);
+
+	/**
+	 * 为节点填充层级信息
+	 * @param node 节点
+	 */
+	void fillNodeLevel(IetmProjectConfigurationManagement node);
+
+	/**
+	 * 为节点列表填充层级信息
+	 * @param nodes 节点列表
+	 */
+	void fillNodeLevels(List<IetmProjectConfigurationManagement> nodes);
+
 }
