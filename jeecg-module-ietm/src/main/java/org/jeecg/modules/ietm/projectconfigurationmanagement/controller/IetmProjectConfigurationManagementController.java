@@ -2,6 +2,7 @@ package org.jeecg.modules.ietm.projectconfigurationmanagement.controller;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -11,6 +12,7 @@ import java.net.URLDecoder;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.jeecg.common.api.vo.Result;
+import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.vo.TreeModel;
 import org.jeecg.common.util.oConvertUtils;
@@ -583,9 +585,10 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 	public Result<Boolean> checkCode(
 			@RequestParam(name="code", required=true) String code,
 			@RequestParam(name="pid", required=true) String pid,
+			@RequestParam(name="projectId", required=true) String projectId,
 			@RequestParam(name="id", required=false) String id) {
 		try {
-			boolean isDuplicate = ietmProjectConfigurationManagementService.checkCodeDuplicate(code, pid, id);
+			boolean isDuplicate = ietmProjectConfigurationManagementService.checkCodeDuplicate(code, pid, projectId, id);
 			if (isDuplicate) {
 				return Result.error("同级节点下编码【" + code + "】已存在！");
 			}
@@ -649,6 +652,187 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 		} catch (Exception e) {
 			log.error("批量生成路径失败", e);
 			return Result.error("批量生成路径失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 查询模板构型树
+	 */
+	@AutoLog(value = "项目构型管理-查询模板树")
+	@ApiOperation(value="项目构型管理-查询模板树", notes="项目构型管理-查询模板树")
+	@GetMapping(value = "/getTemplateTree")
+	public Result<List<IetmProjectConfigurationManagement>> getTemplateTree(
+			@RequestParam(name="standard", required=true) String standard,
+			@RequestParam(name="equipType", required=true) String equipType) {
+		try {
+			log.info("查询模板构型树: standard={}, equipType={}", standard, equipType);
+
+			List<IetmProjectConfigurationManagement> templateTree =
+				ietmProjectConfigurationManagementService.getTemplateTree(standard, equipType);
+
+			if (templateTree.isEmpty()) {
+				return Result.error("未找到模板数据: TEMPLATE_" + standard + "_" + equipType);
+			}
+
+			return Result.OK(templateTree);
+		} catch (Exception e) {
+			log.error("查询模板构型树失败", e);
+			return Result.error("查询模板构型树失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 从模板导入构型树
+	 */
+	@AutoLog(value = "项目构型管理-从模板导入")
+	@ApiOperation(value="项目构型管理-从模板导入", notes="项目构型管理-从模板导入")
+	@PostMapping(value = "/importFromTemplate")
+	public Result<String> importFromTemplate(@RequestBody Map<String, String> params) {
+		try {
+			String projectId = params.get("projectId");
+			String standard = params.get("standard");
+			String equipType = params.get("equipType");
+
+			log.info("从模板导入: projectId={}, standard={}, equipType={}", projectId, standard, equipType);
+
+			// 校验参数
+			if (projectId == null || projectId.isEmpty()) {
+				return Result.error("项目ID不能为空");
+			}
+			if (standard == null || standard.isEmpty()) {
+				return Result.error("IETM标准不能为空");
+			}
+			if (equipType == null || equipType.isEmpty()) {
+				return Result.error("装备类型不能为空");
+			}
+
+			// 校验：检查当前项目是否已有构型数据（除了根节点）
+			QueryWrapper<IetmProjectConfigurationManagement> checkWrapper = new QueryWrapper<>();
+			checkWrapper.eq("project_id", projectId);
+			checkWrapper.ne("pid", "0");  // 不是根节点
+			long existingCount = ietmProjectConfigurationManagementService.count(checkWrapper);
+
+			if (existingCount > 0) {
+				return Result.error("已有构型数据，不能再导入！");
+			}
+
+			int importedCount = ietmProjectConfigurationManagementService.importFromTemplate(
+				projectId, standard, equipType
+			);
+
+			return Result.OK("从模板导入成功，共导入 " + importedCount + " 个节点！");
+		} catch (JeecgBootException e) {
+			log.error("从模板导入失败", e);
+			return Result.error(e.getMessage());
+		} catch (Exception e) {
+			log.error("从模板导入失败", e);
+			return Result.error("从模板导入失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 校验Excel导入数据
+	 * @param dataList Excel数据列表
+	 * @param projectId 项目ID
+	 * @return 校验结果
+	 */
+	@AutoLog(value = "项目构型管理-校验Excel导入数据")
+	@ApiOperation(value="项目构型管理-校验Excel导入数据", notes="项目构型管理-校验Excel导入数据")
+	@PostMapping(value = "/validateExcelData")
+	public Result<?> validateExcelData(
+		@RequestBody List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
+		@RequestParam(name = "projectId", required = true) String projectId
+	) {
+		try {
+			log.info("=== 校验Excel导入数据 ===");
+			log.info("projectId: {}", projectId);
+			log.info("数据条数: {}", dataList.size());
+
+			if (oConvertUtils.isEmpty(projectId)) {
+				return Result.error("项目ID不能为空！");
+			}
+
+			if (dataList == null || dataList.isEmpty()) {
+				return Result.error("导入数据不能为空！");
+			}
+
+			// 调用Service进行校验
+			List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> validatedList =
+				ietmProjectConfigurationManagementService.validateExcelData(dataList, projectId);
+
+			// 统计校验结果
+			long validCount = validatedList.stream().filter(d -> d.isValid()).count();
+			long invalidCount = validatedList.size() - validCount;
+
+			log.info("校验完成：有效{}条，无效{}条", validCount, invalidCount);
+
+			Map<String, Object> resultMap = new HashMap<>();
+			resultMap.put("dataList", validatedList);
+			resultMap.put("validCount", validCount);
+			resultMap.put("invalidCount", invalidCount);
+			resultMap.put("totalCount", validatedList.size());
+
+			if (invalidCount > 0) {
+				return Result.OK("数据校验完成，发现 " + invalidCount + " 条错误数据！", resultMap);
+			} else {
+				return Result.OK("数据校验通过，可以导入！", resultMap);
+			}
+
+		} catch (JeecgBootException e) {
+			log.error("校验Excel数据失败", e);
+			return Result.error(e.getMessage());
+		} catch (Exception e) {
+			log.error("校验Excel数据失败", e);
+			return Result.error("校验失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 导入Excel数据
+	 * @param dataList 校验通过的Excel数据列表
+	 * @param projectId 项目ID
+	 * @return 导入结果
+	 */
+	@AutoLog(value = "项目构型管理-导入Excel数据")
+	@ApiOperation(value="项目构型管理-导入Excel数据", notes="项目构型管理-导入Excel数据")
+	@PostMapping(value = "/importExcelData")
+	public Result<?> importExcelData(
+		@RequestBody List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
+		@RequestParam(name = "projectId", required = true) String projectId
+	) {
+		try {
+			log.info("=== 导入Excel数据 ===");
+			log.info("projectId: {}", projectId);
+			log.info("数据条数: {}", dataList.size());
+
+			if (oConvertUtils.isEmpty(projectId)) {
+				return Result.error("项目ID不能为空！");
+			}
+
+			if (dataList == null || dataList.isEmpty()) {
+				return Result.error("导入数据不能为空！");
+			}
+
+			// 过滤出校验通过的数据
+			List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> validList =
+				dataList.stream().filter(d -> d.isValid()).collect(Collectors.toList());
+
+			if (validList.isEmpty()) {
+				return Result.error("没有有效数据可以导入！");
+			}
+
+			// 调用Service进行导入
+			int importedCount = ietmProjectConfigurationManagementService.importExcelData(validList, projectId);
+
+			log.info("导入完成，共导入{}条数据", importedCount);
+			return Result.OK("导入成功，共导入 " + importedCount + " 条数据！");
+
+		} catch (JeecgBootException e) {
+			log.error("导入Excel数据失败", e);
+			return Result.error(e.getMessage());
+		} catch (Exception e) {
+			log.error("导入Excel数据失败", e);
+			return Result.error("导入失败：" + e.getMessage());
 		}
 	}
 

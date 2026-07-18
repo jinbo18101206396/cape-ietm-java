@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @Description: 预制模板-构型管理
@@ -23,6 +24,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
  * @Date:   2026-01-07
  * @Version: V1.0
  */
+@Slf4j
 @Service
 public class IetmStandardConfigurationManagementServiceImpl extends ServiceImpl<IetmStandardConfigurationManagementMapper, IetmStandardConfigurationManagement> implements IIetmStandardConfigurationManagementService {
 
@@ -105,23 +107,11 @@ public class IetmStandardConfigurationManagementServiceImpl extends ServiceImpl<
 
 	@Override
     public List<IetmStandardConfigurationManagement> queryTreeListNoPage(QueryWrapper<IetmStandardConfigurationManagement> queryWrapper) {
+        // ✅ 修复：直接返回所有匹配条件的节点（扁平化列表）
+        // 前端会根据pid关系构建树形结构
         List<IetmStandardConfigurationManagement> dataList = baseMapper.selectList(queryWrapper);
-        List<IetmStandardConfigurationManagement> mapList = new ArrayList<>();
-        for(IetmStandardConfigurationManagement data : dataList){
-            String pidVal = data.getPid();
-            //递归查询子节点的根节点
-            if(pidVal != null && !IIetmStandardConfigurationManagementService.NOCHILD.equals(pidVal)){
-                IetmStandardConfigurationManagement rootVal = this.getTreeRoot(pidVal);
-                if(rootVal != null && !mapList.contains(rootVal)){
-                    mapList.add(rootVal);
-                }
-            }else{
-                if(!mapList.contains(data)){
-                    mapList.add(data);
-                }
-            }
-        }
-        return mapList;
+        log.info("queryTreeListNoPage 查询到 {} 个节点", dataList.size());
+        return dataList;
     }
 
     @Override

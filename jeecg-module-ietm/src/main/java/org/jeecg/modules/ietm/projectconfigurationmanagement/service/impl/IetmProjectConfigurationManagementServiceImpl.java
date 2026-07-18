@@ -28,6 +28,10 @@ import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import utils.TreeUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.jeecg.modules.ietm.ietmstandardconfigurationmanagement.entity.IetmStandardConfigurationManagement;
+import org.jeecg.modules.ietm.ietmstandardconfigurationmanagement.service.IIetmStandardConfigurationManagementService;
+import org.springframework.beans.BeanUtils;
 
 /**
  * @Description: 项目管理-项目构型管理（增强版）
@@ -39,6 +43,9 @@ import utils.TreeUtil;
 @Slf4j
 public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<IetmProjectConfigurationManagementMapper, IetmProjectConfigurationManagement> implements IIetmProjectConfigurationManagementService {
 
+	@Autowired
+	private IIetmStandardConfigurationManagementService standardConfigService;
+
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void addIetmProjectConfigurationManagement(IetmProjectConfigurationManagement entity) {
@@ -46,6 +53,19 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
 		log.info("添加构型节点开始");
 		log.info("编码: {}, 技术名称: {}, 父节点ID: {}, 项目ID: {}",
 				entity.getCode(), entity.getTitle(), entity.getPid(), entity.getProjectId());
+
+		// ✅ 详细输出编码信息，检查是否有隐藏字符或数据类型问题
+		String code = entity.getCode();
+		if (code != null) {
+			StringBuilder codeDebug = new StringBuilder();
+			for (int i = 0; i < code.length(); i++) {
+				char c = code.charAt(i);
+				codeDebug.append(String.format("[%d]='%c'(ASCII:%d) ", i, c, (int)c));
+			}
+			log.info("【添加构型节点】编码详情: code='{}', length={}, 字符详情: {}",
+				code, code.length(), codeDebug.toString());
+		}
+
 		log.info("============================================================");
 
 		// 1. 验证编码长度
@@ -55,8 +75,8 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
 			throw new JeecgBootException(lengthError);
 		}
 
-		// 2. 验证编码是否重复
-		if (checkCodeDuplicate(entity.getCode(), entity.getPid(), null)) {
+		// 2. 验证编码是否重复（同一项目、同一父节点下）
+		if (checkCodeDuplicate(entity.getCode(), entity.getPid(), entity.getProjectId(), null)) {
 			throw new JeecgBootException("同级节点下编码【" + entity.getCode() + "】已存在！");
 		}
 
@@ -101,8 +121,8 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
 				throw new JeecgBootException(lengthError);
 			}
 
-			// 验证编码是否重复
-			if (checkCodeDuplicate(entity.getCode(), entity.getPid(), entity.getId())) {
+			// 验证编码是否重复（同一项目、同一父节点下）
+			if (checkCodeDuplicate(entity.getCode(), entity.getPid(), entity.getProjectId(), entity.getId())) {
 				throw new JeecgBootException("同级节点下编码【" + entity.getCode() + "】已存在！");
 			}
 		}
@@ -360,14 +380,39 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
      * 验证编码是否重复
      */
     @Override
-    public boolean checkCodeDuplicate(String code, String pid, String excludeId) {
+    /**
+     * 检查同级节点下编码是否重复
+     * @param code 编码
+     * @param pid 父节点ID
+     * @param projectId 项目ID（新增参数，确保只在同一项目内检查重复）
+     * @param excludeId 排除的节点ID（编辑时使用）
+     * @return true-重复，false-不重复
+     */
+    public boolean checkCodeDuplicate(String code, String pid, String projectId, String excludeId) {
         LambdaQueryWrapper<IetmProjectConfigurationManagement> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(IetmProjectConfigurationManagement::getCode, code);
         wrapper.eq(IetmProjectConfigurationManagement::getPid, pid);
+        // ✅ 增加项目ID过滤，确保只在同一项目内检查重复
+        if (projectId != null) {
+            wrapper.eq(IetmProjectConfigurationManagement::getProjectId, projectId);
+        }
         if (excludeId != null) {
             wrapper.ne(IetmProjectConfigurationManagement::getId, excludeId);
         }
-        return this.count(wrapper) > 0;
+        long count = this.count(wrapper);
+        log.info("[checkCodeDuplicate] code={}, pid={}, projectId={}, excludeId={}, count={}",
+            code, pid, projectId, excludeId, count);
+
+        // ✅ 如果检测到重复，输出详细信息
+        if (count > 0) {
+            List<IetmProjectConfigurationManagement> duplicates = this.list(wrapper);
+            duplicates.forEach(dup -> {
+                log.warn("[checkCodeDuplicate] 发现重复节点: id={}, code={}, title={}, pid={}, projectId={}",
+                    dup.getId(), dup.getCode(), dup.getTitle(), dup.getPid(), dup.getProjectId());
+            });
+        }
+
+        return count > 0;
     }
 
     /**
@@ -577,13 +622,15 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
      *
      * 例如：
      * - pid='0'（根节点） → 返回1（子节点是第1级）
+     * - pid=项目根节点ID → 返回1（项目根节点是第0级，子节点是第1级）
      * - pid=第1级节点ID → 返回2（子节点是第2级）
      * - pid=第3级节点ID → 返回4（子节点是第4级）
      *
      * 计算逻辑：
-     * 1. 查询pid对应的父节点
-     * 2. 计算父节点自身是第几级
-     * 3. 返回 父节点层级 + 1
+     * 1. 如果pid='0'，返回1（虚拟根节点的子节点是第1级）
+     * 2. 查询pid对应的节点
+     * 3. 如果该节点的pid='0'，说明它是项目根节点（第0级），返回1
+     * 4. 否则递归计算该节点的层级，返回 层级+1
      */
     private int calculateNodeLevelWithDepth(String pid, String projectId, int depth) {
         log.info("[calculateNodeLevel] 深度={}, 计算pid={}的子节点层级", depth, pid);
@@ -594,9 +641,10 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
             return 1;
         }
 
-        // ✅ 特殊情况：pid='0'表示根节点，根节点的子节点是第1级
+        // ✅ 特殊情况：pid='0'表示虚拟根节点，虚拟根节点的子节点（项目根节点）是第0级
+        // 但为了兼容，我们认为项目根节点的子节点是第1级
         if (pid == null || "0".equals(pid)) {
-            log.info("[calculateNodeLevel] pid='0'（根节点），子节点是第1级");
+            log.info("[calculateNodeLevel] pid='0'（虚拟根节点），子节点（项目根节点的子节点）是第1级");
             return 1;
         }
 
@@ -613,6 +661,12 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
         // ✅ 检查项目ID
         if (projectId != null && !projectId.equals(parentNode.getProjectId())) {
             log.error("[calculateNodeLevel] ⚠️ 父节点属于不同项目！当前={}, 父节点={}", projectId, parentNode.getProjectId());
+            return 1;
+        }
+
+        // ✅ 如果父节点的pid='0'，说明父节点是项目根节点（第0级），其子节点是第1级
+        if ("0".equals(parentNode.getPid())) {
+            log.info("[calculateNodeLevel] 父节点是项目根节点（pid='0'），子节点是第1级");
             return 1;
         }
 
@@ -683,6 +737,19 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
      *     ZBBM33-B-01-0-0-00-00-A → 第2段B≠A,第3段01≠00 → level=2
      *     ZBBM33-B-01-C-0-00-00-A → 第2,3,4段不同 → level=3
      */
+    /**
+     * 从path解析节点层级
+     * path格式：装备编码-A-00-0-0-00-00-A（8段）
+     *
+     * 层级判断规则：
+     * - 根节点（pid='0'）：path = 装备编码-A-00-0-0-00-00-A → level = 0
+     * - 第1级节点：path = 装备编码-A-00-0-0-00-00-A（第2段是该节点的编码）→ level = 1
+     * - 第2级节点：path = 装备编码-A-01-0-0-00-00-A（第3段是该节点的编码）→ level = 2
+     * - ...以此类推
+     *
+     * 注意：无法通过 path 区分根节点和第1级节点（当第1级编码恰好是 "A" 时）
+     *      需要结合节点的 pid 来判断
+     */
     private int getLevelFromPath(String path) {
         if (path == null || path.isEmpty()) {
             return 0;
@@ -701,6 +768,8 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
                 level = i; // 记录最后一个不同的位置
             }
         }
+
+        log.debug("[getLevelFromPath] path={}, level={}", path, level);
         return level;
     }
 
@@ -716,31 +785,59 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
             return "编码不能为空";
         }
 
-        int level;
+        // 输出编码的详细信息（包括不可见字符）
+        StringBuilder codeDebug = new StringBuilder();
+        for (int i = 0; i < code.length(); i++) {
+            char c = code.charAt(i);
+            codeDebug.append(String.format("[%d]='%c'(ASCII:%d) ", i, c, (int)c));
+        }
+        log.info("[validateCodeLength] 编码详情: code='{}', length={}, 字符详情: {}",
+            code, code.length(), codeDebug.toString());
+
+        // ✅ 根节点（pid='0'）特殊处理：使用装备编码，不验证长度
         if (pid == null || "0".equals(pid)) {
-            level = 1;
-            log.info("[validateCodeLength] pid='0'，子节点是第1级");
-        } else {
-            IetmProjectConfigurationManagement parentNode = this.getById(pid);
-            if (parentNode == null) {
-                log.warn("[validateCodeLength] 未找到父节点 pid={}", pid);
-                level = 1;
-            } else {
-                String parentPath = parentNode.getPath();
-                log.info("[validateCodeLength] 父节点: id={}, code={}, path={}", parentNode.getId(), parentNode.getCode(), parentPath);
-                if (parentPath != null && !parentPath.isEmpty()) {
-                    int parentLevel = getLevelFromPath(parentPath);
-                    level = parentLevel + 1;
-                    log.info("[validateCodeLength] 父节点层级={}, 子节点层级={}", parentLevel, level);
-                } else {
-                    // path为空时降级到递归计算
-                    level = calculateNodeLevel(pid, projectId);
-                    log.warn("[validateCodeLength] 父节点path为空，递归计算层级={}", level);
-                }
-            }
+            log.info("[validateCodeLength] 根节点，使用装备编码，跳过长度验证: {}", code);
+            return null;
         }
 
-        log.info("[validateCodeLength] 编码={}, 层级={}", code, level);
+        // ✅ 非根节点：按层级验证
+        int level;
+        IetmProjectConfigurationManagement parentNode = this.getById(pid);
+        if (parentNode == null) {
+            log.warn("[validateCodeLength] 未找到父节点 pid={}", pid);
+            return "父节点不存在";
+        }
+
+        String parentPath = parentNode.getPath();
+        String parentPid = parentNode.getPid();
+        String parentCode = parentNode.getCode();
+        log.info("[validateCodeLength] 父节点: id={}, code='{}', pid={}, path='{}'",
+            parentNode.getId(), parentCode, parentPid, parentPath);
+
+        // ✅ 输出父节点编码的详细信息
+        if (parentCode != null) {
+            StringBuilder parentCodeDebug = new StringBuilder();
+            for (int i = 0; i < parentCode.length(); i++) {
+                char c = parentCode.charAt(i);
+                parentCodeDebug.append(String.format("[%d]='%c'(ASCII:%d) ", i, c, (int)c));
+            }
+            log.info("[validateCodeLength] 父节点编码详情: code='{}', length={}, 字符详情: {}",
+                parentCode, parentCode.length(), parentCodeDebug.toString());
+        }
+
+        // ✅ 修复：直接根据父节点的pid判断层级，而不是解析path
+        if ("0".equals(parentPid)) {
+            // 父节点是根节点，当前节点是第1级
+            level = 1;
+            log.info("[validateCodeLength] 父节点是根节点，当前节点是第1级");
+        } else {
+            // ✅ 父节点不是根节点，递归计算当前节点层级
+            // 注意：calculateNodeLevel(pid) 返回的是"以pid为父节点的子节点层级"，也就是当前节点的层级
+            level = calculateNodeLevel(pid, projectId);
+            log.info("[validateCodeLength] 递归计算当前节点层级={}", level);
+        }
+
+        log.info("[validateCodeLength] 编码='{}', 实际长度={}, 层级={}", code, code.length(), level);
 
         if (level > 7) {
             return "已达到最大层级(7级)，不能继续添加子节点。编码规则：A-00-0-0-00-00-A";
@@ -754,10 +851,13 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
         int actualLength = code.length();
         if (actualLength != requiredLength) {
             String ruleDesc = getCodeRuleByLevel(level);
+            log.error("[validateCodeLength] 验证失败 - 层级={}, 要求长度={}, 实际长度={}, 编码='{}', 字符详情: {}",
+                level, requiredLength, actualLength, code, codeDebug.toString());
             return String.format("第%d级节点编码必须是%s，当前为%d位。编码规则：A-00-0-0-00-00-A",
                 level, ruleDesc, actualLength);
         }
 
+        log.info("[validateCodeLength] 验证通过");
         return null;
     }
 
@@ -991,6 +1091,528 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
         if (parent != null) {
             collectAncestorIds(parent, nodeCache, ancestorIds);
         }
+    }
+
+    /**
+     * 查询模板构型树
+     * 模板project_id命名规则: TEMPLATE_{标准}_{装备类型}
+     * 例如: TEMPLATE_S1000D40_HELICOPTER
+     */
+    @Override
+    public List<IetmProjectConfigurationManagement> getTemplateTree(String standard, String equipType) {
+        log.info("查询模板构型树: standard={}, equipType={}", standard, equipType);
+
+        // 从标准配置管理表查询模板数据
+        QueryWrapper<IetmStandardConfigurationManagement> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("standard", standard);
+        queryWrapper.eq("equipment_type", equipType);
+        queryWrapper.orderByAsc("seq", "code");
+
+        List<IetmStandardConfigurationManagement> standardList = standardConfigService.list(queryWrapper);
+        log.info("从标准配置管理表查询到模板数据: {} 条", standardList.size());
+
+        // ✅ 输出所有模板数据的概览
+        log.info("==================================================");
+        log.info("模板数据详情：");
+        for (IetmStandardConfigurationManagement item : standardList) {
+            String code = item.getCode();
+            int codeLength = (code != null) ? code.length() : 0;
+            log.info("id={}, pid={}, code='{}' (length={}), title={}",
+                item.getId(), item.getPid(), code, codeLength, item.getTitle());
+        }
+        log.info("==================================================");
+
+        // 转换为项目构型管理实体
+        List<IetmProjectConfigurationManagement> templateList = new ArrayList<>();
+        for (IetmStandardConfigurationManagement standard_item : standardList) {
+            IetmProjectConfigurationManagement target = new IetmProjectConfigurationManagement();
+
+            // 复制基本属性
+            // ✅ 保留模板ID，用于建立父子关系映射（递归导入时需要用原始ID查找子节点）
+            target.setId(standard_item.getId());
+            target.setPid(standard_item.getPid());
+            // ✅ trim() 处理编码，防止包含空格导致长度验证失败
+            String code = standard_item.getCode();
+
+            // ✅ 输出原始编码和trim后的编码，用于诊断
+            String originalCode = code;
+            String trimmedCode = code != null ? code.trim() : null;
+
+            if (originalCode != null && trimmedCode != null && !originalCode.equals(trimmedCode)) {
+                log.warn("【模板数据】编码包含空格: 原始='{}' (length={}), trim后='{}' (length={})",
+                    originalCode, originalCode.length(), trimmedCode, trimmedCode.length());
+            }
+
+            // 输出编码的详细字符信息
+            if (trimmedCode != null) {
+                StringBuilder codeDebug = new StringBuilder();
+                for (int i = 0; i < trimmedCode.length(); i++) {
+                    char c = trimmedCode.charAt(i);
+                    codeDebug.append(String.format("[%d]='%c'(ASCII:%d) ", i, c, (int)c));
+                }
+                log.debug("【模板数据】id={}, pid={}, code='{}', length={}, 字符详情: {}, title={}",
+                    standard_item.getId(), standard_item.getPid(), trimmedCode,
+                    trimmedCode.length(), codeDebug.toString(), standard_item.getTitle());
+            }
+
+            target.setCode(trimmedCode);
+            target.setTitle(standard_item.getTitle());
+            target.setSeq(standard_item.getSeq());
+            target.setSecurity(standard_item.getSecurity());
+            target.setHasChild(standard_item.getHasChild());
+            target.setPath(standard_item.getWay()); // way字段对应path
+
+            templateList.add(target);
+        }
+
+        log.info("转换后的模板数据: {} 条", templateList.size());
+        return templateList;
+    }
+
+    /**
+     * 从模板导入构型树
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int importFromTemplate(String targetProjectId, String standard, String equipType) {
+        System.out.println("============================================================");
+        System.out.println("【从模板导入】开始执行");
+        System.out.println("目标项目ID: " + targetProjectId + ", 标准: " + standard + ", 装备类型: " + equipType);
+        System.out.println("============================================================");
+        log.info("============================================================");
+        log.info("开始从模板导入构型树");
+        log.info("目标项目ID: {}, 标准: {}, 装备类型: {}", targetProjectId, standard, equipType);
+        log.info("============================================================");
+
+        // 1. 检查目标项目是否有非根节点数据
+        QueryWrapper<IetmProjectConfigurationManagement> checkWrapper = new QueryWrapper<>();
+        checkWrapper.eq("project_id", targetProjectId);
+        checkWrapper.ne("pid", "0"); // 排除根节点
+        long existingCount = this.count(checkWrapper);
+
+        if (existingCount > 0) {
+            log.warn("目标项目已存在{}个非根节点，准备清空后重新导入", existingCount);
+
+            // 删除所有非根节点
+            QueryWrapper<IetmProjectConfigurationManagement> deleteWrapper = new QueryWrapper<>();
+            deleteWrapper.eq("project_id", targetProjectId);
+            deleteWrapper.ne("pid", "0"); // 排除根节点
+
+            int deletedCount = this.baseMapper.delete(deleteWrapper);
+            log.info("已删除{}个非根节点", deletedCount);
+
+            // 更新根节点的hasChild状态为"0"（无子节点）
+            QueryWrapper<IetmProjectConfigurationManagement> rootWrapper = new QueryWrapper<>();
+            rootWrapper.eq("project_id", targetProjectId);
+            rootWrapper.eq("pid", "0");
+            IetmProjectConfigurationManagement root = this.getOne(rootWrapper);
+            if (root != null && "1".equals(root.getHasChild())) {
+                root.setHasChild("0");
+                this.updateById(root);
+                log.info("已更新根节点hasChild状态为0");
+            }
+
+            log.info("准备从模板导入新数据");
+        }
+
+        // 2. 查询模板数据
+        String templateProjectId = "TEMPLATE_" + standard + "_" + equipType;
+        List<IetmProjectConfigurationManagement> templateList = getTemplateTree(standard, equipType);
+
+        if (templateList.isEmpty()) {
+            throw new JeecgBootException("未找到模板数据: " + templateProjectId);
+        }
+
+        // ✅ 验证模板数据是否有重复编码（同一父节点下）
+        // ✅ 先过滤掉 pid 或 code 为 null 的节点
+        List<IetmProjectConfigurationManagement> validNodes = templateList.stream()
+            .filter(node -> node.getPid() != null && node.getCode() != null)
+            .collect(Collectors.toList());
+
+        if (validNodes.size() < templateList.size()) {
+            log.warn("模板数据中有{}个节点的 pid 或 code 为 null，已过滤",
+                templateList.size() - validNodes.size());
+            // 输出 pid 或 code 为 null 的节点信息
+            templateList.stream()
+                .filter(node -> node.getPid() == null || node.getCode() == null)
+                .forEach(node -> log.warn("【模板数据异常】节点: id={}, pid={}, code={}, title={}",
+                    node.getId(), node.getPid(), node.getCode(), node.getTitle()));
+        }
+
+        Map<String, List<IetmProjectConfigurationManagement>> groupByPid = validNodes.stream()
+            .collect(Collectors.groupingBy(IetmProjectConfigurationManagement::getPid));
+
+        for (Map.Entry<String, List<IetmProjectConfigurationManagement>> entry : groupByPid.entrySet()) {
+            String pid = entry.getKey();
+            List<IetmProjectConfigurationManagement> siblings = entry.getValue();
+
+            // 检查同一父节点下是否有重复编码
+            Map<String, Long> codeCount = siblings.stream()
+                .collect(Collectors.groupingBy(IetmProjectConfigurationManagement::getCode, Collectors.counting()));
+
+            for (Map.Entry<String, Long> codeEntry : codeCount.entrySet()) {
+                if (codeEntry.getValue() > 1) {
+                    log.error("【模板数据错误】同一父节点(pid={})下存在重复编码: code={}, 出现{}次",
+                        pid, codeEntry.getKey(), codeEntry.getValue());
+                    throw new JeecgBootException("模板数据错误：同一父节点下存在重复编码【" + codeEntry.getKey() + "】，请联系管理员修复模板数据！");
+                }
+            }
+        }
+        log.info("模板数据验证通过，无重复编码");
+
+        // 3. 找到模板根节点
+        IetmProjectConfigurationManagement templateRoot = null;
+        for (IetmProjectConfigurationManagement node : templateList) {
+            if ("0".equals(node.getPid())) {
+                templateRoot = node;
+                break;
+            }
+        }
+
+        if (templateRoot == null) {
+            throw new JeecgBootException("模板数据中未找到根节点！");
+        }
+
+        // 4. 查询目标项目的根节点，必须存在才能导入
+        QueryWrapper<IetmProjectConfigurationManagement> rootWrapper = new QueryWrapper<>();
+        rootWrapper.eq("project_id", targetProjectId);
+        rootWrapper.eq("pid", "0");
+        IetmProjectConfigurationManagement targetRoot = this.getOne(rootWrapper);
+
+        if (targetRoot == null) {
+            throw new JeecgBootException("目标项目根节点不存在，请先进入项目构型管理页面初始化根节点！");
+        }
+
+        log.info("目标项目根节点: id={}, code={}, path={}", targetRoot.getId(), targetRoot.getCode(), targetRoot.getPath());
+
+        String templateCode = templateRoot.getCode();
+        log.info("模板根节点: id={}, code='{}', code.length()={}, 字节数组={}",
+            templateRoot.getId(), templateCode, templateCode.length(),
+            java.util.Arrays.toString(templateCode.getBytes()));
+
+        // 输出每个字符的ASCII码，便于发现不可见字符
+        StringBuilder codeDebug = new StringBuilder();
+        for (int i = 0; i < templateCode.length(); i++) {
+            char c = templateCode.charAt(i);
+            codeDebug.append(String.format("[%d]='%c'(ASCII:%d) ", i, c, (int)c));
+        }
+        log.info("模板根节点编码详情: {}", codeDebug.toString());
+
+        // 5. 导入模板根节点作为项目的一级节点
+        IetmProjectConfigurationManagement newTemplateRoot = new IetmProjectConfigurationManagement();
+        newTemplateRoot.setPid(targetRoot.getId());  // 挂在目标根节点下
+        newTemplateRoot.setProjectId(targetProjectId);
+        newTemplateRoot.setCode(templateRoot.getCode());  // 使用模板根节点编码（应该是第1级编码，如 "A"）
+        newTemplateRoot.setTitle(templateRoot.getTitle());
+        newTemplateRoot.setSeq(templateRoot.getSeq());
+        newTemplateRoot.setSecurity(templateRoot.getSecurity());
+
+        // ✅ 使用 addIetmProjectConfigurationManagement 进行验证和保存
+        // 它会自动生成path、验证编码长度等
+        log.info("【导入模板根节点】开始: pid={}, code='{}', code.length()={}, title={}",
+            newTemplateRoot.getPid(), newTemplateRoot.getCode(),
+            newTemplateRoot.getCode().length(), newTemplateRoot.getTitle());
+        this.addIetmProjectConfigurationManagement(newTemplateRoot);
+        log.info("【导入模板根节点】成功: newId={}, path={}", newTemplateRoot.getId(), newTemplateRoot.getPath());
+
+        // 更新目标根节点的hasChild状态
+        targetRoot.setHasChild(IIetmProjectConfigurationManagementService.HASCHILD);
+        this.updateById(targetRoot);
+
+        // 6. 递归导入模板根节点的子节点
+        String equipmentCode = getEquipmentCodeByProjectId(targetProjectId);
+        if ("UNKNOWN".equals(equipmentCode)) {
+            equipmentCode = targetProjectId;
+        }
+
+        int importedCount = 1 + importTemplateTreeRecursive(
+            templateRoot.getId(),      // 模板根节点ID（查找其子节点）
+            newTemplateRoot.getId(),   // 新导入的模板根节点ID（作为父节点）
+            templateList,
+            targetProjectId,
+            equipmentCode              // 传递装备编码，用于生成path
+        );
+
+        log.info("从模板导入完成，共导入 {} 个节点", importedCount);
+        log.info("============================================================");
+
+        return importedCount;
+    }
+
+    /**
+     * 递归导入模板树
+     */
+    private int importTemplateTreeRecursive(String templateParentId,
+                                           String targetParentId,
+                                           List<IetmProjectConfigurationManagement> templateList,
+                                           String targetProjectId,
+                                           String equipmentCode) {
+        int count = 0;
+
+        // 查找模板父节点的所有子节点
+        List<IetmProjectConfigurationManagement> children = templateList.stream()
+            .filter(node -> templateParentId.equals(node.getPid()))
+            .collect(Collectors.toList());
+
+        System.out.println("【递归导入】templateParentId=" + templateParentId + ", 子节点数=" + children.size());
+        log.info("导入层级: templateParentId={}, targetParentId={}, 子节点数={}",
+                 templateParentId, targetParentId, children.size());
+
+        for (IetmProjectConfigurationManagement templateChild : children) {
+            // 创建新节点
+            IetmProjectConfigurationManagement newNode = new IetmProjectConfigurationManagement();
+            newNode.setPid(targetParentId);
+            newNode.setProjectId(targetProjectId);
+            newNode.setCode(templateChild.getCode());
+            newNode.setTitle(templateChild.getTitle());
+            newNode.setSeq(templateChild.getSeq());
+            newNode.setSecurity(templateChild.getSecurity());
+
+            // ✅ 输出编码的详细信息
+            String code = newNode.getCode();
+            StringBuilder codeDebug = new StringBuilder();
+            for (int i = 0; i < code.length(); i++) {
+                char c = code.charAt(i);
+                codeDebug.append(String.format("[%d]='%c'(ASCII:%d) ", i, c, (int)c));
+            }
+
+            // ✅ 使用 addIetmProjectConfigurationManagement 进行验证和保存
+            // 它会自动生成path、验证编码长度、更新父节点hasChild等
+            log.info("【导入子节点】开始: pid={}, code='{}', title={}, code长度={}, 字符详情: {}",
+                newNode.getPid(), newNode.getCode(), newNode.getTitle(), newNode.getCode().length(), codeDebug.toString());
+            System.out.println("【导入子节点】code='" + newNode.getCode() + "', 长度=" + newNode.getCode().length() + ", 详情: " + codeDebug.toString());
+
+            try {
+                this.addIetmProjectConfigurationManagement(newNode);
+                log.info("【导入子节点】成功: newId={}, path={}", newNode.getId(), newNode.getPath());
+            } catch (Exception e) {
+                log.error("【导入子节点】失败: code='{}', title={}, pid={}, projectId={}, 错误: {}",
+                    newNode.getCode(), newNode.getTitle(), newNode.getPid(), newNode.getProjectId(), e.getMessage());
+                throw e; // 重新抛出异常，触发事务回滚
+            }
+
+            count++;
+
+            // 递归导入子节点
+            count += importTemplateTreeRecursive(
+                templateChild.getId(),  // 模板节点作为父节点
+                newNode.getId(),        // 新创建的节点作为目标父节点
+                templateList,
+                targetProjectId,
+                equipmentCode           // 传递装备编码
+            );
+        }
+
+        return count;
+    }
+
+    /**
+     * 校验Excel导入数据
+     */
+    @Override
+    public List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> validateExcelData(
+        List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
+        String projectId
+    ) {
+        log.info("开始校验Excel数据，共{}条", dataList.size());
+
+        // 获取项目根节点
+        QueryWrapper<IetmProjectConfigurationManagement> rootQuery = new QueryWrapper<>();
+        rootQuery.eq("project_id", projectId);
+        rootQuery.eq("pid", "0");
+        IetmProjectConfigurationManagement root = this.getOne(rootQuery);
+        if (root == null) {
+            throw new JeecgBootException("项目根节点不存在！");
+        }
+
+        // 构建编码->节点的映射（用于查找父节点）
+        Map<String, IetmProjectConfigurationManagement> codeNodeMap = new HashMap<>();
+        codeNodeMap.put("ROOT", root); // 根节点特殊处理
+
+        // 构建编码->DTO的映射（用于检查Excel内部重复）
+        Map<String, org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> codeDtoMap = new HashMap<>();
+
+        // 第一遍：检查基础字段和内部重复
+        for (org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO dto : dataList) {
+            StringBuilder errors = new StringBuilder();
+
+            // 1. 必填字段校验
+            if (oConvertUtils.isEmpty(dto.getCode())) {
+                errors.append("编码不能为空；");
+            }
+            if (oConvertUtils.isEmpty(dto.getTitle())) {
+                errors.append("标题不能为空；");
+            }
+            if (oConvertUtils.isEmpty(dto.getParentCode())) {
+                errors.append("父节点编码不能为空；");
+            }
+
+            // 2. 检查Excel内部编码重复
+            if (!oConvertUtils.isEmpty(dto.getCode())) {
+                if (codeDtoMap.containsKey(dto.getCode())) {
+                    errors.append("编码[").append(dto.getCode()).append("]在Excel中重复；");
+                } else {
+                    codeDtoMap.put(dto.getCode(), dto);
+                }
+            }
+
+            if (errors.length() > 0) {
+                dto.setValid(false);
+                dto.setErrorMsg(errors.toString());
+            }
+        }
+
+        // 第二遍：检查父子关系、编码长度、数据库重复
+        for (org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO dto : dataList) {
+            if (!dto.isValid()) {
+                continue; // 跳过第一遍已失败的
+            }
+
+            StringBuilder errors = new StringBuilder();
+
+            // 3. 查找父节点
+            IetmProjectConfigurationManagement parentNode = null;
+            if ("ROOT".equalsIgnoreCase(dto.getParentCode())) {
+                parentNode = root;
+            } else {
+                // 先在Excel数据中查找（已导入的）
+                if (codeNodeMap.containsKey(dto.getParentCode())) {
+                    parentNode = codeNodeMap.get(dto.getParentCode());
+                } else {
+                    // 再在数据库中查找
+                    QueryWrapper<IetmProjectConfigurationManagement> query = new QueryWrapper<>();
+                    query.eq("project_id", projectId);
+                    query.eq("code", dto.getParentCode());
+                    parentNode = this.getOne(query);
+                }
+
+                if (parentNode == null) {
+                    errors.append("父节点编码[").append(dto.getParentCode()).append("]不存在；");
+                }
+            }
+
+            if (parentNode != null) {
+                // 4. 计算层级并校验编码长度
+                int parentLevel = calculateNodeLevel(parentNode, new HashMap<>());
+                int childLevel = parentLevel + 1;
+
+                if (childLevel > 7) {
+                    errors.append("已达到最大层级(7级)，不能继续添加；");
+                } else {
+                    int expectedLength = getCodeLengthByLevel(childLevel);
+                    if (dto.getCode().length() != expectedLength) {
+                        errors.append("第").append(childLevel).append("级节点编码必须是")
+                              .append(expectedLength).append("位，当前为")
+                              .append(dto.getCode().length()).append("位；");
+                    }
+                }
+
+                // 5. 检查数据库中是否重复
+                QueryWrapper<IetmProjectConfigurationManagement> checkQuery = new QueryWrapper<>();
+                checkQuery.eq("project_id", projectId);
+                checkQuery.eq("pid", parentNode.getId());
+                checkQuery.eq("code", dto.getCode());
+                long count = this.count(checkQuery);
+                if (count > 0) {
+                    errors.append("编码[").append(dto.getCode()).append("]在数据库中已存在；");
+                }
+            }
+
+            if (errors.length() > 0) {
+                dto.setValid(false);
+                dto.setErrorMsg(errors.toString());
+            }
+        }
+
+        log.info("Excel数据校验完成，有效数据{}条", dataList.stream().filter(d -> d.isValid()).count());
+        return dataList;
+    }
+
+    /**
+     * 导入Excel数据
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int importExcelData(
+        List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
+        String projectId
+    ) {
+        log.info("开始导入Excel数据，共{}条", dataList.size());
+
+        // 获取项目根节点
+        QueryWrapper<IetmProjectConfigurationManagement> rootQuery = new QueryWrapper<>();
+        rootQuery.eq("project_id", projectId);
+        rootQuery.eq("pid", "0");
+        IetmProjectConfigurationManagement root = this.getOne(rootQuery);
+        if (root == null) {
+            throw new JeecgBootException("项目根节点不存在！");
+        }
+
+        // 删除除根节点外的所有节点
+        QueryWrapper<IetmProjectConfigurationManagement> deleteQuery = new QueryWrapper<>();
+        deleteQuery.eq("project_id", projectId);
+        deleteQuery.ne("pid", "0");
+        this.remove(deleteQuery);
+        log.info("已清空项目构型数据（保留根节点）");
+
+        // 构建编码->节点的映射
+        Map<String, IetmProjectConfigurationManagement> codeNodeMap = new HashMap<>();
+        codeNodeMap.put("ROOT", root);
+
+        int successCount = 0;
+
+        // 逐条导入（保持Excel顺序）
+        for (org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO dto : dataList) {
+            if (!dto.isValid()) {
+                continue;
+            }
+
+            try {
+                // 查找父节点
+                IetmProjectConfigurationManagement parentNode = null;
+                if ("ROOT".equalsIgnoreCase(dto.getParentCode())) {
+                    parentNode = root;
+                } else {
+                    parentNode = codeNodeMap.get(dto.getParentCode());
+                    if (parentNode == null) {
+                        log.error("第{}行：父节点[{}]未找到", dto.getRowNum(), dto.getParentCode());
+                        continue;
+                    }
+                }
+
+                // 创建新节点
+                IetmProjectConfigurationManagement newNode = new IetmProjectConfigurationManagement();
+                newNode.setPid(parentNode.getId());
+                newNode.setProjectId(projectId);
+                newNode.setCode(dto.getCode());
+                newNode.setTitle(dto.getTitle());
+                newNode.setSeq(dto.getSeq());
+                // 将String类型的密级转换为Integer
+                if (!oConvertUtils.isEmpty(dto.getSecurityLevel())) {
+                    try {
+                        newNode.setSecurity(Integer.parseInt(dto.getSecurityLevel()));
+                    } catch (NumberFormatException e) {
+                        log.warn("密级格式错误，跳过设置: {}", dto.getSecurityLevel());
+                    }
+                }
+
+                // 调用add方法（会自动生成path、验证等）
+                this.addIetmProjectConfigurationManagement(newNode);
+
+                // 加入映射
+                codeNodeMap.put(dto.getCode(), newNode);
+
+                successCount++;
+                log.info("导入第{}行：code={}, title={}", dto.getRowNum(), dto.getCode(), dto.getTitle());
+
+            } catch (Exception e) {
+                log.error("导入第{}行失败：{}", dto.getRowNum(), e.getMessage());
+                throw new JeecgBootException("导入第" + dto.getRowNum() + "行失败：" + e.getMessage());
+            }
+        }
+
+        log.info("Excel数据导入完成，成功导入{}条", successCount);
+        return successCount;
     }
 
 }

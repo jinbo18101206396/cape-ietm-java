@@ -87,10 +87,11 @@ public interface IIetmProjectConfigurationManagementService extends IService<Iet
 	 * 验证编码是否重复（同级）
 	 * @param code 编码
 	 * @param pid 父节点ID
+	 * @param projectId 项目ID
 	 * @param excludeId 排除的节点ID（编辑时使用）
 	 * @return true-重复，false-不重复
 	 */
-	boolean checkCodeDuplicate(String code, String pid, String excludeId);
+	boolean checkCodeDuplicate(String code, String pid, String projectId, String excludeId);
 
 	/**
 	 * 检查节点是否可删除
@@ -123,5 +124,44 @@ public interface IIetmProjectConfigurationManagementService extends IService<Iet
 	 * @param nodes 节点列表
 	 */
 	void fillNodeLevels(List<IetmProjectConfigurationManagement> nodes);
+
+	/**
+	 * 查询模板构型树
+	 * @param standard IETM标准（如：S1000D40）
+	 * @param equipType 装备类型（如：HELICOPTER）
+	 * @return 模板构型树列表
+	 */
+	List<IetmProjectConfigurationManagement> getTemplateTree(String standard, String equipType);
+
+	/**
+	 * 从模板导入构型树
+	 * @param targetProjectId 目标项目ID
+	 * @param standard IETM标准
+	 * @param equipType 装备类型
+	 * @return 导入的节点数量
+	 */
+	int importFromTemplate(String targetProjectId, String standard, String equipType);
+
+	/**
+	 * 校验Excel导入数据
+	 * @param dataList Excel数据列表
+	 * @param projectId 项目ID
+	 * @return 校验后的数据列表（包含错误信息）
+	 */
+	List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> validateExcelData(
+		List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
+		String projectId
+	);
+
+	/**
+	 * 导入Excel数据
+	 * @param dataList 校验通过的Excel数据列表
+	 * @param projectId 项目ID
+	 * @return 导入的节点数量
+	 */
+	int importExcelData(
+		List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
+		String projectId
+	);
 
 }
