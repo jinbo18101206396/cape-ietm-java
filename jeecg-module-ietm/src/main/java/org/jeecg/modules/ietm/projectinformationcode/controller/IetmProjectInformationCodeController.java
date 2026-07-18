@@ -14,6 +14,8 @@ import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.modules.ietm.projectinformationcode.entity.IetmProjectInformationCode;
 import org.jeecg.modules.ietm.projectinformationcode.service.IIetmProjectInformationCodeService;
+import org.jeecg.modules.ietm.standardinformationcode.entity.IetmStandardInformationCode;
+import org.jeecg.modules.ietm.standardinformationcode.service.IIetmStandardInformationCodeService;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -50,6 +52,8 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 public class IetmProjectInformationCodeController extends JeecgController<IetmProjectInformationCode, IIetmProjectInformationCodeService> {
 	@Autowired
 	private IIetmProjectInformationCodeService ietmProjectInformationCodeService;
+	@Autowired
+	private IIetmStandardInformationCodeService ietmStandardInformationCodeService;
 	
 	/**
 	 * 分页列表查询
@@ -148,6 +152,42 @@ public class IetmProjectInformationCodeController extends JeecgController<IetmPr
 			return Result.error("未找到对应数据");
 		}
 		return Result.OK(ietmProjectInformationCode);
+	}
+
+	/**
+	 * 检查编码是否已存在（同一项目下）
+	 *
+	 * @param projectId 项目ID
+	 * @param code 编码
+	 * @param id 当前记录ID（编辑时传入，新增时为空）
+	 * @return true-已存在，false-不存在
+	 */
+	@ApiOperation(value="项目管理-项目信息码管理-检查编码是否存在", notes="检查编码在同一项目下是否已存在")
+	@GetMapping(value = "/checkCode")
+	public Result<Boolean> checkCode(
+			@RequestParam(name="projectId", required=true) String projectId,
+			@RequestParam(name="code", required=true) String code,
+			@RequestParam(name="id", required=false) String id) {
+
+		if (projectId == null || projectId.isEmpty() || code == null || code.isEmpty()) {
+			return Result.OK(false);
+		}
+
+		// 查询同一项目下是否存在相同编码的记录
+		QueryWrapper<IetmProjectInformationCode> queryWrapper = new QueryWrapper<>();
+		queryWrapper.eq("project_id", projectId);
+		queryWrapper.eq("code", code);
+
+		// 如果是编辑操作，排除当前记录
+		if (id != null && !id.isEmpty()) {
+			queryWrapper.ne("id", id);
+		}
+
+		long count = ietmProjectInformationCodeService.count(queryWrapper);
+		boolean exists = count > 0;
+
+		log.debug("检查编码是否存在: projectId={}, code={}, id={}, exists={}", projectId, code, id, exists);
+		return Result.OK(exists);
 	}
 
     /**
@@ -306,6 +346,85 @@ public class IetmProjectInformationCodeController extends JeecgController<IetmPr
 		} catch (Exception e) {
 			log.error("复制所有信息码失败", e);
 			return Result.error("复制所有信息码失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 从标准模板导入信息码
+	 *
+	 * @param params projectId: 目标项目ID, templateIds: 选中的标准信息码ID列表
+	 * @return
+	 */
+	@AutoLog(value = "项目管理-项目信息码管理-从模板导入")
+	@ApiOperation(value="项目管理-项目信息码管理-从模板导入", notes="从标准模板导入信息码到项目")
+	@PostMapping(value = "/importInfoCodeFromTemplate")
+	public Result<String> importInfoCodeFromTemplate(@RequestBody Map<String, Object> params) {
+		String projectId = (String) params.get("projectId");
+		List<String> templateIds = (List<String>) params.get("templateIds");
+
+		if (projectId == null || projectId.isEmpty()) {
+			return Result.error("项目ID不能为空！");
+		}
+		if (templateIds == null || templateIds.isEmpty()) {
+			return Result.error("请至少选择一条模板数据！");
+		}
+
+		try {
+			// 查询选中的标准信息码
+			List<IetmStandardInformationCode> templateList = ietmStandardInformationCodeService.listByIds(templateIds);
+			if (templateList.isEmpty()) {
+				return Result.error("未找到选中的模板数据！");
+			}
+
+			// 查询当前项目已存在的信息码编码，用于去重
+			QueryWrapper<IetmProjectInformationCode> existWrapper = new QueryWrapper<>();
+			existWrapper.eq("project_id", projectId);
+			List<IetmProjectInformationCode> existingList = ietmProjectInformationCodeService.list(existWrapper);
+			java.util.Set<String> existingCodes = existingList.stream()
+					.map(IetmProjectInformationCode::getCode)
+					.collect(java.util.stream.Collectors.toSet());
+
+			// 导入
+			int successCount = 0;
+			int skipCount = 0;
+			for (IetmStandardInformationCode template : templateList) {
+				String code = template.getInfoCode();
+				// 跳过编码为空或已存在的
+				if (code == null || code.isEmpty()) {
+					skipCount++;
+					continue;
+				}
+				if (existingCodes.contains(code)) {
+					skipCount++;
+					continue;
+				}
+
+				// 创建项目信息码
+				IetmProjectInformationCode newRecord = new IetmProjectInformationCode();
+				newRecord.setProjectId(projectId);
+				newRecord.setCode(code);
+				newRecord.setDmtypeId(template.getDmtypeId());
+				newRecord.setDmtypeName(template.getDmtypeName());
+				newRecord.setDescription(template.getDescription());
+				newRecord.setRemark(template.getRemark());
+				newRecord.setSecurity(template.getSecurity());
+
+				boolean saved = ietmProjectInformationCodeService.save(newRecord);
+				if (saved) {
+					successCount++;
+					existingCodes.add(code); // 更新已存在集合，防止同批次重复导入
+				}
+			}
+
+			String message = "成功导入 " + successCount + " 条信息码！";
+			if (skipCount > 0) {
+				message += "（跳过 " + skipCount + " 条，原因：编码为空或已存在）";
+			}
+			log.info("从模板导入信息码完成：projectId={}, 成功={}, 跳过={}", projectId, successCount, skipCount);
+			return Result.OK(message);
+		} catch (Exception e) {
+			log.error("从模板导入信息码失败", e);
+			return Result.error("从模板导入失败：" + e.getMessage());
 		}
 	}
 

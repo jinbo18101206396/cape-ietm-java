@@ -15,6 +15,7 @@ import io.swagger.annotations.ApiModelProperty;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 /**
@@ -82,6 +83,7 @@ public class IetmProjectInformationCode implements Serializable {
     /**描述*/
     @Excel(name = "描述", width = 20)
     @ApiModelProperty(value = "描述")
+    @NotBlank(message = "描述不能为空")
     private String description;
 
     /**备注*/
@@ -102,5 +104,6 @@ public class IetmProjectInformationCode implements Serializable {
     @Excel(name = "密级", width = 10, dicCode = "security")
     @Dict(dicCode = "security")
     @ApiModelProperty(value = "密级")
+    @NotNull(message = "密级不能为空")
     private Integer security;
 }
