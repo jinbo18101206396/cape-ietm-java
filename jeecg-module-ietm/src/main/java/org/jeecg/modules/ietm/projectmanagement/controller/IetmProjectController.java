@@ -432,6 +432,7 @@ public class IetmProjectController {
 		projectInfo.put("projectName", project.getName());
 		projectInfo.put("equipmentCode", project.getEquipmentCode());
 		projectInfo.put("ietmStandard", project.getIetmStandard());
+		projectInfo.put("security", project.getSecurity());
 		projectInfo.put("openTime", System.currentTimeMillis());
 
 		redisTemplate.opsForValue().set(redisKey, projectInfo, 6, TimeUnit.HOURS);

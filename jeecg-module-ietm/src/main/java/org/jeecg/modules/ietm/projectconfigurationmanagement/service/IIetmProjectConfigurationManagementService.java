@@ -157,11 +157,13 @@ public interface IIetmProjectConfigurationManagementService extends IService<Iet
 	 * 导入Excel数据
 	 * @param dataList 校验通过的Excel数据列表
 	 * @param projectId 项目ID
+	 * @param security 密级（取自当前项目）
 	 * @return 导入的节点数量
 	 */
 	int importExcelData(
 		List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
-		String projectId
+		String projectId,
+		Integer security
 	);
 
 }

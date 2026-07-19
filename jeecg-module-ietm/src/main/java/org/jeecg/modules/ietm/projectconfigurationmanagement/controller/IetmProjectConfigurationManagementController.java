@@ -798,11 +798,12 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 	@PostMapping(value = "/importExcelData")
 	public Result<?> importExcelData(
 		@RequestBody List<org.jeecg.modules.ietm.projectconfigurationmanagement.dto.IetmProjectCmExcelDTO> dataList,
-		@RequestParam(name = "projectId", required = true) String projectId
+		@RequestParam(name = "projectId", required = true) String projectId,
+		@RequestParam(name = "security", required = false) Integer security
 	) {
 		try {
 			log.info("=== 导入Excel数据 ===");
-			log.info("projectId: {}", projectId);
+			log.info("projectId: {}, security: {}", projectId, security);
 			log.info("数据条数: {}", dataList.size());
 
 			if (oConvertUtils.isEmpty(projectId)) {
@@ -822,10 +823,17 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 			}
 
 			// 调用Service进行导入
-			int importedCount = ietmProjectConfigurationManagementService.importExcelData(validList, projectId);
+			int importedCount = ietmProjectConfigurationManagementService.importExcelData(validList, projectId, security);
 
 			log.info("导入完成，共导入{}条数据", importedCount);
-			return Result.OK("导入成功，共导入 " + importedCount + " 条数据！");
+
+			// 返回详细结果
+			Map<String, Object> resultMap = new HashMap<>();
+			resultMap.put("successCount", importedCount);
+			resultMap.put("totalCount", validList.size());
+			resultMap.put("skipCount", validList.size() - importedCount);
+
+			return Result.OK("导入成功，共导入 " + importedCount + " 条数据！", resultMap);
 
 		} catch (JeecgBootException e) {
 			log.error("导入Excel数据失败", e);
