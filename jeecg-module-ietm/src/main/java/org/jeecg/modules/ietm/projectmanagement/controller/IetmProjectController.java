@@ -28,6 +28,8 @@ import org.jeecg.modules.ietm.projectmanagement.vo.IetmProjectPage;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectService;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectParamsService;
 import org.jeecg.modules.ietm.ietmroleauth.service.IIetmAuthCheckService;
+import org.jeecg.modules.ietm.ietmprojectcompany.service.IIetmProjectCompanyService;
+import org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -62,6 +64,8 @@ public class IetmProjectController {
 	private IIetmAuthCheckService authCheckService;
 	@Autowired
 	private RedisTemplate<String, Object> redisTemplate;
+	@Autowired
+	private IIetmProjectCompanyService ietmProjectCompanyService;
 
 	/**
 	 * 分页列表查询
@@ -425,6 +429,22 @@ public class IetmProjectController {
 			return Result.error("无权限打开该项目！请联系管理员授权。");
 		}
 
+		// 查询项目的单位信息
+		QueryWrapper<IetmProjectCompany> companyQuery = new QueryWrapper<>();
+		companyQuery.eq("pid", projectId);
+		List<IetmProjectCompany> companyList = ietmProjectCompanyService.list(companyQuery);
+
+		// 获取创作单位和责任单位
+		IetmProjectCompany originator = companyList.stream()
+				.filter(c -> c.getType() != null && c.getType() == 1)
+				.findFirst()
+				.orElse(null);
+
+		IetmProjectCompany rpc = companyList.stream()
+				.filter(c -> c.getType() != null && c.getType() == 2)
+				.findFirst()
+				.orElse(null);
+
 		// 保存当前项目到Redis
 		String redisKey = "ietm:current_project:" + sysUser.getId();
 		Map<String, Object> projectInfo = new HashMap<>();
@@ -434,6 +454,16 @@ public class IetmProjectController {
 		projectInfo.put("ietmStandard", project.getIetmStandard());
 		projectInfo.put("security", project.getSecurity());
 		projectInfo.put("openTime", System.currentTimeMillis());
+
+		// 添加创作单位和责任单位信息
+		if (originator != null) {
+			projectInfo.put("originator", originator.getCompanyCode());
+			projectInfo.put("originatorName", originator.getCompanyName());
+		}
+		if (rpc != null) {
+			projectInfo.put("rpc", rpc.getCompanyCode());
+			projectInfo.put("rpcName", rpc.getCompanyName());
+		}
 
 		redisTemplate.opsForValue().set(redisKey, projectInfo, 6, TimeUnit.HOURS);
 

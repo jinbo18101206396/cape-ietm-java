@@ -198,6 +198,34 @@ public class DESUtils {
     }
 
     /**
+     * 流式解密文件（用于文件下载）
+     *
+     * @param encryptedInput 加密文件输入流
+     * @param output         输出流
+     * @param unused         保留参数（兼容旧接口）
+     * @throws Exception 解密异常
+     */
+    public static void decodeBase64File(InputStream encryptedInput, OutputStream output, Object unused) throws Exception {
+        try {
+            // 读取加密内容
+            BufferedReader reader = new BufferedReader(new InputStreamReader(encryptedInput));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+
+            // Base64解密
+            byte[] decodedBytes = new BASE64Decoder().decodeBuffer(sb.toString());
+
+            // 写入输出流
+            output.write(decodedBytes);
+        } catch (Exception e) {
+            throw new Exception("流式解密失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 新增：分段解密Base64加密的字节数组
      * @param srcBytes 待解密的字节数组
      * @param offset 起始偏移量

@@ -1,9 +1,6 @@
 package org.jeecg.modules.ietm.icnmanage.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
@@ -16,13 +13,14 @@ import org.jeecgframework.poi.excel.annotation.Excel;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
+import java.util.Date;
+import java.util.List;
 
 /**
  * @Description: 项目管理-项目实体管理
  * @Author: jeecg-boot
- * @Date: 2026-02-27
- * @Version: V1.0
+ * @Date: 2026-07-19
+ * @Version: V2.0
  */
 @Data
 @TableName("ietm_icn_manage")
@@ -32,151 +30,131 @@ import java.io.UnsupportedEncodingException;
 public class IetmIcnManage implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 主键
-     */
+    /**主键*/
     @TableId(type = IdType.ASSIGN_ID)
     @ApiModelProperty(value = "主键")
-    private java.lang.String id;
-    /**
-     * 创建人
-     */
+    private String id;
+
+    /**创建人*/
     @ApiModelProperty(value = "创建人")
-    private java.lang.String createBy;
-    /**
-     * 创建日期
-     */
+    private String createBy;
+
+    /**创建日期*/
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @ApiModelProperty(value = "创建日期")
-    private java.util.Date createTime;
-    /**
-     * 更新人
-     */
+    private Date createTime;
+
+    /**更新人*/
     @ApiModelProperty(value = "更新人")
-    private java.lang.String updateBy;
-    /**
-     * 更新日期
-     */
+    private String updateBy;
+
+    /**更新日期*/
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @ApiModelProperty(value = "更新日期")
-    private java.util.Date updateTime;
-    /**
-     * 构型节点ID
-     */
+    private Date updateTime;
+
+    /**构型节点ID*/
     @Excel(name = "构型节点ID", width = 15)
     @ApiModelProperty(value = "构型节点ID")
-    private java.lang.String cmnodeId;
-    /**
-     * SNS
-     */
-    @Excel(name = "SNS", width = 15)
-    @ApiModelProperty(value = "SNS")
-    private java.lang.String sns;
-    /**
-     * 责任伙伴公司码
-     */
+    private String cmnodeId;
+
+    /**SNS编码*/
+    @Excel(name = "SNS", width = 20)
+    @ApiModelProperty(value = "SNS系统编号")
+    private String sns;
+
+    /**责任伙伴公司码*/
     @Excel(name = "责任伙伴公司码", width = 15)
     @ApiModelProperty(value = "责任伙伴公司码")
-    private java.lang.String rpc;
-    /**
-     * 责任单位名称
-     */
-    @Excel(name = "责任单位名称", width = 15)
+    private String rpc;
+
+    /**责任单位名称*/
+    @Excel(name = "责任单位名称", width = 20)
     @ApiModelProperty(value = "责任单位名称")
-    private java.lang.String rpcName;
-    /**
-     * 创建者编码
-     */
-    @Excel(name = "创建者编码", width = 15)
-    @ApiModelProperty(value = "创建者编码")
-    private java.lang.String originator;
-    /**
-     * 创作单位名称
-     */
-    @Excel(name = "创作单位名称", width = 15)
+    private String rpcName;
+
+    /**创作者编码*/
+    @Excel(name = "创作者编码", width = 15)
+    @ApiModelProperty(value = "创作者编码")
+    private String originator;
+
+    /**创作单位名称*/
+    @Excel(name = "创作单位名称", width = 20)
     @ApiModelProperty(value = "创作单位名称")
-    private java.lang.String originatorName;
-    /**
-     * 唯一识别码
-     */
-    @Excel(name = "唯一识别码", width = 15)
-    @ApiModelProperty(value = "唯一识别码")
-    private java.lang.String uniqueId;
-    /**
-     * 变量码
-     */
-    @Excel(name = "变量码", width = 15)
-    @ApiModelProperty(value = "变量码")
-    private java.lang.String variantCode;
-    /**
-     * 版本号
-     */
-    @Excel(name = "版本号", width = 15)
+    private String originatorName;
+
+    /**唯一识别码*/
+    @Excel(name = "唯一识别码", width = 10)
+    @ApiModelProperty(value = "唯一识别码（5位数字）")
+    private String uniqueId;
+
+    /**变量码*/
+    @Excel(name = "变量码", width = 10)
+    @ApiModelProperty(value = "变量码（A-Z）")
+    private String variantCode;
+
+    /**版本号*/
+    @Excel(name = "版本号", width = 10)
     @ApiModelProperty(value = "版本号")
-    private java.lang.String issueNo;
-    /**
-     * 安全等级
-     */
+    private String issueNo;
+
+    /**安全等级*/
     @Excel(name = "安全等级", width = 15)
     @ApiModelProperty(value = "安全等级")
-    private java.lang.String securityClassification;
-    /**
-     * 分类
-     */
-    @Excel(name = "分类", width = 15)
-    @ApiModelProperty(value = "分类")
-    private java.lang.String icnType;
-    /**
-     * 是否发布
-     */
-    @Excel(name = "是否发布", width = 15)
-    @ApiModelProperty(value = "是否发布")
-    private java.lang.String ispublished;
-    /**
-     * 是否删除
-     */
-    @Excel(name = "是否删除", width = 15)
-    @ApiModelProperty(value = "是否删除")
-    private java.lang.String isdeleted;
-
-    /**
-     * 版本
-     */
-    @Excel(name = "版本", width = 15)
-    @ApiModelProperty(value = "版本")
-    private java.lang.String version;
-    /**
-     * 组织
-     */
-    @Excel(name = "组织", width = 15)
-    @ApiModelProperty(value = "组织")
-    private java.lang.String orgIdentity;
+    private String securityClassification;
 
     /**密级*/
     @Excel(name = "密级", width = 15, dicCode = "security")
     @Dict(dicCode = "security")
     @ApiModelProperty(value = "密级")
-    private java.lang.Integer security;
+    private Integer security;
 
-    /**
-     * 附件信息
-     */
+    /**分类*/
+    @Excel(name = "分类", width = 15)
+    @ApiModelProperty(value = "ICN分类")
+    private String icnType;
+
+    /**是否发布*/
+    @Excel(name = "是否发布", width = 10)
+    @ApiModelProperty(value = "是否发布")
+    private String ispublished;
+
+    /**是否删除*/
+    @Excel(name = "是否删除", width = 10)
+    @ApiModelProperty(value = "是否删除")
+    @TableLogic
+    private String isdeleted;
+
+    /**版本*/
+    @Excel(name = "版本", width = 10)
+    @ApiModelProperty(value = "版本")
+    private String version;
+
+    /**组织*/
+    @Excel(name = "组织", width = 15)
+    @ApiModelProperty(value = "组织")
+    private String orgIdentity;
+
+    /**ICN完整编码*/
+    @Excel(name = "ICN编码", width = 30)
+    @ApiModelProperty(value = "ICN完整编码")
+    private String icn;
+
+    /**实体附件信息（不持久化）*/
     @TableField(exist = false)
     private IetmAttachment ietmAttachment;
 
-    /**
-     *   关联文件信息
-     */
+    /**相关附件信息（不持久化）*/
     @TableField(exist = false)
     private IetmAttachment relatedIetmAttachment;
 
-
-    /**
-     * ICN
-     */
+    /**附件列表（不持久化）*/
     @TableField(exist = false)
-    private String icn;
+    private List<IetmAttachment> attachmentList;
 
+    /**批量新增数量（不持久化，仅用于前端传参）*/
+    @TableField(exist = false)
+    private Integer count;
 }

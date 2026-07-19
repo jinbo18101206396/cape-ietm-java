@@ -2,4 +2,97 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper">
 
+    <!-- 获取最大唯一识别码 -->
+    <select id="getMaxUniqueIdByCmnodeId" resultType="java.lang.String">
+        SELECT MAX(unique_id)
+        FROM ietm_icn_manage
+        WHERE cmnode_id = #{cmnodeId}
+        AND isdeleted = '0'
+    </select>
+
+    <!-- 批量查询ICN及附件（优化N+1问题）-->
+    <select id="listWithAttachments" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.create_by,
+            icn.create_time,
+            icn.update_by,
+            icn.update_time,
+            icn.cmnode_id,
+            icn.sns,
+            icn.rpc,
+            icn.rpc_name,
+            icn.originator,
+            icn.originator_name,
+            icn.unique_id,
+            icn.variant_code,
+            icn.issue_no,
+            icn.security_classification,
+            icn.security,
+            icn.icn_type,
+            icn.ispublished,
+            icn.isdeleted,
+            icn.version,
+            icn.org_identity,
+            icn.icn,
+            att1.id as "ietmAttachment.id",
+            att1.file_name as "ietmAttachment.fileName",
+            att1.file_size as "ietmAttachment.fileSize",
+            att1.file_key as "ietmAttachment.fileKey",
+            att2.id as "relatedIetmAttachment.id",
+            att2.file_name as "relatedIetmAttachment.fileName",
+            att2.file_key as "relatedIetmAttachment.fileKey"
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att1 ON icn.id = att1.pid AND att1.file_type = '实体文件'
+        LEFT JOIN ietm_attachment att2 ON icn.id = att2.pid AND att2.file_type = '相关文件'
+        WHERE icn.cmnode_id = #{cmnodeId}
+        AND icn.isdeleted = '0'
+        ORDER BY icn.create_time DESC
+    </select>
+
+    <!-- 批量查询ICN及附件（包含所有子节点）-->
+    <select id="listWithAttachmentsIncludeChildren" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.create_by,
+            icn.create_time,
+            icn.update_by,
+            icn.update_time,
+            icn.cmnode_id,
+            icn.sns,
+            icn.rpc,
+            icn.rpc_name,
+            icn.originator,
+            icn.originator_name,
+            icn.unique_id,
+            icn.variant_code,
+            icn.issue_no,
+            icn.security_classification,
+            icn.security,
+            icn.icn_type,
+            icn.ispublished,
+            icn.isdeleted,
+            icn.version,
+            icn.org_identity,
+            icn.icn,
+            att1.id as "ietmAttachment.id",
+            att1.file_name as "ietmAttachment.fileName",
+            att1.file_size as "ietmAttachment.fileSize",
+            att1.file_key as "ietmAttachment.fileKey",
+            att2.id as "relatedIetmAttachment.id",
+            att2.file_name as "relatedIetmAttachment.fileName",
+            att2.file_key as "relatedIetmAttachment.fileKey"
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att1 ON icn.id = att1.pid AND att1.file_type = '实体文件'
+        LEFT JOIN ietm_attachment att2 ON icn.id = att2.pid AND att2.file_type = '相关文件'
+        WHERE icn.cmnode_id IN (
+            SELECT id
+            FROM ietm_project_configuration_management
+            START WITH id = #{cmnodeId}
+            CONNECT BY PRIOR id = pid
+        )
+        AND icn.isdeleted = '0'
+        ORDER BY icn.create_time DESC
+    </select>
+
 </mapper>
