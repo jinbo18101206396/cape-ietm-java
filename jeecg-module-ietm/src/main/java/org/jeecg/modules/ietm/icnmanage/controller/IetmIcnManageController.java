@@ -72,7 +72,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     /**
      * 新增ICN（带文件上传）
      */
-    @AutoLog(value = "项目实体管理-新增")
+    // @AutoLog(value = "项目实体管理-新增")  // 注释掉，避免序列化MultipartFile导致FastJSON错误
     @ApiOperation(value = "新增ICN", notes = "新增ICN")
     @PostMapping(value = "/add")
     public Result<String> add(
@@ -104,6 +104,11 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             icnManage.setRpcName(rpcName);
 
             ietmIcnManageService.addWithFiles(icnManage, files);
+
+            // 手动记录日志（不包含文件对象，避免序列化问题）
+            log.info("新增ICN成功 - cmnodeId: {}, sns: {}, 文件数: {}",
+                    cmnodeId, sns, files != null ? files.length : 0);
+
             return Result.OK("添加成功！");
         } catch (Exception e) {
             log.error("新增ICN失败", e);
@@ -161,7 +166,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     /**
      * 相关文件上传
      */
-    @AutoLog(value = "项目实体管理-相关文件上传")
+    // @AutoLog(value = "项目实体管理-相关文件上传")  // 注释掉，避免序列化MultipartFile导致FastJSON错误
     @ApiOperation(value = "相关文件上传", notes = "相关文件上传")
     @PostMapping(value = "/uploadRelatedFiles")
     public Result<String> uploadRelatedFiles(
@@ -179,7 +184,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     /**
      * 差异上传
      */
-    @AutoLog(value = "项目实体管理-差异上传")
+    // @AutoLog(value = "项目实体管理-差异上传")  // 注释掉，避免序列化MultipartFile导致FastJSON错误
     @ApiOperation(value = "差异上传", notes = "差异上传")
     @PostMapping(value = "/uploadDiffFiles")
     public Result<String> uploadDiffFiles(
@@ -199,7 +204,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     /**
      * 新版上传
      */
-    @AutoLog(value = "项目实体管理-新版上传")
+    // @AutoLog(value = "项目实体管理-新版上传")  // 注释掉，避免序列化MultipartFile导致FastJSON错误
     @ApiOperation(value = "新版上传", notes = "新版上传")
     @PostMapping(value = "/uploadNewVersion")
     public Result<String> uploadNewVersion(

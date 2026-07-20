@@ -133,6 +133,15 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         // 2. 生成新ICN
         String newIcnId = String.valueOf(IdWorker.getId());
         newIcn.setId(newIcnId);
+
+        // 如果newUniqueId为空，则使用原ICN的uniqueId；如果原ICN的uniqueId也为空，则自动生成
+        if (StringUtils.isBlank(newUniqueId)) {
+            if (StringUtils.isBlank(originalIcn.getUniqueId())) {
+                newUniqueId = getNextUniqueId(originalIcn.getCmnodeId());
+            } else {
+                newUniqueId = originalIcn.getUniqueId();
+            }
+        }
         newIcn.setUniqueId(newUniqueId);
         newIcn.setVariantCode(newVariantCode);
 
