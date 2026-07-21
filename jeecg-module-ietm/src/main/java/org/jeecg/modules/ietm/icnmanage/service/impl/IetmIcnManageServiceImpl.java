@@ -61,11 +61,18 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         String icnId = String.valueOf(IdWorker.getId());
         icnManage.setId(icnId);
 
-        // 2. 生成ICN完整编码
+        // 2. 生成唯一识别码（如果为空）
+        if (StringUtils.isBlank(icnManage.getUniqueId())) {
+            String uniqueId = getNextUniqueId(icnManage.getCmnodeId());
+            icnManage.setUniqueId(uniqueId);
+            log.info("自动生成uniqueId: {}", uniqueId);
+        }
+
+        // 3. 生成ICN完整编码
         String icnCode = generateIcnCode(icnManage);
         icnManage.setIcn(icnCode);
 
-        // 3. 保存ICN记录
+        // 4. 保存ICN记录
         LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
         icnManage.setCreateBy(loginUser.getUsername());
         icnManage.setCreateTime(new Date());
@@ -108,8 +115,8 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
             saveAttachment(icnId, file, "相关文件", icnManage.getSecurity(), loginUser.getUsername());
         }
 
-        // 清空uniqueId（业务规则）
-        icnManage.setUniqueId("");
+        // 注意：不要修改uniqueId，它应该保持原值
+        // 只更新修改时间和修改人
         icnManage.setUpdateBy(loginUser.getUsername());
         icnManage.setUpdateTime(new Date());
         this.updateById(icnManage);
