@@ -75,9 +75,23 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
     List<IetmIcnManage> listWithAttachments(String cmnodeId, String includeChildren);
 
     /**
+     * 通过ID查询ICN（含附件信息）
+     * @param id ICN ID
+     * @return ICN实体（含附件信息）
+     */
+    IetmIcnManage getByIdWithAttachment(String id);
+
+    /**
      * 下载实体文件
      */
     void downloadFile(String fileKey, HttpServletResponse response) throws IOException;
+
+    /**
+     * 预览文件（在线查看，支持解密）
+     * @param fileKey 文件Key
+     * @param response HTTP响应
+     */
+    void viewFile(String fileKey, HttpServletResponse response) throws IOException;
 
     /**
      * 批量导入ICN
@@ -88,4 +102,69 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
      * 批量新增ICN
      */
     int batchAddIcn(IetmIcnManage template);
+
+    /**
+     * 获取预览信息
+     * @param id ICN ID
+     * @return 预览信息VO
+     */
+    org.jeecg.modules.ietm.icnmanage.vo.PreviewInfoVO getPreviewInfo(String id) throws Exception;
+
+    /**
+     * 获取引用关系信息
+     * @param id ICN ID
+     * @return 引用关系信息VO
+     */
+    org.jeecg.modules.ietm.icnmanage.vo.ReferenceInfoVO getReferenceInfo(String id) throws Exception;
+
+    /**
+     * 单文件下载
+     * @param id ICN ID
+     * @param includeRelated 是否包含相关文件
+     * @param response HTTP响应
+     */
+    void downloadSingle(String id, Boolean includeRelated, HttpServletResponse response) throws Exception;
+
+    /**
+     * 批量下载
+     * @param ids ICN ID列表
+     * @param includeRelated 是否包含相关文件
+     * @param response HTTP响应
+     */
+    void downloadBatch(List<String> ids, Boolean includeRelated, HttpServletResponse response) throws Exception;
+
+    /**
+     * 异步批量下载
+     * @param ids ICN ID列表
+     * @param includeRelated 是否包含相关文件
+     * @return 任务ID
+     */
+    String downloadBatchAsync(List<String> ids, Boolean includeRelated) throws Exception;
+
+    /**
+     * 查询下载任务状态
+     * @param taskId 任务ID
+     * @return 任务状态VO
+     */
+    org.jeecg.modules.ietm.icnmanage.vo.DownloadTaskVO getDownloadTaskStatus(String taskId) throws Exception;
+
+    /**
+     * 清理过期的下载任务缓存
+     */
+    void cleanExpiredTasks();
+
+    /**
+     * 添加引用关系
+     * @param sourceIcnId 源ICN ID
+     * @param targetIcnId 目标ICN ID或DM编码
+     * @param referenceType 引用类型：ICN_TO_ICN 或 ICN_TO_DM
+     * @param remark 备注
+     */
+    void addReference(String sourceIcnId, String targetIcnId, String referenceType, String remark) throws Exception;
+
+    /**
+     * 删除引用关系
+     * @param referenceId 引用关系ID
+     */
+    void deleteReference(String referenceId) throws Exception;
 }

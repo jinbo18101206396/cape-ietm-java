@@ -95,4 +95,126 @@
         ORDER BY icn.create_time DESC
     </select>
 
+    <!-- 根据ID查询ICN及附件（用于预览） -->
+    <select id="getByIdWithAttachment" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.create_by,
+            icn.create_time,
+            icn.update_by,
+            icn.update_time,
+            icn.cmnode_id,
+            icn.sns,
+            icn.rpc,
+            icn.rpc_name,
+            icn.originator,
+            icn.originator_name,
+            icn.unique_id,
+            icn.variant_code,
+            icn.issue_no,
+            icn.security_classification,
+            icn.security,
+            icn.icn_type,
+            icn.ispublished,
+            icn.isdeleted,
+            icn.version,
+            icn.org_identity,
+            icn.icn,
+            att.id as "ietmAttachment.id",
+            att.file_name as "ietmAttachment.fileName",
+            att.file_size as "ietmAttachment.fileSize",
+            att.file_key as "ietmAttachment.fileKey",
+            att.file_type as "ietmAttachment.fileType",
+            att.file_prop as "ietmAttachment.fileProp"
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn.id = #{id}
+        AND icn.isdeleted = '0'
+    </select>
+
+    <!-- 查询ICN引用的其他ICN列表（正向引用） -->
+    <select id="getReferencedIcnList" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.issue_no,
+            icn.create_time,
+            att.file_name as fileName,
+            att.file_type as fileType
+        FROM ietm_icn_reference icn_ref
+        INNER JOIN ietm_icn_manage icn ON icn_ref.target_icn_id = icn.id
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn_ref.source_icn_id = #{icnId}
+        AND icn_ref.reference_type = 'ICN_TO_ICN'
+        AND icn.isdeleted = '0'
+        ORDER BY icn_ref.create_time DESC
+    </select>
+
+    <!-- 查询引用当前ICN的其他ICN列表（反向引用） -->
+    <select id="getReferencingIcnList" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.issue_no,
+            icn.create_time,
+            att.file_name as fileName,
+            att.file_type as fileType
+        FROM ietm_icn_reference icn_ref
+        INNER JOIN ietm_icn_manage icn ON icn_ref.source_icn_id = icn.id
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn_ref.target_icn_id = #{icnId}
+        AND icn_ref.reference_type = 'ICN_TO_ICN'
+        AND icn.isdeleted = '0'
+        ORDER BY icn_ref.create_time DESC
+    </select>
+
+    <!-- 查询引用当前ICN的DM模块列表 -->
+    <select id="getReferencedByDmList" resultType="java.util.HashMap">
+        SELECT
+            icn_ref.id,
+            icn_ref.dm_code,
+            icn_ref.create_time,
+            icn_ref.remark,
+            dm.tech_name as dm_title,
+            dm.info_name,
+            dm.dm_type,
+            dm.version as issue_no
+        FROM ietm_icn_reference icn_ref
+        LEFT JOIN ietm_data_module dm ON icn_ref.dm_code = dm.dmc
+        WHERE icn_ref.source_icn_id = #{icnId}
+        AND icn_ref.reference_type = 'ICN_TO_DM'
+        ORDER BY icn_ref.create_time DESC
+    </select>
+
+    <!-- 批量查询ICN及附件（用于下载） -->
+    <select id="listByIdsWithAttachments" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.issue_no,
+            icn.icn_type,
+            att.id as "ietmAttachment.id",
+            att.file_name as "ietmAttachment.fileName",
+            att.file_size as "ietmAttachment.fileSize",
+            att.file_key as "ietmAttachment.fileKey",
+            att.file_type as "ietmAttachment.fileType"
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid
+        <where>
+            icn.id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            AND icn.isdeleted = '0'
+            <if test="includeRelated == '1'">
+                <!-- 包含实体文件和相关文件 -->
+            </if>
+            <if test="includeRelated == '0'">
+                <!-- 仅包含实体文件 -->
+                AND att.file_type = '实体文件'
+            </if>
+        </where>
+        ORDER BY icn.create_time DESC
+    </select>
+
 </mapper>

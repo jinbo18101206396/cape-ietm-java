@@ -34,4 +34,41 @@ public interface IetmIcnManageMapper extends BaseMapper<IetmIcnManage> {
      * @return ICN列表（含附件信息）
      */
     List<IetmIcnManage> listWithAttachmentsIncludeChildren(@Param("cmnodeId") String cmnodeId);
+
+    /**
+     * 根据ID查询ICN及其附件信息（用于预览）
+     * @param id ICN ID
+     * @return ICN对象（含附件信息）
+     */
+    IetmIcnManage getByIdWithAttachment(@Param("id") String id);
+
+    /**
+     * 查询ICN引用的其他ICN列表（正向引用）
+     * @param icnId ICN ID
+     * @return 被引用的ICN列表
+     */
+    List<IetmIcnManage> getReferencedIcnList(@Param("icnId") String icnId);
+
+    /**
+     * 查询引用当前ICN的其他ICN列表（反向引用）
+     * @param icnId ICN ID
+     * @return 引用方ICN列表
+     */
+    List<IetmIcnManage> getReferencingIcnList(@Param("icnId") String icnId);
+
+    /**
+     * 查询引用当前ICN的DM模块列表
+     * @param icnId ICN ID
+     * @return DM引用列表（返回Map包含dm_code, dm_title等）
+     */
+    List<java.util.Map<String, Object>> getReferencedByDmList(@Param("icnId") String icnId);
+
+    /**
+     * 批量查询ICN及其附件（用于下载）
+     * @param ids ICN ID列表
+     * @param includeRelated 是否包含相关文件
+     * @return ICN列表（含附件信息）
+     */
+    List<IetmIcnManage> listByIdsWithAttachments(@Param("ids") List<String> ids,
+                                                  @Param("includeRelated") String includeRelated);
 }

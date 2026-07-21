@@ -23,7 +23,7 @@ import java.util.List;
 @Service
 public class IetmAttachmentServiceImpl extends ServiceImpl<IetmAttachmentMapper, IetmAttachment> implements IIetmAttachmentService {
 
-    @Value("${accessFile.location}")
+    @Value("${accessFile.icnLocation}")
     private String location;
 
     /**
@@ -50,7 +50,17 @@ public class IetmAttachmentServiceImpl extends ServiceImpl<IetmAttachmentMapper,
             chainAttachmentQueryWrapper.eq("file_key", attachment.getFileKey());
             List<IetmAttachment> list = baseMapper.selectList(chainAttachmentQueryWrapper);//如果多个数据共用一个附件，只有最后一个共用附件的数据可以删除文件
             if (list.size() == 1) {
-                File file = new File(location, attachment.getFileKey());
+                // fileKey是相对路径（例如：icn/xxxxx.jpg）
+                // 从fileKey中提取文件名
+                String fileKey = attachment.getFileKey();
+                String actualFileName = fileKey;
+                if (fileKey.contains(File.separator)) {
+                    actualFileName = fileKey.substring(fileKey.lastIndexOf(File.separator) + 1);
+                } else if (fileKey.contains("/")) {
+                    actualFileName = fileKey.substring(fileKey.lastIndexOf("/") + 1);
+                }
+
+                File file = new File(location, actualFileName);
                 try {
                     file.delete();
                     fileName = attachment.getFileName() + ";" + fileName;

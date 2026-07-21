@@ -25,6 +25,8 @@ accessFile:
   location: D:\workspace\IETM\file
   ##解密后文件存放的文件夹
   decryptLocation: D:\workspace\IETM\file\decrypt
+  ##ICN项目实体管理专用路径
+  icnLocation: D:\workspace\IETM\file\icn
 
 spring:
   servlet:
@@ -131,12 +133,12 @@ jeecg:
   # 签名密钥串(前后端要一致，正式发布请自行修改)
   signatureSecret: dd05f1c54d63749eda95f9fa6d49v442a
   # 本地：local\Minio：minio\阿里云：alioss
-  uploadType: alioss
+  uploadType: local
   path:
-    #文件上传根目录 设置
-    upload: C://opt//upFiles
+    #文件上传根目录 设置（使用accessFile.location统一配置）
+    upload: ${accessFile.location}
     #webapp文件路径
-    webapp: C://opt//webapp
+    webapp: ${accessFile.location}/webapp
   shiro:
     excludeUrls: /test/jeecgDemo/demo3,/test/jeecgDemo/redisDemo/**,/category/**,/visual/**,/map/**,/jmreport/bigscreen2/**
   #阿里云oss存储配置

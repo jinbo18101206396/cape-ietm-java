@@ -12,6 +12,7 @@ import org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment;
 import org.jeecgframework.poi.excel.annotation.Excel;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import javax.validation.constraints.*;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
@@ -57,7 +58,8 @@ public class IetmIcnManage implements Serializable {
 
     /**构型节点ID*/
     @Excel(name = "构型节点ID", width = 15)
-    @ApiModelProperty(value = "构型节点ID")
+    @ApiModelProperty(value = "构型节点ID", required = true)
+    @NotBlank(message = "构型节点不能为空")
     private String cmnodeId;
 
     /**SNS编码*/
@@ -77,7 +79,9 @@ public class IetmIcnManage implements Serializable {
 
     /**创作者编码*/
     @Excel(name = "创作者编码", width = 15)
-    @ApiModelProperty(value = "创作者编码")
+    @ApiModelProperty(value = "创作者编码（责任单位代码）", required = true)
+    @NotBlank(message = "责任单位代码不能为空")
+    @Size(max = 50, message = "责任单位代码长度不能超过50")
     private String originator;
 
     /**创作单位名称*/
@@ -87,7 +91,8 @@ public class IetmIcnManage implements Serializable {
 
     /**唯一识别码*/
     @Excel(name = "唯一识别码", width = 10)
-    @ApiModelProperty(value = "唯一识别码（5位数字）")
+    @ApiModelProperty(value = "唯一识别码（6位数字，自动生成）")
+    @Pattern(regexp = "^\\d{6}$", message = "唯一识别码必须为6位数字")
     private String uniqueId;
 
     /**变量码*/
@@ -97,7 +102,9 @@ public class IetmIcnManage implements Serializable {
 
     /**版本号*/
     @Excel(name = "版本号", width = 10)
-    @ApiModelProperty(value = "版本号")
+    @ApiModelProperty(value = "版本号", required = true, example = "001")
+    @NotBlank(message = "版本号不能为空")
+    @Pattern(regexp = "^\\d{3}$", message = "版本号必须为3位数字，如001、002")
     private String issueNo;
 
     /**安全等级*/
@@ -108,7 +115,10 @@ public class IetmIcnManage implements Serializable {
     /**密级*/
     @Excel(name = "密级", width = 15, dicCode = "security")
     @Dict(dicCode = "security")
-    @ApiModelProperty(value = "密级")
+    @ApiModelProperty(value = "密级（0-5）", required = true, allowableValues = "range[0, 5]")
+    @NotNull(message = "密级不能为空")
+    @Min(value = 0, message = "密级最小值为0")
+    @Max(value = 5, message = "密级最大值为5")
     private Integer security;
 
     /**分类*/
@@ -157,4 +167,12 @@ public class IetmIcnManage implements Serializable {
     /**批量新增数量（不持久化，仅用于前端传参）*/
     @TableField(exist = false)
     private Integer count;
+
+    /**文件名称（不持久化，用于查询结果映射）*/
+    @TableField(exist = false)
+    private String fileName;
+
+    /**文件类型（不持久化，用于查询结果映射）*/
+    @TableField(exist = false)
+    private String fileType;
 }
