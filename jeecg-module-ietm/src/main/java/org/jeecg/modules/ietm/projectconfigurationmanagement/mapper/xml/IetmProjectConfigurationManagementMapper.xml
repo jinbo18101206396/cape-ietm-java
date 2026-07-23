@@ -32,7 +32,7 @@
 	<!-- 检查DM引用数量 -->
 	<select id="countDmReference" parameterType="java.lang.String" resultType="int">
 		SELECT COUNT(*)
-		FROM ietm_dm
+		FROM ietm_data_module
 		WHERE cm_node_id = #{cmNodeId}
 		AND status = '1'
 	</select>
@@ -40,8 +40,9 @@
 	<!-- 检查ICN引用数量 -->
 	<select id="countIcnReference" parameterType="java.lang.String" resultType="int">
 		SELECT COUNT(*)
-		FROM ietm_icn
-		WHERE cm_node_id = #{cmNodeId}
+		FROM ietm_icn_manage
+		WHERE cmnode_id = #{cmNodeId}
+		AND isdeleted = '0'
 	</select>
 
 </mapper>

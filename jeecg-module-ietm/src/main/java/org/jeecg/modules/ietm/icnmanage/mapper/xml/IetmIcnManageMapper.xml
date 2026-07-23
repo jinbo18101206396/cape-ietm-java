@@ -3,10 +3,10 @@
 <mapper namespace="org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper">
 
     <!-- 获取最大唯一识别码 -->
-    <select id="getMaxUniqueIdByCmnodeId" resultType="java.lang.String">
+    <select id="getMaxUniqueIdByCmNodeId" resultType="java.lang.String">
         SELECT MAX(unique_id)
         FROM ietm_icn_manage
-        WHERE cmnode_id = #{cmnodeId}
+        WHERE cmnode_id = #{cmNodeId}
         AND isdeleted = '0'
     </select>
 
@@ -45,7 +45,7 @@
         FROM ietm_icn_manage icn
         LEFT JOIN ietm_attachment att1 ON icn.id = att1.pid AND att1.file_type = '实体文件'
         LEFT JOIN ietm_attachment att2 ON icn.id = att2.pid AND att2.file_type = '相关文件'
-        WHERE icn.cmnode_id = #{cmnodeId}
+        WHERE icn.cmnode_id = #{cmNodeId}
         AND icn.isdeleted = '0'
         ORDER BY icn.create_time DESC
     </select>
@@ -88,7 +88,7 @@
         WHERE icn.cmnode_id IN (
             SELECT id
             FROM ietm_project_configuration_management
-            START WITH id = #{cmnodeId}
+            START WITH id = #{cmNodeId}
             CONNECT BY PRIOR id = pid
         )
         AND icn.isdeleted = '0'
@@ -178,9 +178,9 @@
             dm.tech_name as dm_title,
             dm.info_name,
             dm.dm_type,
-            dm.version as issue_no
+            dm.issue_no
         FROM ietm_icn_reference icn_ref
-        LEFT JOIN ietm_data_module dm ON icn_ref.dm_code = dm.dmc
+        LEFT JOIN ietm_data_module dm ON icn_ref.dm_code = dm.id
         WHERE icn_ref.source_icn_id = #{icnId}
         AND icn_ref.reference_type = 'ICN_TO_DM'
         ORDER BY icn_ref.create_time DESC

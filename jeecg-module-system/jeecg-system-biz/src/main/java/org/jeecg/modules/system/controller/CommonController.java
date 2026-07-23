@@ -3,6 +3,8 @@ package org.jeecg.modules.system.controller;
 import lombok.extern.slf4j.Slf4j;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.constant.CommonConstant;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import org.jeecg.common.constant.SymbolConstant;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.util.CommonUtils;
@@ -213,11 +215,24 @@ public class CommonController {
         if(oConvertUtils.isEmpty(imgPath) || CommonConstant.STRING_NULL.equals(imgPath)){
             return;
         }
+
+        // URL解码 - 将 %E5%B7%AE%E5%BC%82 这样的编码转换回中文
+        try {
+            imgPath = URLDecoder.decode(imgPath, StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            log.error("URL解码失败: " + imgPath, e);
+        }
+
         imgPath = imgPath.replace("..", "").replace("../", "");
         if (imgPath.endsWith(SymbolConstant.COMMA)) {
             imgPath = imgPath.substring(0, imgPath.length() - 1);
         }
+        // 统一路径分隔符为系统分隔符，避免 Windows 下的混合斜杠问题
+        imgPath = imgPath.replace("/", File.separator);
         String downloadPath = uploadpath + File.separator + imgPath;
+
+        log.info("文件下载路径: " + downloadPath);
+
         try {
             CommonUtils.writeFileContent(downloadPath,response);
         } catch (IOException e) {

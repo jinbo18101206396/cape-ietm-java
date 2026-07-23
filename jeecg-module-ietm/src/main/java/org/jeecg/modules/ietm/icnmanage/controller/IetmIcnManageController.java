@@ -68,9 +68,9 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     @ApiOperation(value = "查询ICN列表（含附件）", notes = "查询ICN列表（含附件）")
     @GetMapping(value = "/listWithAttachments")
     public Result<List<IetmIcnManage>> listWithAttachments(
-            @RequestParam(name = "cmnodeId") String cmnodeId,
+            @RequestParam(name = "cmNodeId") String cmNodeId,
             @RequestParam(name = "includeChildren", defaultValue = "0") String includeChildren) {
-        List<IetmIcnManage> list = ietmIcnManageService.listWithAttachments(cmnodeId, includeChildren);
+        List<IetmIcnManage> list = ietmIcnManageService.listWithAttachments(cmNodeId, includeChildren);
         return Result.OK(list);
     }
 
@@ -82,7 +82,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     @PostMapping(value = "/add")
     public Result<String> add(
             @RequestParam(value = "files", required = false) MultipartFile[] files,
-            @RequestParam(value = "cmnodeId") @NotBlank(message = "构型节点不能为空") String cmnodeId,
+            @RequestParam(value = "cmNodeId") @NotBlank(message = "构型节点不能为空") String cmNodeId,
             @RequestParam(value = "security") @NotNull(message = "密级不能为空") @Min(value = 0, message = "密级最小值为0") @Max(value = 5, message = "密级最大值为5") Integer security,
             @RequestParam(value = "uniqueId") String uniqueId,
             @RequestParam(value = "sns") String sns,
@@ -101,7 +101,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             }
 
             IetmIcnManage icnManage = new IetmIcnManage();
-            icnManage.setCmnodeId(cmnodeId);
+            icnManage.setCmNodeId(cmNodeId);
             icnManage.setSecurity(security);
             icnManage.setUniqueId(uniqueId);
             icnManage.setSns(sns);
@@ -116,8 +116,8 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             ietmIcnManageService.addWithFiles(icnManage, files);
 
             // 手动记录日志（不包含文件对象，避免序列化问题）
-            log.info("新增ICN成功 - cmnodeId: {}, sns: {}, 文件数: {}",
-                    cmnodeId, sns, files != null ? files.length : 0);
+            log.info("新增ICN成功 - cmNodeId: {}, sns: {}, 文件数: {}",
+                    cmNodeId, sns, files != null ? files.length : 0);
 
             return Result.OK("添加成功！");
         } catch (Exception e) {
@@ -247,9 +247,9 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
      */
     @ApiOperation(value = "获取项目信息", notes = "获取项目信息")
     @GetMapping(value = "/getProjectInfo")
-    public Result<IcnProjectInfoVO> getProjectInfo(@RequestParam(name = "cmnodeId") String cmnodeId) {
+    public Result<IcnProjectInfoVO> getProjectInfo(@RequestParam(name = "cmNodeId") String cmNodeId) {
         try {
-            IcnProjectInfoVO projectInfo = ietmIcnManageService.getProjectInfo(cmnodeId);
+            IcnProjectInfoVO projectInfo = ietmIcnManageService.getProjectInfo(cmNodeId);
             return Result.OK(projectInfo);
         } catch (Exception e) {
             log.error("获取项目信息失败", e);
@@ -262,8 +262,8 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
      */
     @ApiOperation(value = "获取下一个唯一识别码", notes = "获取下一个唯一识别码")
     @GetMapping(value = "/getNextUniqueId")
-    public Result<String> getNextUniqueId(@RequestParam(name = "cmnodeId") String cmnodeId) {
-        String uniqueId = ietmIcnManageService.getNextUniqueId(cmnodeId);
+    public Result<String> getNextUniqueId(@RequestParam(name = "cmNodeId") String cmNodeId) {
+        String uniqueId = ietmIcnManageService.getNextUniqueId(cmNodeId);
         return Result.OK(uniqueId);
     }
 
@@ -280,8 +280,8 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
                 return Result.error("新增数量必须在1-100之间");
             }
 
-            String cmnodeId = template.getCmnodeId();
-            if (cmnodeId == null || cmnodeId.isEmpty()) {
+            String cmNodeId = template.getCmNodeId();
+            if (cmNodeId == null || cmNodeId.isEmpty()) {
                 return Result.error("构型节点ID不能为空");
             }
 
@@ -348,7 +348,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
         ModelAndView modelAndView = new ModelAndView("jeecgEntityExcelView");
         modelAndView.addObject("title", "项目实体管理导入模板");
         modelAndView.addObject("exportFields", Arrays.asList(
-            "cmnodeId", "sns", "uniqueId", "variantCode", "issueNo",
+            "cmNodeId", "sns", "uniqueId", "variantCode", "issueNo",
             "security", "icnType", "originator", "originatorName",
             "rpc", "rpcName"
         ));

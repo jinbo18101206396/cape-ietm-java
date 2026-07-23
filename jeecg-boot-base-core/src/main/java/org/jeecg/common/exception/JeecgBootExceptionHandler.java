@@ -122,9 +122,13 @@ public class JeecgBootExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public Result<?> handleDataIntegrityViolationException(DataIntegrityViolationException e) {
-    	log.error(e.getMessage(), e);
+    	log.error("===== 数据完整性异常详情 =====", e);
+    	log.error("异常信息: {}", e.getMessage());
+    	log.error("根异常: {}", e.getCause() != null ? e.getCause().getMessage() : "无");
+    	log.error("最根异常: {}", e.getRootCause() != null ? e.getRootCause().getMessage() : "无");
     	//【issues/3624】数据库执行异常handleDataIntegrityViolationException提示有误 #3624
-        return Result.error("执行数据库异常,违反了完整性例如：违反惟一约束、违反非空限制、字段内容超出长度等");
+    	String detailMessage = e.getRootCause() != null ? e.getRootCause().getMessage() : e.getMessage();
+        return Result.error("执行数据库异常: " + detailMessage);
     }
 
     @ExceptionHandler(PoolException.class)

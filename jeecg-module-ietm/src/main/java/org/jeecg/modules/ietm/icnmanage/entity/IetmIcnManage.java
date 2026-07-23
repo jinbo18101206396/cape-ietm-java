@@ -60,7 +60,7 @@ public class IetmIcnManage implements Serializable {
     @Excel(name = "构型节点ID", width = 15)
     @ApiModelProperty(value = "构型节点ID", required = true)
     @NotBlank(message = "构型节点不能为空")
-    private String cmnodeId;
+    private String cmNodeId;
 
     /**SNS编码*/
     @Excel(name = "SNS", width = 20)

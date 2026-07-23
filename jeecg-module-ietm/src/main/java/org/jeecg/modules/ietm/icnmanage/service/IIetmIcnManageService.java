@@ -50,12 +50,12 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
     /**
      * 获取指定构型节点的下一个唯一识别码
      */
-    String getNextUniqueId(String cmnodeId);
+    String getNextUniqueId(String cmNodeId);
 
     /**
      * 获取项目信息和SNS编码
      */
-    IcnProjectInfoVO getProjectInfo(String cmnodeId);
+    IcnProjectInfoVO getProjectInfo(String cmNodeId);
 
     /**
      * 生成ICN完整编码
@@ -65,14 +65,14 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
     /**
      * 计算SNS编码
      */
-    String calculateSns(String cmnodeId, String codeRule);
+    String calculateSns(String cmNodeId);
 
     /**
      * 查询ICN列表（含附件信息）
-     * @param cmnodeId 构型节点ID
+     * @param cmNodeId 构型节点ID
      * @param includeChildren 是否包含子节点（1：是，0：否）
      */
-    List<IetmIcnManage> listWithAttachments(String cmnodeId, String includeChildren);
+    List<IetmIcnManage> listWithAttachments(String cmNodeId, String includeChildren);
 
     /**
      * 通过ID查询ICN（含附件信息）

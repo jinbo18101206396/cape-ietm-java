@@ -17,10 +17,30 @@
             <artifactId>jeecg-boot-base-core</artifactId>
         </dependency>
         <dependency>
+            <groupId>dom4j</groupId>
+            <artifactId>dom4j</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
             <version>1.21</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <resources>
+            <!-- 包含 src/main/java 目录下的 XML 文件 -->
+            <resource>
+                <directory>src/main/java</directory>
+                <includes>
+                    <include>**/*.xml</include>
+                </includes>
+            </resource>
+            <!-- 包含 src/main/resources 目录下的所有资源 -->
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+    </build>
 
 </project>

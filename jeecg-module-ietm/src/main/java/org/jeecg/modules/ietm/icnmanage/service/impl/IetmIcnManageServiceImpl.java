@@ -18,6 +18,7 @@ import org.jeecg.modules.ietm.projectconfigurationmanagement.entity.IetmProjectC
 import org.jeecg.modules.ietm.projectconfigurationmanagement.service.IIetmProjectConfigurationManagementService;
 import org.jeecg.modules.ietm.projectmanagement.entity.IetmProject;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectService;
+import org.jeecg.modules.ietm.common.service.ISnsCalculateService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +52,9 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
     @Autowired
     private IIetmProjectService projectService;
+
+    @Autowired
+    private ISnsCalculateService snsCalculateService;
 
     @Autowired
     private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper referenceMapper;
@@ -93,7 +97,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
         // 2. 生成唯一识别码（如果为空）
         if (StringUtils.isBlank(icnManage.getUniqueId())) {
-            String uniqueId = getNextUniqueId(icnManage.getCmnodeId());
+            String uniqueId = getNextUniqueId(icnManage.getCmNodeId());
             icnManage.setUniqueId(uniqueId);
             log.info("自动生成uniqueId: {}", uniqueId);
         }
@@ -174,7 +178,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         // 如果newUniqueId为空，则自动生成新的uniqueId（当前节点最大值+1）
         // 差异上传时必须生成新的uniqueId，避免违反唯一性约束
         if (StringUtils.isBlank(newUniqueId)) {
-            newUniqueId = getNextUniqueId(originalIcn.getCmnodeId());
+            newUniqueId = getNextUniqueId(originalIcn.getCmNodeId());
         }
         newIcn.setUniqueId(newUniqueId);
         newIcn.setVariantCode(newVariantCode);
@@ -263,8 +267,8 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     }
 
     @Override
-    public String getNextUniqueId(String cmnodeId) {
-        String maxUniqueId = this.baseMapper.getMaxUniqueIdByCmnodeId(cmnodeId);
+    public String getNextUniqueId(String cmNodeId) {
+        String maxUniqueId = this.baseMapper.getMaxUniqueIdByCmNodeId(cmNodeId);
 
         if (StringUtils.isBlank(maxUniqueId)) {
             return "00001";
@@ -280,9 +284,9 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     }
 
     @Override
-    public IcnProjectInfoVO getProjectInfo(String cmnodeId) {
+    public IcnProjectInfoVO getProjectInfo(String cmNodeId) {
         // 1. 获取构型节点
-        IetmProjectConfigurationManagement config = configurationService.getById(cmnodeId);
+        IetmProjectConfigurationManagement config = configurationService.getById(cmNodeId);
         if (config == null) {
             throw new JeecgBootException("构型节点不存在");
         }
@@ -293,11 +297,11 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
             throw new JeecgBootException("项目信息不存在");
         }
 
-        // 3. 计算SNS编码
-        String sns = calculateSns(cmnodeId, project.getCodeRule());
+        // 3. 计算SNS编码（使用公共服务）
+        String sns = snsCalculateService.calculateSns(cmNodeId);
 
         // 4. 获取下一个uniqueId
-        String uniqueId = getNextUniqueId(cmnodeId);
+        String uniqueId = getNextUniqueId(cmNodeId);
 
         // 5. 组装返回对象
         IcnProjectInfoVO vo = new IcnProjectInfoVO();
@@ -340,43 +344,19 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     }
 
     @Override
-    public String calculateSns(String cmnodeId, String codeRule) {
-        // 1. 递归获取构型路径
-        List<String> configPath = new ArrayList<>();
-        buildConfigPath(cmnodeId, configPath);
-
-        // 2. 反转路径（从根到叶）
-        Collections.reverse(configPath);
-
-        if (configPath.size() < 2) {
-            return "";
-        }
-
-        // 3. 构建SNS
-        StringBuilder sns = new StringBuilder();
-        sns.append(configPath.get(0)).append("-").append(configPath.get(1)).append("-");
-
-        // 4. 根据编码规则补充
-        String[] ruleParts = codeRule.split("-");
-        for (int i = 1; i < ruleParts.length - 2; i++) {
-            if (i + 1 < configPath.size()) {
-                sns.append(configPath.get(i + 1));
-            } else {
-                sns.append(ruleParts[i]);
-            }
-        }
-
-        return sns.toString();
+    public String calculateSns(String cmNodeId) {
+        // 委托给公共服务实现
+        return snsCalculateService.calculateSns(cmNodeId);
     }
 
     @Override
-    public List<IetmIcnManage> listWithAttachments(String cmnodeId, String includeChildren) {
+    public List<IetmIcnManage> listWithAttachments(String cmNodeId, String includeChildren) {
         if ("1".equals(includeChildren)) {
             // 查询当前节点及所有子节点的ICN
-            return this.baseMapper.listWithAttachmentsIncludeChildren(cmnodeId);
+            return this.baseMapper.listWithAttachmentsIncludeChildren(cmNodeId);
         } else {
             // 只查询当前节点的ICN
-            return this.baseMapper.listWithAttachments(cmnodeId);
+            return this.baseMapper.listWithAttachments(cmNodeId);
         }
     }
 
@@ -543,7 +523,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
                 try {
                     // 数据校验
-                    if (StringUtils.isBlank(icn.getCmnodeId())) {
+                    if (StringUtils.isBlank(icn.getCmNodeId())) {
                         errorMessages.add("第" + rowNum + "行：构型节点ID不能为空");
                         failCount++;
                         continue;
@@ -554,7 +534,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
                     // 生成唯一识别码（如果为空）
                     if (StringUtils.isBlank(icn.getUniqueId())) {
-                        String uniqueId = getNextUniqueId(icn.getCmnodeId());
+                        String uniqueId = getNextUniqueId(icn.getCmNodeId());
                         icn.setUniqueId(uniqueId);
                     }
 
@@ -677,16 +657,6 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     /**
      * 递归构建构型路径
      */
-    private void buildConfigPath(String cmnodeId, List<String> path) {
-        IetmProjectConfigurationManagement config = configurationService.getById(cmnodeId);
-        if (config != null) {
-            path.add(config.getCode());
-            if (StringUtils.isNotBlank(config.getPid()) && !"0".equals(config.getPid())) {
-                buildConfigPath(config.getPid(), path);
-            }
-        }
-    }
-
     /**
      * 批量新增ICN
      */
@@ -694,13 +664,13 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     @Transactional(rollbackFor = Exception.class)
     public int batchAddIcn(IetmIcnManage template) {
         Integer count = template.getCount();
-        String cmnodeId = template.getCmnodeId();
+        String cmNodeId = template.getCmNodeId();
 
         // 获取项目信息和SNS
-        IcnProjectInfoVO projectInfo = getProjectInfo(cmnodeId);
+        IcnProjectInfoVO projectInfo = getProjectInfo(cmNodeId);
 
         // 获取当前最大的uniqueId
-        String currentMaxUniqueId = getNextUniqueId(cmnodeId);
+        String currentMaxUniqueId = getNextUniqueId(cmNodeId);
         int startUniqueId = Integer.parseInt(currentMaxUniqueId);
 
         int successCount = 0;
@@ -710,7 +680,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
                 IetmIcnManage icnManage = new IetmIcnManage();
 
                 // 复制模板字段
-                icnManage.setCmnodeId(cmnodeId);
+                icnManage.setCmNodeId(cmNodeId);
                 icnManage.setSns(projectInfo.getSns());
                 icnManage.setUniqueId(String.format("%05d", startUniqueId + i));
                 icnManage.setVariantCode(template.getVariantCode());

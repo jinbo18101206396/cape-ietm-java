@@ -16,24 +16,24 @@ public interface IetmIcnManageMapper extends BaseMapper<IetmIcnManage> {
 
     /**
      * 获取指定构型节点下的最大唯一识别码
-     * @param cmnodeId 构型节点ID
+     * @param cmNodeId 构型节点ID
      * @return 最大唯一识别码
      */
-    String getMaxUniqueIdByCmnodeId(@Param("cmnodeId") String cmnodeId);
+    String getMaxUniqueIdByCmNodeId(@Param("cmNodeId") String cmNodeId);
 
     /**
      * 批量查询ICN及其附件信息
-     * @param cmnodeId 构型节点ID
+     * @param cmNodeId 构型节点ID
      * @return ICN列表（含附件信息）
      */
-    List<IetmIcnManage> listWithAttachments(@Param("cmnodeId") String cmnodeId);
+    List<IetmIcnManage> listWithAttachments(@Param("cmNodeId") String cmNodeId);
 
     /**
      * 批量查询ICN及其附件信息（包含所有子节点）
-     * @param cmnodeId 构型节点ID
+     * @param cmNodeId 构型节点ID
      * @return ICN列表（含附件信息）
      */
-    List<IetmIcnManage> listWithAttachmentsIncludeChildren(@Param("cmnodeId") String cmnodeId);
+    List<IetmIcnManage> listWithAttachmentsIncludeChildren(@Param("cmNodeId") String cmNodeId);
 
     /**
      * 根据ID查询ICN及其附件信息（用于预览）

@@ -1,5 +1,154 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="org.jeecg.modules.ietm.itemprojectdatamodule.mapper.IetmDataModuleMapper">
+<mapper namespace="org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper">
+
+    <!-- ResultMap：55个字段（数据库小写+下划线 → Java驼峰）-->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule">
+        <id     column="id"                      property="id"/>
+        <result column="project_id"              property="projectId"/>
+        <result column="project_name"            property="projectName"/>
+        <result column="schema"                  property="schema"/>
+        <result column="sns"                     property="sns"/>
+        <result column="info_code"               property="infoCode"/>
+        <result column="info_code_variant"       property="infoCodeVariant"/>
+        <result column="ietm_location_code"      property="ietmLocationCode"/>
+        <result column="learn_code"              property="learnCode"/>
+        <result column="learn_code_event_code"   property="learnCodeEventCode"/>
+        <result column="year_of_change"          property="yearOfChange"/>
+        <result column="seq_no"                  property="seqNo"/>
+        <result column="language_iso_code"       property="languageIsoCode"/>
+        <result column="country_iso_code"        property="countryIsoCode"/>
+        <result column="originator"              property="originator"/>
+        <result column="originator_name"         property="originatorName"/>
+        <result column="rpc"                     property="rpc"/>
+        <result column="rpc_name"                property="rpcName"/>
+        <result column="issue_no"                property="issueNo"/>
+        <result column="in_work"                 property="inWork"/>
+        <result column="version_type"            property="versionType"/>
+        <result column="tech_name"               property="techName"/>
+        <result column="info_name"               property="infoName"/>
+        <result column="tech_name_en"            property="techNameEn"/>
+        <result column="info_name_en"            property="infoNameEn"/>
+        <result column="cm_node_id"              property="cmNodeId"/>
+        <result column="cm_node_name"            property="cmNodeName"/>
+        <result column="cm_node_path"            property="cmNodePath"/>
+        <result column="is_latest"               property="isLatest"/>
+        <result column="status"                  property="status"/>
+        <result column="checkout_user"           property="checkoutUser"/>
+        <result column="checkout_time"           property="checkoutTime"/>
+        <result column="checkin_time"            property="checkinTime"/>
+        <result column="publish_date"            property="publishDate"/>
+        <result column="workflow_instance_id"    property="workflowInstanceId"/>
+        <result column="workflow_status"         property="workflowStatus"/>
+        <result column="workflow_step"           property="workflowStep"/>
+        <result column="workflow_handler"        property="workflowHandler"/>
+        <result column="dm_content"              property="dmContent"/>
+        <result column="dm_type"                 property="dmType"/>
+        <result column="security"                property="security"/>
+        <result column="ref_count"               property="refCount"/>
+        <result column="refed_count"             property="refedCount"/>
+        <result column="remark"                  property="remark"/>
+        <result column="reason"                  property="reason"/>
+        <result column="create_by"               property="createBy"/>
+        <result column="create_time"             property="createTime"/>
+        <result column="update_by"               property="updateBy"/>
+        <result column="update_time"             property="updateTime"/>
+        <result column="sys_org_code"            property="sysOrgCode"/>
+        <result column="info_code_part"          property="infoCodePart"/>
+        <result column="dmc_code"                property="dmcCode"/>
+        <result column="issue_date"              property="issueDate"/>
+        <result column="security_classification" property="securityClassification"/>
+        <result column="language"                property="language"/>
+    </resultMap>
+
+    <!-- 1. 按项目ID查询（有效最新版本，按创建时间倒序）-->
+    <select id="selectByProjectId" parameterType="string" resultMap="BaseResultMap">
+        SELECT * FROM ietm_data_module
+        WHERE project_id = #{projectId}
+          AND status = '1'
+          AND is_latest = '1'
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 2. 按构型节点ID查询（支持包含子节点）-->
+    <select id="selectByCmNodeId" resultMap="BaseResultMap">
+        SELECT * FROM ietm_data_module
+        WHERE status = '1'
+          AND is_latest = '1'
+          <choose>
+              <when test="includeChildren == '1'">
+                  AND (cm_node_id = #{cmNodeId}
+                       OR cm_node_path LIKE '%' || #{cmNodeId} || '%')
+              </when>
+              <otherwise>
+                  AND cm_node_id = #{cmNodeId}
+              </otherwise>
+          </choose>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 3. DMC唯一性校验（6维度，DM8使用ROWNUM分页）-->
+    <select id="selectByDmcForValidation" resultMap="BaseResultMap">
+        SELECT * FROM (
+            SELECT * FROM ietm_data_module
+            WHERE status = '1'
+              AND is_latest = '1'
+              AND sns = #{sns}
+              AND info_code = #{infoCode}
+              AND (info_code_variant = #{infoCodeVariant}
+                   OR (info_code_variant IS NULL AND #{infoCodeVariant} IS NULL))
+              AND (ietm_location_code = #{ietmLocationCode}
+                   OR (ietm_location_code IS NULL AND #{ietmLocationCode} IS NULL))
+              AND language_iso_code = #{languageIsoCode}
+              AND country_iso_code = #{countryIsoCode}
+              <if test="excludeId != null and excludeId != ''">
+                  AND id != #{excludeId}
+              </if>
+        ) WHERE ROWNUM = 1
+    </select>
+
+    <!-- 4. 查询历史版本（同一DMC所有版本，版本号倒序）-->
+    <select id="selectHistoryVersions" resultMap="BaseResultMap">
+        SELECT * FROM ietm_data_module
+        WHERE status = '1'
+          AND sns = #{sns}
+          AND info_code = #{infoCode}
+          <if test="infoCodeVariant != null and infoCodeVariant != ''">
+              AND info_code_variant = #{infoCodeVariant}
+          </if>
+        ORDER BY issue_no DESC, in_work DESC
+    </select>
+
+    <!-- 5. 查询引用关系（out=出引用 / in=入引用）-->
+    <select id="selectReferenceInfo" resultType="map">
+        <choose>
+            <when test="refType == 'out'">
+                SELECT r.id           AS "refId",
+                       r.target_dm_id AS "targetDmId",
+                       d.dmc_code     AS "targetDmcCode",
+                       d.tech_name    AS "targetTechName",
+                       d.info_name    AS "targetInfoName",
+                       r.ref_type     AS "refType",
+                       r.ref_position AS "refPosition"
+                FROM ietm_dm_reference r
+                LEFT JOIN ietm_data_module d ON r.target_dm_id = d.id
+                WHERE r.source_dm_id = #{dmId}
+                ORDER BY r.create_time DESC
+            </when>
+            <otherwise>
+                SELECT r.id           AS "refId",
+                       r.source_dm_id AS "sourceDmId",
+                       d.dmc_code     AS "sourceDmcCode",
+                       d.tech_name    AS "sourceTechName",
+                       d.info_name    AS "sourceInfoName",
+                       r.ref_type     AS "refType",
+                       r.ref_position AS "refPosition"
+                FROM ietm_dm_reference r
+                LEFT JOIN ietm_data_module d ON r.source_dm_id = d.id
+                WHERE r.target_dm_id = #{dmId}
+                ORDER BY r.create_time DESC
+            </otherwise>
+        </choose>
+    </select>
 
 </mapper>
