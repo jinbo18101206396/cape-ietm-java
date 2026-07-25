@@ -22,11 +22,11 @@ public interface IetmDataModuleMapper extends BaseMapper<IetmDataModule> {
 
     /**
      * 根据构型节点ID查询数据模块列表
-     * @param cmNodeId    构型节点ID
-     * @param includeChildren 是否包含子节点（1-包含，0-不包含）
+     * @param cmNodeId        构型节点ID
+     * @param includeChildren 是否包含子节点（true-包含，false-不包含）
      */
     List<IetmDataModule> selectByCmNodeId(@Param("cmNodeId") String cmNodeId,
-                                          @Param("includeChildren") String includeChildren);
+                                          @Param("includeChildren") Boolean includeChildren);
 
     /**
      * DMC唯一性校验查询（基于6个维度确保DMC唯一）

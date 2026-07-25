@@ -94,8 +94,8 @@ public class IetmDataModule implements Serializable {
     @Excel(name = "学习事件码", width = 15)
     @ApiModelProperty(value = "DMC第7段-学习事件码（A-Z）")
     @Pattern(regexp = "^[A-Z]?$", message = "学习事件码必须是A-Z的大写字母")
-    @TableField("learn_code_event_code")
-    private String learnCodeEventCode;
+    @TableField("learn_event_code")
+    private String learnEventCode;
 
     /** DMC第8段：变更年代码 */
     @Excel(name = "变更年代码", width = 10)
@@ -154,7 +154,7 @@ public class IetmDataModule implements Serializable {
     @Excel(name = "发行编号", width = 10)
     @ApiModelProperty(value = "发行编号（001-999）", required = true, example = "001")
     @NotBlank(message = "发行编号不能为空")
-    @Pattern(regexp = "^(0[0-9]{2}|[1-9][0-9]{2})$", message = "发行编号必须为001-999的3位数字")
+    @Pattern(regexp = "^(00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})$", message = "发行编号必须为001-999的3位数字")
     @TableField("issue_no")
     private String issueNo;
 
@@ -350,6 +350,12 @@ public class IetmDataModule implements Serializable {
     @ApiModelProperty(value = "更新时间")
     @TableField("update_time")
     private Date updateTime;
+
+    /** 乐观锁版本号 */
+    @Version
+    @ApiModelProperty(value = "乐观锁版本号", hidden = true)
+    @TableField("version")
+    private Integer version;
 
     /** 所属部门编码 */
     @ApiModelProperty(value = "所属部门编码（数据权限控制）")

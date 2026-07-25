@@ -15,6 +15,10 @@ import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDataModuleSe
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmFormVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmProjectInfoVO;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmCopyVO;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmcUniqueCheckVO;
+import org.jeecg.common.system.vo.LoginUser;
+import org.apache.shiro.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -201,7 +205,7 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
         entity.setInfoCodeVariant(formVO.getInfoCodeVariant());
         entity.setIetmLocationCode(formVO.getIetmLocationCode());
         entity.setLearnCode(formVO.getLearnCode());
-        entity.setLearnCodeEventCode(formVO.getLearnCodeEventCode());
+        entity.setLearnEventCode(formVO.getLearnEventCode());
         entity.setYearOfChange(formVO.getYearOfChange());
         entity.setSeqNo(formVO.getSeqNo());
         entity.setLanguageIsoCode(formVO.getLanguageIsoCode());
@@ -436,6 +440,18 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
+     * XML内容校验
+     */
+    @AutoLog(value = "数据模块管理-XML内容校验")
+    @ApiOperation(value = "数据模块管理-XML内容校验", notes = "数据模块管理-XML内容校验")
+    @PostMapping(value = "/validateContent")
+    public Result<Map<String, Object>> validateContent(@RequestBody Map<String, String> params) {
+        String content = params.get("content");
+        Map<String, Object> result = ietmDataModuleService.validateXmlContent(content);
+        return Result.OK(result);
+    }
+
+    /**
      * 复制DM
      */
     @AutoLog(value = "数据模块管理-复制")
@@ -651,13 +667,92 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
-     * 获取当前用户名
+     * 获取当前登录用户名
+     * 优先从 Shiro SecurityUtils 获取，确保返回真实的用户名而不是 Token
      */
     private String getUsername(HttpServletRequest req) {
-        String username = (String) req.getAttribute("username");
-        if (username == null) {
-            username = req.getHeader("X-Access-Token");
+        try {
+            LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+            if (loginUser != null && loginUser.getUsername() != null) {
+                return loginUser.getUsername();
+            }
+        } catch (Exception e) {
+            // 如果 Shiro 获取失败，尝试从请求属性获取
         }
-        return username;
+
+        // 降级方案：从请求属性获取
+        String username = (String) req.getAttribute("username");
+        if (username != null) {
+            return username;
+        }
+
+        // 最后兜底：返回默认用户名（避免返回长 token）
+        return "system";
+    }
+
+    // ==================== 复制DM相关接口 ====================
+
+    /**
+     * 复制DM（校验是否可复制）
+     */
+    @AutoLog(value = "数据模块管理-复制DM")
+    @ApiOperation(value = "复制DM", notes = "校验DM是否可复制")
+    @GetMapping(value = "/copyDm")
+    public Result<?> copyDm(@ApiParam(value = "被复制DM的ID", required = true)
+                            @RequestParam(name = "dmId", required = true) String dmId) {
+        return ietmDataModuleService.copyDm(dmId);
+    }
+
+    /**
+     * 复制新建DM（核心方法）
+     */
+    @AutoLog(value = "数据模块管理-复制新建DM")
+    @ApiOperation(value = "复制新建DM", notes = "基于源DM创建新DM")
+    @PostMapping(value = "/copyAndCreateDm")
+    public Result<?> copyAndCreateDm(@Valid @RequestBody DmCopyVO vo) {
+        return ietmDataModuleService.copyAndCreateDm(vo);
+    }
+
+    /**
+     * 计算SNS编码（供前端预览）
+     */
+    @ApiOperation(value = "计算SNS", notes = "根据构型节点计算SNS编码")
+    @GetMapping(value = "/calculateSns")
+    public Result<?> calculateSns(@ApiParam(value = "构型节点ID", required = true)
+                                  @RequestParam(name = "cmNodeId", required = true) String cmNodeId) {
+        try {
+            // 使用已存在的getProjectInfo方法中的SNS计算逻辑
+            DmProjectInfoVO projectInfo = ietmDataModuleService.getProjectInfo(cmNodeId);
+            return Result.OK("计算成功", projectInfo.getSns());
+        } catch (Exception e) {
+            return Result.error("计算SNS失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * DMC查重（优化版）
+     * 检查根据输入参数生成的 DMC 编码是否已存在
+     */
+    @ApiOperation(value = "DMC查重", notes = "检查DMC编码是否唯一（支持完整参数）")
+    @PostMapping(value = "/checkDmcUnique")
+    public Result<?> checkDmcUnique(@Valid @RequestBody DmcUniqueCheckVO vo) {
+        String duplicateDmc = ietmDataModuleService.checkDmcUnique(vo);
+
+        if (duplicateDmc == null) {
+            return Result.OK("DMC编码唯一", true);
+        } else {
+            return Result.error("DMC编码重复：" + duplicateDmc);
+        }
+    }
+
+    /**
+     * 提取技术名称（从节点名称中提取空格后的部分）
+     */
+    @ApiOperation(value = "提取技术名称", notes = "从节点名称中提取空格后的部分")
+    @GetMapping(value = "/extractTechName")
+    public Result<?> extractTechName(@ApiParam(value = "节点名称（格式：编码 名称）", required = true)
+                                     @RequestParam(name = "nodeName", required = true) String nodeName) {
+        String techName = ietmDataModuleService.extractTechName(nodeName);
+        return Result.OK("提取成功", techName);
     }
 }

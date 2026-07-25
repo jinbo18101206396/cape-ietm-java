@@ -5,6 +5,7 @@ import java.util.List;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.extension.plugins.inner.DynamicTableNameInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
 import org.jeecg.common.config.TenantContext;
 import org.jeecg.common.constant.CommonConstant;
 import org.jeecg.common.util.oConvertUtils;
@@ -74,6 +75,8 @@ public class MybatisPlusSaasConfig {
                 return true;
             }
         }));
+        // 添加乐观锁插件，支持实体类 @Version 注解
+        interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor());
         //update-begin-author:zyf date:20220425 for:【VUEN-606】注入动态表名适配拦截器解决多表名问题
         interceptor.addInnerInterceptor(dynamicTableNameInnerInterceptor());

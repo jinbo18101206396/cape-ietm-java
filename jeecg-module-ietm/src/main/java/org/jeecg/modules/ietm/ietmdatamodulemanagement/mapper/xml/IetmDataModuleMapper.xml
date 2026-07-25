@@ -13,7 +13,7 @@
         <result column="info_code_variant"       property="infoCodeVariant"/>
         <result column="ietm_location_code"      property="ietmLocationCode"/>
         <result column="learn_code"              property="learnCode"/>
-        <result column="learn_code_event_code"   property="learnCodeEventCode"/>
+        <result column="learn_event_code"        property="learnEventCode"/>
         <result column="year_of_change"          property="yearOfChange"/>
         <result column="seq_no"                  property="seqNo"/>
         <result column="language_iso_code"       property="languageIsoCode"/>
@@ -61,24 +61,64 @@
         <result column="language"                property="language"/>
     </resultMap>
 
-    <!-- 1. 按项目ID查询（有效最新版本，按创建时间倒序）-->
-    <select id="selectByProjectId" parameterType="string" resultMap="BaseResultMap">
-        SELECT * FROM ietm_data_module
+    <!-- ResultMap（轻量版，不含 dm_content 大字段，用于列表查询）-->
+    <resultMap id="ListResultMap" type="org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule">
+        <id     column="id"                      property="id"/>
+        <result column="project_id"              property="projectId"/>
+        <result column="project_name"            property="projectName"/>
+        <result column="sns"                     property="sns"/>
+        <result column="info_code"               property="infoCode"/>
+        <result column="info_code_variant"       property="infoCodeVariant"/>
+        <result column="ietm_location_code"      property="ietmLocationCode"/>
+        <result column="originator"              property="originator"/>
+        <result column="originator_name"         property="originatorName"/>
+        <result column="issue_no"                property="issueNo"/>
+        <result column="in_work"                 property="inWork"/>
+        <result column="version_type"            property="versionType"/>
+        <result column="tech_name"               property="techName"/>
+        <result column="info_name"               property="infoName"/>
+        <result column="cm_node_id"              property="cmNodeId"/>
+        <result column="cm_node_name"            property="cmNodeName"/>
+        <result column="cm_node_path"            property="cmNodePath"/>
+        <result column="is_latest"               property="isLatest"/>
+        <result column="status"                  property="status"/>
+        <result column="checkout_user"           property="checkoutUser"/>
+        <result column="checkout_time"           property="checkoutTime"/>
+        <result column="workflow_instance_id"    property="workflowInstanceId"/>
+        <result column="workflow_status"         property="workflowStatus"/>
+        <result column="dmc_code"                property="dmcCode"/>
+        <result column="create_time"             property="createTime"/>
+        <result column="update_time"             property="updateTime"/>
+    </resultMap>
+
+    <!-- 1. 按项目ID查询（使用轻量 ResultMap，不含 dm_content）-->
+    <select id="selectByProjectId" parameterType="string" resultMap="ListResultMap">
+        SELECT id, project_id, project_name, sns, info_code, info_code_variant,
+               ietm_location_code, originator, originator_name, issue_no, in_work,
+               version_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
+               is_latest, status, checkout_user, checkout_time, workflow_instance_id,
+               workflow_status, dmc_code, create_time, update_time
+        FROM ietm_data_module
         WHERE project_id = #{projectId}
           AND status = '1'
           AND is_latest = '1'
         ORDER BY create_time DESC
     </select>
 
-    <!-- 2. 按构型节点ID查询（支持包含子节点）-->
-    <select id="selectByCmNodeId" resultMap="BaseResultMap">
-        SELECT * FROM ietm_data_module
+    <!-- 2. 按构型节点ID查询（修复 LIKE 前置通配符，使用轻量 ResultMap）-->
+    <select id="selectByCmNodeId" resultMap="ListResultMap">
+        SELECT id, project_id, project_name, sns, info_code, info_code_variant,
+               ietm_location_code, originator, originator_name, issue_no, in_work,
+               version_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
+               is_latest, status, checkout_user, checkout_time, workflow_instance_id,
+               workflow_status, dmc_code, create_time, update_time
+        FROM ietm_data_module
         WHERE status = '1'
           AND is_latest = '1'
           <choose>
-              <when test="includeChildren == '1'">
+              <when test="includeChildren == true">
                   AND (cm_node_id = #{cmNodeId}
-                       OR cm_node_path LIKE '%' || #{cmNodeId} || '%')
+                       OR cm_node_path LIKE #{cmNodeId} || '%')
               </when>
               <otherwise>
                   AND cm_node_id = #{cmNodeId}
@@ -107,21 +147,27 @@
         ) WHERE ROWNUM = 1
     </select>
 
-    <!-- 4. 查询历史版本（同一DMC所有版本，版本号倒序）-->
-    <select id="selectHistoryVersions" resultMap="BaseResultMap">
-        SELECT * FROM ietm_data_module
+    <!-- 4. 查询历史版本（修复空值处理，使用轻量 ResultMap）-->
+    <select id="selectHistoryVersions" resultMap="ListResultMap">
+        SELECT id, project_id, sns, info_code, info_code_variant,
+               originator, issue_no, in_work, version_type, tech_name, info_name,
+               dmc_code, create_time, update_time
+        FROM ietm_data_module
         WHERE status = '1'
           AND sns = #{sns}
           AND info_code = #{infoCode}
-          <if test="infoCodeVariant != null and infoCodeVariant != ''">
-              AND info_code_variant = #{infoCodeVariant}
-          </if>
+          AND (info_code_variant = #{infoCodeVariant}
+               OR (info_code_variant IS NULL AND #{infoCodeVariant} IS NULL))
         ORDER BY issue_no DESC, in_work DESC
     </select>
 
-    <!-- 5. 查询引用关系（out=出引用 / in=入引用）-->
+    <!-- 5. 查询引用关系（out=出引用 / in=入引用，添加参数校验）-->
     <select id="selectReferenceInfo" resultType="map">
         <choose>
+            <when test="refType == null or refType == ''">
+                <!-- 参数为空时返回空结果，避免 otherwise 静默兜底 -->
+                SELECT NULL AS "refId" FROM DUAL WHERE 1=0
+            </when>
             <when test="refType == 'out'">
                 SELECT r.id           AS "refId",
                        r.target_dm_id AS "targetDmId",
@@ -131,11 +177,11 @@
                        r.ref_type     AS "refType",
                        r.ref_position AS "refPosition"
                 FROM ietm_dm_reference r
-                LEFT JOIN ietm_data_module d ON r.target_dm_id = d.id
+                LEFT JOIN ietm_data_module d ON r.target_dm_id = d.id AND d.status = '1'
                 WHERE r.source_dm_id = #{dmId}
                 ORDER BY r.create_time DESC
             </when>
-            <otherwise>
+            <when test="refType == 'in'">
                 SELECT r.id           AS "refId",
                        r.source_dm_id AS "sourceDmId",
                        d.dmc_code     AS "sourceDmcCode",
@@ -144,9 +190,13 @@
                        r.ref_type     AS "refType",
                        r.ref_position AS "refPosition"
                 FROM ietm_dm_reference r
-                LEFT JOIN ietm_data_module d ON r.source_dm_id = d.id
+                LEFT JOIN ietm_data_module d ON r.source_dm_id = d.id AND d.status = '1'
                 WHERE r.target_dm_id = #{dmId}
                 ORDER BY r.create_time DESC
+            </when>
+            <otherwise>
+                <!-- refType 既不是 out 也不是 in，返回空结果 -->
+                SELECT NULL AS "refId" FROM DUAL WHERE 1=0
             </otherwise>
         </choose>
     </select>

@@ -5,6 +5,7 @@ import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmProjectInfoVO;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmCopyVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
@@ -46,6 +47,14 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
      * @return 删除结果
      */
     boolean deleteDm(String id);
+
+    /**
+     * 删除DM（接受预查询实体，优化批量删除性能）
+     * @param id DM主键
+     * @param existDm 已查询的DM实体
+     * @return 删除结果
+     */
+    boolean deleteDmWithEntity(String id, IetmDataModule existDm);
 
     /**
      * 根据ID查询DM
@@ -297,4 +306,69 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
      * @return 操作结果
      */
     Result<?> editProp(String id, DmEditPropVO vo, String currentUser);
+
+    /**
+     * 校验XML内容格式
+     * @param xmlContent XML内容
+     * @return 校验结果 {valid: true/false, message: "..."}
+     */
+    Map<String, Object> validateXmlContent(String xmlContent);
+
+    // ==================== 复制DM相关方法 ====================
+
+    /**
+     * 复制DM（校验是否可复制）
+     * @param dmId 被复制DM的ID
+     * @return 校验结果
+     */
+    Result<?> copyDm(String dmId);
+
+    /**
+     * 复制新建DM（核心方法）
+     * @param vo 复制请求参数（包含源DM ID、目标节点信息、表单数据）
+     * @return 新DM对象或错误信息
+     */
+    Result<?> copyAndCreateDm(DmCopyVO vo);
+
+    /**
+     * 生成DMC编码（含DMC-前缀）
+     * @param dm DM对象
+     * @return DMC编码
+     */
+    String generateDmcCode(IetmDataModule dm);
+
+    /**
+     * DMC查重（优化版）
+     * 根据 VO 中的参数生成完整 DMC 编码并检查唯一性
+     * @param vo DMC查重请求对象（包含所有DMC组成字段）
+     * @return null=唯一，否则返回重复的DMC编码字符串
+     */
+    String checkDmcUnique(org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmcUniqueCheckVO vo);
+
+    /**
+     * DMC查重（旧版本，保留向后兼容）
+     * @deprecated 建议使用 checkDmcUnique(DmcUniqueCheckVO) 方法
+     * @param sns SNS编码
+     * @param infoCode 信息码
+     * @param infoCodeVariant 信息码变体
+     * @param ietmLocationCode 位置码
+     * @param excludeId 排除的ID（编辑时用）
+     * @return true=唯一，false=重复
+     */
+    @Deprecated
+    boolean checkDmcUnique(String sns, String infoCode, String infoCodeVariant,
+                          String ietmLocationCode, String excludeId);
+
+    /**
+     * 提取技术名称（从节点名称中提取空格后的部分）
+     * @param nodeNameWithCode 节点名称（格式：编码 名称）
+     * @return 技术名称
+     */
+    String extractTechName(String nodeNameWithCode);
+
+    /**
+     * 从项目参数设置创作单位/责任单位（含容错）
+     * @param dm DM对象
+     */
+    void setOriginatorFromProject(IetmDataModule dm);
 }
