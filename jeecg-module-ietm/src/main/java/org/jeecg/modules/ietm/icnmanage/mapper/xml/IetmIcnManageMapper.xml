@@ -6,7 +6,7 @@
     <select id="getMaxUniqueIdByCmNodeId" resultType="java.lang.String">
         SELECT MAX(unique_id)
         FROM ietm_icn_manage
-        WHERE cmnode_id = #{cmNodeId}
+        WHERE cm_node_id = #{cmNodeId}
         AND isdeleted = '0'
     </select>
 
@@ -18,7 +18,7 @@
             icn.create_time,
             icn.update_by,
             icn.update_time,
-            icn.cmnode_id,
+            icn.cm_node_id,
             icn.sns,
             icn.rpc,
             icn.rpc_name,
@@ -45,7 +45,7 @@
         FROM ietm_icn_manage icn
         LEFT JOIN ietm_attachment att1 ON icn.id = att1.pid AND att1.file_type = '实体文件'
         LEFT JOIN ietm_attachment att2 ON icn.id = att2.pid AND att2.file_type = '相关文件'
-        WHERE icn.cmnode_id = #{cmNodeId}
+        WHERE icn.cm_node_id = #{cmNodeId}
         AND icn.isdeleted = '0'
         ORDER BY icn.create_time DESC
     </select>
@@ -58,7 +58,7 @@
             icn.create_time,
             icn.update_by,
             icn.update_time,
-            icn.cmnode_id,
+            icn.cm_node_id,
             icn.sns,
             icn.rpc,
             icn.rpc_name,
@@ -85,7 +85,7 @@
         FROM ietm_icn_manage icn
         LEFT JOIN ietm_attachment att1 ON icn.id = att1.pid AND att1.file_type = '实体文件'
         LEFT JOIN ietm_attachment att2 ON icn.id = att2.pid AND att2.file_type = '相关文件'
-        WHERE icn.cmnode_id IN (
+        WHERE icn.cm_node_id IN (
             SELECT id
             FROM ietm_project_configuration_management
             START WITH id = #{cmNodeId}
@@ -103,7 +103,7 @@
             icn.create_time,
             icn.update_by,
             icn.update_time,
-            icn.cmnode_id,
+            icn.cm_node_id,
             icn.sns,
             icn.rpc,
             icn.rpc_name,

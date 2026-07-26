@@ -41,7 +41,7 @@
 	<select id="countIcnReference" parameterType="java.lang.String" resultType="int">
 		SELECT COUNT(*)
 		FROM ietm_icn_manage
-		WHERE cmnode_id = #{cmNodeId}
+		WHERE cm_node_id = #{cmNodeId}
 		AND isdeleted = '0'
 	</select>
 

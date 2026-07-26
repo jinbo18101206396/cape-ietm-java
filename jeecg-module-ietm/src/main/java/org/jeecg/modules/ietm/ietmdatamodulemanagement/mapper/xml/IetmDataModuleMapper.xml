@@ -7,7 +7,6 @@
         <id     column="id"                      property="id"/>
         <result column="project_id"              property="projectId"/>
         <result column="project_name"            property="projectName"/>
-        <result column="schema"                  property="schema"/>
         <result column="sns"                     property="sns"/>
         <result column="info_code"               property="infoCode"/>
         <result column="info_code_variant"       property="infoCodeVariant"/>
@@ -36,6 +35,7 @@
         <result column="status"                  property="status"/>
         <result column="checkout_user"           property="checkoutUser"/>
         <result column="checkout_time"           property="checkoutTime"/>
+        <result column="checkout_dm_id"          property="checkoutDmId"/>
         <result column="checkin_time"            property="checkinTime"/>
         <result column="publish_date"            property="publishDate"/>
         <result column="workflow_instance_id"    property="workflowInstanceId"/>
@@ -53,6 +53,7 @@
         <result column="create_time"             property="createTime"/>
         <result column="update_by"               property="updateBy"/>
         <result column="update_time"             property="updateTime"/>
+        <result column="version"                 property="version"/>
         <result column="sys_org_code"            property="sysOrgCode"/>
         <result column="info_code_part"          property="infoCodePart"/>
         <result column="dmc_code"                property="dmcCode"/>
@@ -84,6 +85,7 @@
         <result column="status"                  property="status"/>
         <result column="checkout_user"           property="checkoutUser"/>
         <result column="checkout_time"           property="checkoutTime"/>
+        <result column="checkout_dm_id"          property="checkoutDmId"/>
         <result column="workflow_instance_id"    property="workflowInstanceId"/>
         <result column="workflow_status"         property="workflowStatus"/>
         <result column="dmc_code"                property="dmcCode"/>
@@ -96,8 +98,8 @@
         SELECT id, project_id, project_name, sns, info_code, info_code_variant,
                ietm_location_code, originator, originator_name, issue_no, in_work,
                version_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
-               is_latest, status, checkout_user, checkout_time, workflow_instance_id,
-               workflow_status, dmc_code, create_time, update_time
+               is_latest, status, checkout_user, checkout_time, checkout_dm_id,
+               workflow_instance_id, workflow_status, dmc_code, create_time, update_time
         FROM ietm_data_module
         WHERE project_id = #{projectId}
           AND status = '1'
@@ -110,8 +112,8 @@
         SELECT id, project_id, project_name, sns, info_code, info_code_variant,
                ietm_location_code, originator, originator_name, issue_no, in_work,
                version_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
-               is_latest, status, checkout_user, checkout_time, workflow_instance_id,
-               workflow_status, dmc_code, create_time, update_time
+               is_latest, status, checkout_user, checkout_time, checkout_dm_id,
+               workflow_instance_id, workflow_status, dmc_code, create_time, update_time
         FROM ietm_data_module
         WHERE status = '1'
           AND is_latest = '1'

@@ -251,6 +251,12 @@ public class IetmDataModule implements Serializable {
     @TableField("checkin_time")
     private Date checkinTime;
 
+    /** 签出时关联的原版本ID */
+    @Excel(name = "签出关联ID", width = 20)
+    @ApiModelProperty(value = "签出时关联的原版本ID（用于取消签出时恢复原版本）")
+    @TableField("checkout_dm_id")
+    private String checkoutDmId;
+
     /** 发布日期 */
     @Excel(name = "发布日期", width = 20, format = "yyyy-MM-dd HH:mm:ss")
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
@@ -389,4 +395,9 @@ public class IetmDataModule implements Serializable {
     @ApiModelProperty(value = "语言名称（如：中文、英文）")
     @TableField("language")
     private String language;
+
+    /** 预留属性05（存储待办节点信息JSON） */
+    @ApiModelProperty(value = "预留属性05（待办节点信息）")
+    @TableField("attribute_05")
+    private String attribute05;
 }

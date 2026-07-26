@@ -75,7 +75,7 @@ public class IetmProjectParams implements Serializable {
     /**语言*/
     @Excel(name = "语言", width = 15)
     @ApiModelProperty(value = "语言")
-    private String lanuageCode;
+    private String languageCode;
 
 
 

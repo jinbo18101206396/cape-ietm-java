@@ -154,7 +154,7 @@ public class IetmProject implements Serializable {
      */
     @Excel(name = "语言", width = 15)
     @ApiModelProperty(value = "语言")
-    private String lanuageCode;
+    private String languageCode;
     /**
      * 国家
      */

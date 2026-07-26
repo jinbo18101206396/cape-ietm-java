@@ -2,6 +2,7 @@ package org.jeecg.modules.ietm.ietmdatamodulemanagement.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -119,7 +120,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         vo.setCodeRule(project.getCodeRule());
 
         // 5. 语言和国家
-        vo.setLanguageIsoCode(project.getLanuageCode());
+        vo.setLanguageIsoCode(project.getLanguageCode());
         vo.setCountryIsoCode(project.getCountryCode());
 
         // 6. 构型节点技术名称
@@ -264,21 +265,127 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean checkOut(String id, String username) {
         log.info("签出数据模块，ID：{}，用户：{}", id, username);
-        IetmDataModule dm = this.getById(id);
-        if (dm == null) {
+
+        // ==================== 第1步：查询并校验原记录 ====================
+        IetmDataModule originalDm = this.getById(id);
+        if (originalDm == null) {
             throw new JeecgBootException("数据模块不存在");
         }
-        if (oConvertUtils.isNotEmpty(dm.getCheckoutUser())) {
-            throw new JeecgBootException("数据模块已被用户 " + dm.getCheckoutUser() + " 签出");
-        }
-        dm.setCheckoutUser(username);
-        dm.setCheckoutTime(new Date());
 
-        // 校验乐观锁更新结果
-        boolean success = this.updateById(dm);
-        if (!success) {
-            throw new JeecgBootException("签出失败：数据已被其他用户修改，请刷新后重试");
+        // 校验1：是否已被签出
+        if (oConvertUtils.isNotEmpty(originalDm.getCheckoutUser())) {
+            throw new JeecgBootException("数据模块已被用户 " + originalDm.getCheckoutUser() + " 签出");
         }
+
+        // 校验2：是否已发布（新增）
+        if ("1".equals(originalDm.getVersionType())) {
+            throw new JeecgBootException("已发布的数据模块不能签出");
+        }
+
+        // 校验3：是否最新版本（新增）
+        if (!"1".equals(originalDm.getIsLatest())) {
+            throw new JeecgBootException("只能签出最新版本，历史版本不可签出");
+        }
+
+        // 校验4：inwork版本号边界检查（新增）
+        String currentInwork = originalDm.getInWork() != null ? originalDm.getInWork() : "00";
+        String currentIssueno = originalDm.getIssueNo() != null ? originalDm.getIssueNo() : "001";
+        int inwork = Integer.parseInt(currentInwork);
+        if (inwork >= 99) {
+            throw new JeecgBootException("在编版本已达上限99，请先发布后再签出");
+        }
+
+        // ==================== 第2步：克隆生成新版本 ====================
+        IetmDataModule newDm = new IetmDataModule();
+
+        // 2.1 复制所有字段（使用Spring的BeanUtils）
+        org.springframework.beans.BeanUtils.copyProperties(originalDm, newDm);
+
+        // 2.2 清空主键和版本字段（让MyBatis-Plus自动生成新ID）
+        newDm.setId(null);
+        newDm.setVersion(null);
+
+        // 2.3 升级版本号（inwork +1）
+        Map<String, String> newVersion = calculateVersion(currentInwork, currentIssueno, "inwork");
+        newDm.setInWork(newVersion.get("newInwork"));
+
+        // 2.4 设置签出信息
+        newDm.setCheckoutUser(username);
+        newDm.setCheckoutTime(new Date());
+        newDm.setCheckoutDmId(originalDm.getId()); // ⚠️ 关键：记录原版本ID
+
+        // 2.5 标记为最新版本
+        newDm.setIsLatest("1");
+
+        // 2.6 重新生成DMC（因为inwork变化了）
+        String newDmc = generateDmc(newDm);
+        newDm.setDmcCode(newDmc);
+
+        // 2.7 更新时间戳
+        newDm.setCreateTime(new Date());
+        newDm.setUpdateTime(new Date());
+        newDm.setCreateBy(username);
+        newDm.setUpdateBy(username);
+
+        // 2.8 清空签入/发布时间（新版本未签入/发布）
+        newDm.setCheckinTime(null);
+        newDm.setPublishDate(null);
+        newDm.setIssueDate(null);
+
+        // ==================== 第3步：校验DMC唯一性 ====================
+        IetmDataModule conflict = ietmDataModuleMapper.selectByDmcForValidation(
+            newDm.getSns(), newDm.getInfoCode(), newDm.getInfoCodeVariant(),
+            newDm.getIetmLocationCode(), newDm.getLanguageIsoCode(), newDm.getCountryIsoCode(),
+            originalDm.getId() // 排除原版本（签出时原版本尚未更新为 is_latest=0）
+        );
+        if (conflict != null) {
+            throw new JeecgBootException("签出失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
+        }
+
+        // ==================== 第4步：先将原版本标为历史版本（UPDATE）====================
+        // ⚠️ 约束问题：uk_dm_dmc 包含 is_latest 字段，同一DM只能有1条 is_latest='0'
+        // 解法：签出前先将该DM的所有历史版本(is_latest='0')的 status 改为 '0'（逻辑删除/归档）
+        //       这样它们不再计入 status='1' 的约束范围，当前版本可以安全降级为 is_latest='0'
+
+        // 第4.1步：将该DM所有历史版本改为 status='0'（归档）
+        LambdaUpdateWrapper<IetmDataModule> archiveWrapper = new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getSns, originalDm.getSns())
+                .eq(IetmDataModule::getInfoCode, originalDm.getInfoCode())
+                .eq(IetmDataModule::getInfoCodeVariant, originalDm.getInfoCodeVariant())
+                .eq(IetmDataModule::getIetmLocationCode, originalDm.getIetmLocationCode())
+                .eq(IetmDataModule::getLanguageIsoCode, originalDm.getLanguageIsoCode())
+                .eq(IetmDataModule::getCountryIsoCode, originalDm.getCountryIsoCode())
+                .eq(IetmDataModule::getStatus, "1")
+                .eq(IetmDataModule::getIsLatest, "0")  // 🔑 关键修复：只归档历史版本
+                .ne(IetmDataModule::getId, originalDm.getId())  // 排除当前版本
+                .set(IetmDataModule::getStatus, "0")  // 归档：status='0'
+                .set(IetmDataModule::getUpdateTime, new Date())
+                .set(IetmDataModule::getUpdateBy, username);
+
+        this.update(archiveWrapper);
+
+        // 第4.2步：将当前版本标为历史版本
+        boolean updateSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, originalDm.getId())
+                .set(IetmDataModule::getIsLatest, "0")
+                .set(IetmDataModule::getUpdateTime, new Date())
+                .set(IetmDataModule::getUpdateBy, username)
+        );
+        if (!updateSuccess) {
+            throw new JeecgBootException("签出失败：更新原版本失败（乐观锁冲突，请刷新后重试）");
+        }
+
+        // ==================== 第5步：再保存新版本（INSERT）====================
+        boolean insertSuccess = this.save(newDm);
+        if (!insertSuccess) {
+            throw new JeecgBootException("签出失败：创建新版本失败");
+        }
+
+        log.info("签出成功！原版本ID：{}，新版本ID：{}，版本号：{}-{} -> {}-{}",
+                 originalDm.getId(), newDm.getId(),
+                 currentIssueno, currentInwork,
+                 newDm.getIssueNo(), newDm.getInWork());
+
         return true;
     }
 
@@ -286,31 +393,69 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean cancelCheckOut(String id, String username) {
         log.info("取消签出数据模块，ID：{}，用户：{}", id, username);
-        IetmDataModule dm = this.getById(id);
-        if (dm == null) {
+
+        // ==================== 第1步：查询并校验工作版本 ====================
+        IetmDataModule workDm = this.getById(id);
+        if (workDm == null) {
             throw new JeecgBootException("数据模块不存在");
         }
-        if (oConvertUtils.isEmpty(dm.getCheckoutUser())) {
+
+        // 校验1：是否已签出
+        if (oConvertUtils.isEmpty(workDm.getCheckoutUser())) {
             throw new JeecgBootException("数据模块未被签出");
         }
-        if (!username.equals(dm.getCheckoutUser())) {
+
+        // 校验2：是否本人签出
+        if (!username.equals(workDm.getCheckoutUser())) {
             throw new JeecgBootException("只能取消自己签出的数据模块");
         }
-        dm.setCheckoutUser(null);
-        dm.setCheckoutTime(null);
 
-        // 校验乐观锁更新结果
-        boolean success = this.updateById(dm);
-        if (!success) {
-            throw new JeecgBootException("取消签出失败：数据已被其他用户修改，请刷新后重试");
+        // 校验3：是否有原版本ID（关键！）
+        if (oConvertUtils.isEmpty(workDm.getCheckoutDmId())) {
+            throw new JeecgBootException("取消签出失败：未找到原版本ID（数据异常，该记录可能不是通过签出生成的）");
         }
+
+        // ==================== 第2步：查询原版本 ====================
+        String originalDmId = workDm.getCheckoutDmId();
+        IetmDataModule originalDm = this.getById(originalDmId);
+        if (originalDm == null) {
+            throw new JeecgBootException("取消签出失败：原版本记录不存在（ID=" + originalDmId + "）");
+        }
+
+        // 校验原版本状态
+        if (!"0".equals(originalDm.getIsLatest())) {
+            log.warn("原版本的 isLatest 应该为 '0'，当前值为 '{}'，数据可能异常", originalDm.getIsLatest());
+        }
+
+        // ==================== 第3步：删除工作版本（当前签出的记录）====================
+        boolean deleteSuccess = this.removeById(id);
+        if (!deleteSuccess) {
+            throw new JeecgBootException("取消签出失败：删除工作版本失败");
+        }
+
+        // ==================== 第4步：恢复原版本为最新版本 ====================
+        // 只更新 is_latest 字段，避免触发其他唯一约束
+        boolean updateSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, originalDm.getId())
+                .set(IetmDataModule::getIsLatest, "1")
+                .set(IetmDataModule::getUpdateTime, new Date())
+                .set(IetmDataModule::getUpdateBy, username)
+        );
+        if (!updateSuccess) {
+            throw new JeecgBootException("取消签出失败：恢复原版本失败（乐观锁冲突）");
+        }
+
+        log.info("取消签出成功！已删除工作版本ID：{}，已恢复原版本ID：{}，版本号：{}-{}",
+                 id, originalDm.getId(),
+                 originalDm.getIssueNo(), originalDm.getInWork());
+
         return true;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean checkIn(String id, String username, String comment) {
-        log.info("签入数据模块，ID：{}，用户：{}", id, username);
+        log.info("签入数据模块，ID：{}，用户：{}，备注：{}", id, username, comment);
         IetmDataModule dm = this.getById(id);
         if (dm == null) {
             throw new JeecgBootException("数据模块不存在");
@@ -322,43 +467,64 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("只能签入自己签出的数据模块");
         }
 
-        // 版本号升级（inwork）
-        String currentInwork = dm.getInWork() != null ? dm.getInWork() : "00";
-        String currentIssueno = dm.getIssueNo() != null ? dm.getIssueNo() : "001";
-
-        // 检查inwork边界
-        int inwork = Integer.parseInt(currentInwork);
-        if (inwork >= 99) {
-            throw new JeecgBootException("在编版本已达上限99，请先发布后再签入");
+        // 保存签入备注
+        if (oConvertUtils.isNotEmpty(comment)) {
+            dm.setReason(comment);
         }
-
-        Map<String, String> newVersion = calculateVersion(currentInwork, currentIssueno, "inwork");
-        dm.setInWork(newVersion.get("newInwork"));
 
         // 清除签出状态
         dm.setCheckoutUser(null);
         dm.setCheckoutTime(null);
         dm.setCheckinTime(new Date());
 
-        // 重新生成DMC（因为inwork变化了）并更新实体
-        String newDmc = generateDmc(dm);
-        dm.setDmcCode(newDmc);
-
-        // 校验 DMC 唯一性（版本升级后可能与其他记录冲突）
-        IetmDataModule conflict = ietmDataModuleMapper.selectByDmcForValidation(
-            dm.getSns(), dm.getInfoCode(), dm.getInfoCodeVariant(),
-            dm.getIetmLocationCode(), dm.getLanguageIsoCode(), dm.getCountryIsoCode(),
-            dm.getId()
-        );
-        if (conflict != null) {
-            throw new JeecgBootException("签入失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
+        // 🔑 关键修复：签入时归档原版本（避免下次签出时唯一约束冲突）
+        // 原因：签出时原版本被降级为 is_latest='0', status='1'（作为历史版本）
+        //      签入后当前版本仍为 is_latest='1', status='1'（最新版本）
+        //      下次签出时，会再次尝试降级当前版本为 is_latest='0'，但此时已有原版本 is_latest='0', status='1'
+        //      违反唯一约束：(sns, info_code, ..., status='1', is_latest='0') 只能有1条
+        // 解决方案：签入时将原版本归档为 status='0'（逻辑删除），保留历史记录但不参与唯一约束
+        if (oConvertUtils.isNotEmpty(dm.getCheckoutDmId())) {
+            String originalDmId = dm.getCheckoutDmId();
+            IetmDataModule originalDm = this.getById(originalDmId);
+            if (originalDm != null) {
+                // 将原版本归档：status='1' → '0'
+                boolean archiveSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                        .eq(IetmDataModule::getId, originalDmId)
+                        .set(IetmDataModule::getStatus, "0")  // 归档：不再参与唯一约束
+                        .set(IetmDataModule::getUpdateTime, new Date())
+                        .set(IetmDataModule::getUpdateBy, username)
+                );
+                if (!archiveSuccess) {
+                    log.warn("签入时归档原版本失败，原版本ID：{}", originalDmId);
+                } else {
+                    log.info("签入时已归档原版本，原版本ID：{}，版本号：{}-{} (status='0')",
+                             originalDmId, originalDm.getIssueNo(), originalDm.getInWork());
+                }
+            }
         }
 
-        // 校验乐观锁更新结果
-        boolean success = this.updateById(dm);
+        // 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
+        LambdaUpdateWrapper<IetmDataModule> updateWrapper = new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, dm.getId())
+                .set(IetmDataModule::getCheckoutUser, null)
+                .set(IetmDataModule::getCheckoutTime, null)
+                .set(IetmDataModule::getCheckinTime, dm.getCheckinTime())
+                .set(IetmDataModule::getCheckoutDmId, null)  // 清除原版本ID引用
+                .set(IetmDataModule::getUpdateBy, username)
+                .set(IetmDataModule::getUpdateTime, new Date());
+
+        // 如果有备注，也更新 reason 字段
+        if (oConvertUtils.isNotEmpty(comment)) {
+            updateWrapper.set(IetmDataModule::getReason, dm.getReason());
+        }
+
+        boolean success = this.update(updateWrapper);
         if (!success) {
             throw new JeecgBootException("签入失败：数据已被其他用户修改，请刷新后重试");
         }
+
+        log.info("签入成功！当前版本ID：{}，版本号：{}-{}",
+                 dm.getId(), dm.getIssueNo(), dm.getInWork());
         return true;
     }
 
@@ -417,8 +583,19 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("发布失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
         }
 
-        // 9. 校验乐观锁更新结果
-        boolean success = this.updateById(dm);
+        // 9. 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
+        boolean success = this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, dm.getId())
+                .set(IetmDataModule::getInWork, "00")
+                .set(IetmDataModule::getIssueNo, dm.getIssueNo())
+                .set(IetmDataModule::getDmcCode, dm.getDmcCode())
+                .set(IetmDataModule::getPublishDate, dm.getPublishDate())
+                .set(IetmDataModule::getVersionType, "1")
+                .set(IetmDataModule::getStatus, "2")
+                .set(IetmDataModule::getIssueDate, dm.getIssueDate())
+                .set(IetmDataModule::getUpdateBy, username)
+                .set(IetmDataModule::getUpdateTime, new Date())
+        );
         if (!success) {
             throw new JeecgBootException("发布失败：数据已被其他用户修改，请刷新后重试");
         }
@@ -455,23 +632,20 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     public Map<String, Object> batchCheckIn(List<String> ids, String username, String comment) {
         log.info("批量签入数据模块，数量：{}，用户：{}", ids.size(), username);
         int success = 0;
-        int fail = 0;
-        List<String> failMessages = new ArrayList<>();
 
         for (String id : ids) {
             try {
                 checkIn(id, username, comment);
                 success++;
             } catch (Exception e) {
-                // 立即抛出，回滚整个事务（all-or-nothing）
+                // 立即抛出，回滚整个事务（all-or-nothing策略）
                 throw new JeecgBootException("批量签入失败（已回滚）：第 " + (success + 1) + " 条记录失败 - " + e.getMessage());
             }
         }
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", success);
-        result.put("fail", fail);
-        result.put("failMessages", failMessages);
+        result.put("total", ids.size());
         return result;
     }
 

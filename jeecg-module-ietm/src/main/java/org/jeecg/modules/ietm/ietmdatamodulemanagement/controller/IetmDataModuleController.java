@@ -19,6 +19,7 @@ import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmCopyVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmcUniqueCheckVO;
 import org.jeecg.common.system.vo.LoginUser;
 import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -669,25 +670,36 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     /**
      * 获取当前登录用户名
      * 优先从 Shiro SecurityUtils 获取，确保返回真实的用户名而不是 Token
+     * 限制长度不超过50个字符（数据库字段限制）
      */
     private String getUsername(HttpServletRequest req) {
+        String username = null;
+
         try {
             LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
             if (loginUser != null && loginUser.getUsername() != null) {
-                return loginUser.getUsername();
+                username = loginUser.getUsername();
             }
         } catch (Exception e) {
             // 如果 Shiro 获取失败，尝试从请求属性获取
         }
 
         // 降级方案：从请求属性获取
-        String username = (String) req.getAttribute("username");
-        if (username != null) {
-            return username;
+        if (username == null) {
+            username = (String) req.getAttribute("username");
         }
 
         // 最后兜底：返回默认用户名（避免返回长 token）
-        return "system";
+        if (username == null) {
+            username = "system";
+        }
+
+        // 🔧 关键修复：截断用户名，避免超出数据库字段长度限制（VARCHAR2(50)）
+        if (username.length() > 50) {
+            username = username.substring(0, 50);
+        }
+
+        return username;
     }
 
     // ==================== 复制DM相关接口 ====================
