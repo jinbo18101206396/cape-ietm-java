@@ -1,6 +1,8 @@
 package org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 
@@ -53,4 +55,19 @@ public interface IetmDataModuleMapper extends BaseMapper<IetmDataModule> {
      */
     List<Map<String, Object>> selectReferenceInfo(@Param("dmId") String dmId,
                                                   @Param("refType") String refType);
+
+    /**
+     * 查询数据模块列表（JOIN流程视图，获取动态流程步骤）
+     * @param page 分页参数
+     * @param projectId 项目ID
+     * @param cmNodeId 构型节点ID
+     * @param cmNodePath 构型节点路径
+     * @param includeChildren 是否包含子节点
+     * @return 数据模块列表
+     */
+    IPage<IetmDataModule> selectPageWithFlow(Page<IetmDataModule> page,
+                                              @Param("projectId") String projectId,
+                                              @Param("cmNodeId") String cmNodeId,
+                                              @Param("cmNodePath") String cmNodePath,
+                                              @Param("includeChildren") Boolean includeChildren);
 }

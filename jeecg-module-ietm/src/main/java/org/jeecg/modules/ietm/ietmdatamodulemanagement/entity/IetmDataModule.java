@@ -396,8 +396,8 @@ public class IetmDataModule implements Serializable {
     @TableField("language")
     private String language;
 
-    /** 预留属性05（存储待办节点信息JSON） */
-    @ApiModelProperty(value = "预留属性05（待办节点信息）")
+    /** 预留属性05（存储当前待办节点的用户名，逗号分隔） */
+    @ApiModelProperty(value = "预留属性05（待办用户名）")
     @TableField("attribute_05")
     private String attribute05;
 }

@@ -11,6 +11,7 @@ import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDataModuleService;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmFormVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
@@ -38,6 +39,9 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     @Autowired
     private IIetmDataModuleService ietmDataModuleService;
 
+    @Autowired
+    private IetmDataModuleMapper ietmDataModuleMapper;
+
     /**
      * 分页查询列表
      */
@@ -59,35 +63,15 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
             return Result.error("请先选择项目或构型节点");
         }
 
-        // 使用LambdaQueryWrapper避免字段名映射问题
-        LambdaQueryWrapper<IetmDataModule> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(IetmDataModule::getStatus, "1");
-        queryWrapper.eq(IetmDataModule::getIsLatest, "1");
-
-        // 根据projectId查询
-        if (projectId != null && !projectId.isEmpty()) {
-            queryWrapper.eq(IetmDataModule::getProjectId, projectId);
-        }
-
-        // 根据cmNodeId查询
-        if (cmNodeId != null && !cmNodeId.isEmpty()) {
-            if (showChildren != null && showChildren && nodePath != null && !nodePath.isEmpty()) {
-                // 查询当前节点及其子节点（通过nodePath前缀匹配）
-                queryWrapper.and(wrapper -> wrapper
-                    .eq(IetmDataModule::getCmNodeId, cmNodeId)
-                    .or()
-                    .likeRight(IetmDataModule::getCmNodePath, nodePath + "/")
-                );
-            } else {
-                // 只查询当前节点
-                queryWrapper.eq(IetmDataModule::getCmNodeId, cmNodeId);
-            }
-        }
-
-        queryWrapper.orderByDesc(IetmDataModule::getCreateTime);
-
+        // 使用自定义Mapper方法，JOIN v_wf_instance 视图获取动态流程步骤
         Page<IetmDataModule> page = new Page<>(pageNo, pageSize);
-        IPage<IetmDataModule> pageList = ietmDataModuleService.page(page, queryWrapper);
+        IPage<IetmDataModule> pageList = ietmDataModuleMapper.selectPageWithFlow(
+                page,
+                projectId,
+                cmNodeId,
+                nodePath,
+                showChildren
+        );
 
         return Result.OK(pageList);
     }
