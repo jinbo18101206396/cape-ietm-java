@@ -567,6 +567,14 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             log.debug("无需迁移工作流实例：DM {} 没有关联的活动流程", originalDm.getId());
         }
 
+        // ✅ 第6.5步：复制资源关联到新工作版本
+        // 签出克隆出新ID，资源(ietm_dm_resource)仍挂在原版本上，需复制到新版本，
+        // 否则列表刷新后选中新版本时，资源列表为空。
+        int copiedRes = copyDmResources(originalDm.getId(), newDm.getId(), username);
+        if (copiedRes > 0) {
+            log.info("签出复制资源：{} -> {}, 复制 {} 条", originalDm.getId(), newDm.getId(), copiedRes);
+        }
+
         // ✅ 第7步：同步版本号到XML（签出后新版本的XML中issueInfo标签需要更新）
         syncVersionToXml(newDm.getId());
 
@@ -637,6 +645,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         }
 
         // ==================== 第4步：删除工作版本（当前签出的记录）====================
+        // 先清理工作版本在签出时复制的资源副本，避免删除DM后残留孤儿资源记录
+        ietmDmCommentMapper.deleteByDmId(id);
+
         boolean deleteSuccess = this.removeById(id);
         if (!deleteSuccess) {
             throw new JeecgBootException("取消签出失败：删除工作版本失败");
@@ -1963,6 +1974,16 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         this.saveDm(newDm);
 
+        // ✅ type=1（新版本链）：源版本已降为历史(is_latest='0')，新版本需继承资源快照，
+        // 与 checkOut 语义一致——否则资源列表在切换到新版本后为空。
+        // type=0（属性复制）：创建全新DM，不携带原DM资源，不复制。
+        if (copyType != null && copyType == 1) {
+            int copiedRes = copyDmResources(id, newDm.getId(), username);
+            if (copiedRes > 0) {
+                log.info("copyDm(type=1) 复制资源：{} -> {}, 复制 {} 条", id, newDm.getId(), copiedRes);
+            }
+        }
+
         // ✅ 复制后同步版本号到XML（复制的dmContent中issueInfo标签是旧版本号）
         syncVersionToXml(newDm.getId());
 
@@ -2223,6 +2244,33 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Override
     public List<Map<String, Object>> queryDmResources(String dmId) {
         return ietmDmCommentMapper.selectByDmId(dmId);
+    }
+
+    /**
+     * 复制资源关联：签出时把原版本(fromDmId)的资源记录复制到新工作版本(toDmId)。
+     * 只改挂 dm_id，其余字段（file_path 等物理文件指针）保持不变，实现版本各自独立的资源快照。
+     * @return 复制的记录数
+     */
+    private int copyDmResources(String fromDmId, String toDmId, String username) {
+        List<IetmDmComment> resources = ietmDmCommentMapper.selectList(
+                new LambdaQueryWrapper<IetmDmComment>().eq(IetmDmComment::getDmId, fromDmId));
+        if (resources == null || resources.isEmpty()) {
+            return 0;
+        }
+        Date now = new Date();
+        int count = 0;
+        for (IetmDmComment src : resources) {
+            IetmDmComment copy = new IetmDmComment();
+            org.springframework.beans.BeanUtils.copyProperties(src, copy);
+            copy.setId(null);            // 让 MyBatis-Plus 生成新主键
+            copy.setDmId(toDmId);        // 改挂到新版本
+            copy.setCreateBy(username);
+            copy.setCreateTime(now);
+            copy.setUpdateBy(username);
+            copy.setUpdateTime(now);
+            count += ietmDmCommentMapper.insert(copy);
+        }
+        return count;
     }
 
     @Override
