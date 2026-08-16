@@ -194,7 +194,7 @@
         <if test="onlyPublished != null and onlyPublished == true">
           AND version_type = '1'
         </if>
-        ORDER BY issue_no DESC, in_work DESC
+        ORDER BY CAST(issue_no AS NUMBER) DESC, CAST(in_work AS NUMBER) DESC
     </select>
 
     <!-- 4b. 按 ID 单取 XML 内容（对比/查看时按需加载，不走列表轻量查询）-->

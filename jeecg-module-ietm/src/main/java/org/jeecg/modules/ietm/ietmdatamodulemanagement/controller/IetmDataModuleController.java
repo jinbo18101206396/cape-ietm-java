@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.system.base.controller.JeecgController;
@@ -435,6 +436,27 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
             System.err.println("【Controller错误输出】calcref失败：" + e.getMessage());
             e.printStackTrace();
             return Result.error("计算引用关系失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量修复 DMC 与版本号不一致的数据
+     * <p>用于修复 editProp 历史遗留的版本号与 DMC 不一致问题</p>
+     */
+    @AutoLog(value = "数据模块管理-修复DMC不一致")
+    @ApiOperation(value = "数据模块管理-修复DMC不一致", notes = "批量修复版本号字段与DMC编码不一致的历史数据")
+    @PostMapping(value = "/fixDmc")
+    @RequiresRoles("admin")  // 仅管理员可操作
+    public Result<Map<String, Object>> fixInconsistentDmc(
+            @ApiParam(value = "最多修复记录数", required = false, defaultValue = "1000")
+            @RequestParam(required = false, defaultValue = "1000") int limit) {
+        log.info("管理员触发批量修复 DMC，limit={}", limit);
+        try {
+            Map<String, Object> result = ietmDataModuleService.fixInconsistentDmc(limit);
+            return Result.OK("修复完成", result);
+        } catch (Exception e) {
+            log.error("批量修复 DMC 失败", e);
+            return Result.error("修复失败：" + e.getMessage());
         }
     }
 

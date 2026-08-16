@@ -3,6 +3,7 @@ package org.jeecg.modules.ietm.ietmdatamodulemanagement.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -2614,12 +2615,20 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             // 对齐旧系统：编辑DM属性时更新版本日期
             dm.setIssueDate(new Date());
             dm.setUpdateBy(currentUser);
+
+            // ✅ 修复：即使版本号未变，也需重新生成 DMC 以确保一致性
+            // （防止 issueNo/inWork 被手动修复但 DMC 未同步的遗留数据）
+            String newDmc = generateDmc(dm);
+            dm.setDmcCode(newDmc);
+
             boolean updateSuccess = this.updateById(dm);
             if (!updateSuccess) {
                 log.warn("编辑DM属性失败(乐观锁冲突)，id={}, user={}", id, currentUser);
                 return Result.error("DM数据已被他人修改，请刷新后重试");
             }
-            log.info("编辑DM属性(已签出)，id={}, user={}", id, currentUser);
+            // ✅ 同步 techName/infoName 到 dm_content XML（关系列已更新，再同步 XML 内部节点）
+            syncTitleToXml(id, dm);
+            log.info("编辑DM属性(已签出)，id={}, user={}, dmcCode={}", id, currentUser, newDmc);
             return Result.OK("修改DM属性成功");
         } else {
             // 4b. 未签出：自动签出 + inWork+1 + 更新属性
@@ -2649,13 +2658,43 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             dm.setIssueDate(new Date());
             dm.setUpdateBy(currentUser);
 
+            // ✅ 修复：版本号升级后必须重新生成 DMC，确保 DMC 与 issueNo/inWork 一致
+            String newDmc = generateDmc(dm);
+            dm.setDmcCode(newDmc);
+
             boolean updateSuccess = this.updateById(dm);
             if (!updateSuccess) {
                 log.warn("编辑DM属性失败(乐观锁冲突)，id={}, user={}", id, currentUser);
                 return Result.error("DM数据已被他人修改，请刷新后重试");
             }
-            log.info("编辑DM属性(自动签出)，id={}, user={}, newInWork={}", id, currentUser, newInWork);
+            // ✅ 同步 techName/infoName 到 dm_content XML（关系列已更新，再同步 XML 内部节点）
+            syncTitleToXml(id, dm);
+            log.info("编辑DM属性(自动签出)，id={}, user={}, newInWork={}, dmcCode={}", id, currentUser, newInWork, newDmc);
             return Result.OK("已自动签出并修改DM属性成功");
+        }
+    }
+
+    /**
+     * 将 techName/infoName 同步写入 dm_content XML 内部节点。
+     * <p>editProp 只更新关系列；dm_content 的 &lt;techName&gt;/&lt;infoName&gt; 需单独同步，否则
+     * 编辑器/预览读 XML 时仍显示旧标题。</p>
+     * <p>使用 selectContentById（BaseResultMap，含 dm_content CLOB）加载 XML，
+     * 再通过 DmXmlHelper.syncDmIdentToXml 写回，最后单独 UPDATE dm_content。</p>
+     */
+    private void syncTitleToXml(String id, IetmDataModule dm) {
+        IetmDataModule contentDm = baseMapper.selectContentById(id);
+        if (contentDm == null || StringUtils.isBlank(contentDm.getDmContent())) {
+            log.warn("syncTitleToXml: dm_content 为空，跳过 XML 同步，id={}", id);
+            return;
+        }
+        try {
+            String syncedXml = DmXmlHelper.syncDmIdentToXml(contentDm.getDmContent(), dm);
+            this.update(new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, id)
+                .set(IetmDataModule::getDmContent, syncedXml));
+            log.info("syncTitleToXml 成功：id={}, techName={}, infoName={}", id, dm.getTechName(), dm.getInfoName());
+        } catch (Exception e) {
+            log.error("syncTitleToXml 失败，id={}，XML 同步跳过: {}", id, e.getMessage(), e);
         }
     }
 
@@ -3092,6 +3131,87 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     private void validateField(String fieldName, String value, Pattern pattern) {
         if (value != null && !pattern.matcher(value).matches()) {
             throw new IllegalArgumentException(fieldName + " 包含非法字符，只允许大写字母、数字和短横线");
+        }
+    }
+
+    /**
+     * 批量修复 DMC 与版本号不一致的数据
+     * <p>
+     * 问题根因：editProp 方法在升级版本号时未重新生成 DMC，导致：
+     * - 数据库字段：issue_no='001', in_work='02'
+     * - DMC 字段：dmc_code='DMC-..._001-01_zh-CN'（旧版本）
+     * <p>
+     * 修复方案：根据当前 issue_no/in_work 重新生成 DMC 并更新数据库
+     *
+     * @param limit 最多修复的记录数（防止一次处理过多数据）
+     * @return 修复结果统计
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> fixInconsistentDmc(int limit) {
+        log.info("开始批量修复 DMC 与版本号不一致的数据，limit={}", limit);
+
+        Map<String, Object> result = new HashMap<>();
+        int checkedCount = 0;
+        int fixedCount = 0;
+        int errorCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        try {
+            // 查询所有有效记录（使用 MyBatis-Plus 标准分页，兼容所有数据库）
+            Page<IetmDataModule> pageQuery = new Page<>(1, limit);
+            Page<IetmDataModule> pageResult = this.page(pageQuery, new LambdaQueryWrapper<IetmDataModule>()
+                    .eq(IetmDataModule::getStatus, "1"));
+            List<IetmDataModule> dmList = pageResult.getRecords();
+
+            for (IetmDataModule dm : dmList) {
+                checkedCount++;
+
+                try {
+                    // 根据当前字段重新生成 DMC
+                    String expectedDmc = generateDmc(dm);
+                    String currentDmc = dm.getDmcCode();
+
+                    // 检查是否不一致
+                    if (!expectedDmc.equals(currentDmc)) {
+                        log.warn("发现不一致 DMC，id={}, current={}, expected={}",
+                                dm.getId(), currentDmc, expectedDmc);
+
+                        // 更新 DMC
+                        boolean success = this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                                .eq(IetmDataModule::getId, dm.getId())
+                                .set(IetmDataModule::getDmcCode, expectedDmc));
+
+                        if (success) {
+                            fixedCount++;
+                            log.info("修复成功 id={}, {} -> {}", dm.getId(), currentDmc, expectedDmc);
+                        } else {
+                            errorCount++;
+                            String error = String.format("id=%s 更新失败", dm.getId());
+                            errors.add(error);
+                            log.error(error);
+                        }
+                    }
+                } catch (Exception e) {
+                    errorCount++;
+                    String error = String.format("id=%s 处理异常: %s", dm.getId(), e.getMessage());
+                    errors.add(error);
+                    log.error("修复 DMC 失败", e);
+                }
+            }
+
+            result.put("checkedCount", checkedCount);
+            result.put("fixedCount", fixedCount);
+            result.put("errorCount", errorCount);
+            result.put("errors", errors);
+
+            log.info("批量修复完成，检查={}, 修复={}, 错误={}", checkedCount, fixedCount, errorCount);
+            return result;
+
+        } catch (Exception e) {
+            log.error("批量修复 DMC 发生异常", e);
+            result.put("error", e.getMessage());
+            return result;
         }
     }
 }

@@ -193,6 +193,14 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
     Map<String, Object> calculateAllDmReferences(int batchSize);
 
     /**
+     * 批量修复 DMC 与版本号不一致的数据
+     * <p>问题场景：editProp 升级版本号但未更新 DMC 导致历史数据不一致</p>
+     * @param limit 最多修复的记录数
+     * @return 修复统计 Map，含 checkedCount / fixedCount / errorCount / errors
+     */
+    Map<String, Object> fixInconsistentDmc(int limit);
+
+    /**
      * 导入XML文件
      * @param file XML文件
      * @param projectId 项目ID
