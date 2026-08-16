@@ -1014,23 +1014,36 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                 continue;
             }
             // 根据DMC查目标DM（最新有效版本）
+            // 先尝试精确匹配
             IetmDataModule target = ietmDataModuleMapper.selectOne(
                     new LambdaQueryWrapper<IetmDataModule>()
                             .eq(IetmDataModule::getDmcCode, item.getTargetDmc())
                             .eq(IetmDataModule::getStatus,  "1")
                             .eq(IetmDataModule::getIsLatest,"1")
                             .last("FETCH FIRST 1 ROWS ONLY"));
+
+            // 如果精确匹配失败，尝试前缀匹配（兼容无后缀的DMC引用）
             if (target == null) {
-                log.warn("calculateDmReferences 目标DM不存在 dmId={} targetDmc={}", dmId, item.getTargetDmc());
+                log.debug("calculateDmReferences 精确匹配失败，尝试前缀匹配 targetDmc={}", item.getTargetDmc());
+                target = ietmDataModuleMapper.selectOne(
+                        new LambdaQueryWrapper<IetmDataModule>()
+                                .likeRight(IetmDataModule::getDmcCode, item.getTargetDmc())
+                                .eq(IetmDataModule::getStatus,  "1")
+                                .eq(IetmDataModule::getIsLatest,"1")
+                                .last("FETCH FIRST 1 ROWS ONLY"));
+            }
+
+            if (target == null) {
+                log.warn("calculateDmReferences 目标DM不存在（精确和前缀匹配均失败） dmId={} targetDmc={}", dmId, item.getTargetDmc());
                 Map<String, Object> d = new HashMap<>();
                 d.put("refType", item.getRefType()); d.put("targetDmc", item.getTargetDmc());
                 d.put("targetExists", false); d.put("note", "目标DM不存在");
                 details.add(d);
                 continue;
+            } else {
+                log.info("calculateDmReferences 找到目标DM dmId={} targetDmc={} actualDmc={} targetId={}",
+                         dmId, item.getTargetDmc(), target.getDmcCode(), target.getId());
             }
-
-            log.debug("calculateDmReferences 找到目标DM dmId={} targetDmc={} targetId={}",
-                     dmId, item.getTargetDmc(), target.getId());
 
             String key = target.getId() + ":" + item.getRefType() + ":" + item.getRefPosition();
             if (!existingMap.containsKey(key)) {
@@ -1064,7 +1077,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             log.info("calculateDmReferences 删除失效引用 {} 条 dmId={}", staleIds.size(), dmId);
         }
 
-        // ⑤ 批量插入新增引用
+        // ⑤ 批量插入新增引用（逐条插入，避免INSERT ALL被SQL解析器拒绝）
         if (!toInsert.isEmpty()) {
             log.info("calculateDmReferences 准备插入引用 dmId={} 数量={}", dmId, toInsert.size());
             // 打印第一条记录的详细信息用于调试
@@ -1074,21 +1087,19 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                         first.getId(), first.getSourceDmId(), first.getTargetDmId(),
                         first.getRefType(), first.getCreateBy());
             }
-            // 分批插入，避免 DM8 INSERT ALL 过大
-            int batchSize = 100;
-            for (int i = 0; i < toInsert.size(); i += batchSize) {
-                List<IetmDmRef> batch = toInsert.subList(i, Math.min(i + batchSize, toInsert.size()));
+            // 逐条插入，避免MyBatis-Plus的TenantLineInnerInterceptor解析INSERT ALL失败
+            int successCount = 0;
+            for (IetmDmRef ref : toInsert) {
                 try {
-                    int insertCount = ietmDmRefMapper.batchInsert(batch);
-                    log.info("calculateDmReferences 批次插入成功 dmId={} batch={} count={}",
-                            dmId, (i / batchSize) + 1, insertCount);
+                    ietmDmRefMapper.insertOne(ref);
+                    successCount++;
                 } catch (Exception e) {
-                    log.error("calculateDmReferences 批次插入失败 dmId={} batch={} error={}",
-                            dmId, (i / batchSize) + 1, e.getMessage(), e);
-                    throw e;
+                    log.error("calculateDmReferences 单条插入失败 dmId={} refId={} error={}",
+                            dmId, ref.getId(), e.getMessage());
+                    // 继续插入其他记录
                 }
             }
-            log.info("calculateDmReferences 插入新引用完成 {} 条 dmId={}", toInsert.size(), dmId);
+            log.info("calculateDmReferences 插入新引用完成 成功={}/{} dmId={}", successCount, toInsert.size(), dmId);
         } else {
             log.info("calculateDmReferences 无需插入新引用 dmId={}", dmId);
         }

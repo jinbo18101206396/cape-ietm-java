@@ -60,15 +60,19 @@
         WHERE source_dm_id = #{dmId} OR target_dm_id = #{dmId}
     </delete>
 
-    <!-- 批量插入引用关系（DM8 INSERT ALL 语法，兼容达梦数据库） -->
+    <!-- 批量插入引用关系（逐条INSERT，避免MyBatis-Plus拦截器解析问题） -->
     <insert id="batchInsert">
-        INSERT ALL
-        <foreach collection="refs" item="item">
-            INTO ietm_dm_reference (id, source_dm_id, target_dm_id, ref_type, ref_dmc, target_dmc, ref_position, create_by, create_time)
+        <foreach collection="refs" item="item" separator=";">
+            INSERT INTO ietm_dm_reference (id, source_dm_id, target_dm_id, ref_type, ref_dmc, target_dmc, ref_position, create_by, create_time)
             VALUES (#{item.id}, #{item.sourceDmId}, #{item.targetDmId}, #{item.refType},
                     #{item.refDmc}, #{item.targetDmc}, #{item.refPosition}, #{item.createBy}, SYSDATE)
         </foreach>
-        SELECT 1 FROM DUAL
+    </insert>
+
+    <!-- 单条插入引用关系 -->
+    <insert id="insertOne">
+        INSERT INTO ietm_dm_reference (id, source_dm_id, target_dm_id, ref_type, ref_dmc, target_dmc, ref_position, create_by, create_time)
+        VALUES (#{id}, #{sourceDmId}, #{targetDmId}, #{refType}, #{refDmc}, #{targetDmc}, #{refPosition}, #{createBy}, SYSDATE)
     </insert>
 
     <!-- 仅删除指定DM作为出引用方的关系（calcref 专用，不影响入引用记录） -->

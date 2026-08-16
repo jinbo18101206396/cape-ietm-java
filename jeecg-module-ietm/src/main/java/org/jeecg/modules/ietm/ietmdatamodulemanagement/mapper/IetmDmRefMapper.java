@@ -58,9 +58,16 @@ public interface IetmDmRefMapper extends BaseMapper<IetmDmRef> {
     Integer deleteBySourceDmId(@Param("sourceDmId") String sourceDmId);
 
     /**
-     * 批量插入引用关系（DM8 INSERT ALL 语法）
+     * 批量插入引用关系（逐条插入，避免SQL解析器问题）
      * @param refs 引用关系列表
      * @return 插入数量
      */
     Integer batchInsert(@Param("refs") List<IetmDmRef> refs);
+
+    /**
+     * 单条插入引用关系
+     * @param ref 引用关系
+     * @return 插入数量
+     */
+    Integer insertOne(IetmDmRef ref);
 }
