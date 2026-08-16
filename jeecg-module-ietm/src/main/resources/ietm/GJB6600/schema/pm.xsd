@@ -1,0 +1,1340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 编辑使用 XMLSpy v2006 U (http://www.altova.com) 由 any (any) -->
+<!-- 编辑使用 XMLSpy v2006 U (http://www.altova.com) 由 any (any) -->
+<!-- 编辑使用 XMLSpy v2006 U (http://www.altova.com) 由 any (any) -->
+<!-- 编辑使用 XMLSpy v2006 U (http://www.altova.com) 由 any (any) -->
+<!-- 编辑使用 XMLSpy v2006 U (http://www.altova.com) 由 any (any) -->
+<xs:schema xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="qualified">
+	<xs:element name="出版物模块" type="出版物模块类型"/>
+	<xs:complexType name="出版物模块类型">
+		<xs:sequence>
+			<xs:element ref="标识和状态"/>
+			<xs:element ref="内容"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="标识和状态" type="标识和状态类型"/>
+	<xs:complexType name="标识和状态类型">
+		<xs:sequence>
+			<xs:element ref="出版物模块标识"/>
+			<xs:element ref="出版物模块状态"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="出版物模块标识" type="出版物模块标识类型"/>
+	<xs:complexType name="出版物模块标识类型">
+		<xs:sequence>
+			<xs:element ref="出版物模块代码"/>
+			<xs:element ref="出版物模块名称"/>
+			<xs:element ref="版本"/>
+			<xs:element ref="发布日期"/>
+			<xs:element ref="语言" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="出版物模块代码" type="出版物模块代码类型"/>
+	<xs:complexType name="出版物模块代码类型">
+		<xs:sequence>
+			<xs:element ref="型号识别码"/>
+			<xs:element ref="出版物模块发行单位"/>
+			<xs:element ref="出版物模块编号"/>
+			<xs:element ref="出版物模块卷号"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="型号识别码" type="型号识别码类型"/>
+	<xs:simpleType name="型号识别码类型">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Za-z0-9]{2,14}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="出版物模块发行单位" type="出版物模块发行单位类型"/>
+	<xs:simpleType name="出版物模块发行单位类型">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Za-z0-9]{5}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="出版物模块编号" type="出版物模块编号类型"/>
+	<xs:simpleType name="出版物模块编号类型">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Za-z0-9]{5}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="出版物模块卷号" type="NONNEGI2"/>
+	<xs:simpleType name="NONNEGI2">
+		<xs:restriction base="xs:nonNegativeInteger">
+			<xs:pattern value="\d{2}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="出版物模块名称" type="xs:string"/>
+	<xs:element name="发布日期" type="发布日期类型"/>
+	<xs:complexType name="发布日期类型">
+		<xs:attributeGroup ref="日期"/>
+	</xs:complexType>
+	<xs:attributeGroup name="日期">
+		<xs:attribute name="年" type="年份格式" use="required"/>
+		<xs:attribute name="月" type="月份格式" use="required"/>
+		<xs:attribute name="日" type="日份格式" use="required"/>
+	</xs:attributeGroup>
+	<xs:simpleType name="年份格式">
+		<xs:restriction base="xs:gYear">
+			<xs:pattern value="\d{4}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="月份格式">
+		<xs:restriction base="xs:positiveInteger">
+			<xs:maxInclusive value="12"/>
+			<xs:pattern value="\d{2}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="日份格式">
+		<xs:restriction base="xs:positiveInteger">
+			<xs:maxInclusive value="31"/>
+			<xs:pattern value="\d{2}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="语言">
+		<xs:complexType>
+			<xs:attribute ref="语种" use="required"/>
+			<xs:attribute ref="语种区域"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="语种" type="语种属性类型"/>
+	<xs:simpleType name="语种属性类型">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[a-z]{2,3}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:attribute name="语种区域" type="语种区域属性类型"/>
+	<xs:simpleType name="语种区域属性类型">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Z]{2}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="出版物模块状态" type="技术出版类型"/>
+	<xs:complexType name="技术出版类型">
+		<xs:sequence>
+			<xs:element ref="密级"/>
+			<xs:element ref="限制性信息" minOccurs="0"/>
+			<xs:element ref="责任合作方"/>
+			<xs:element ref="创作单位" minOccurs="0"/>
+			<xs:element ref="适用性信息列表" minOccurs="0"/>
+			<xs:element ref="适用性信息"/>
+			<xs:element ref="质量保证信息"/>
+			<xs:element ref="备注" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="质量保证信息">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:choice>
+					<xs:element ref="尚未验证"/>
+					<xs:sequence>
+						<xs:element ref="第一次验证"/>
+						<xs:element ref="第二次验证" minOccurs="0"/>
+					</xs:sequence>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="尚未验证">
+		<xs:complexType/>
+	</xs:element>
+	<xs:element name="第一次验证">
+		<xs:complexType>
+			<xs:attribute ref="验证方法" use="required"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="验证方法">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:enumeration value="理论验证"/>
+				<xs:enumeration value="实际验证"/>
+				<xs:enumeration value="理论及实际验证"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="第二次验证">
+		<xs:complexType>
+			<xs:attribute ref="验证方法" use="required"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="备注">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="段落" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="适用性信息列表">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="限制性信息">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element name="指导说明">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element ref="版权说明" minOccurs="0"/>
+							<xs:element ref="分发说明" minOccurs="0"/>
+							<xs:element ref="披露说明" minOccurs="0"/>
+							<xs:element ref="出口控制" minOccurs="0"/>
+							<xs:element ref="处置说明" minOccurs="0"/>
+							<xs:element ref="其他限制信息" minOccurs="0"/>
+						</xs:sequence>
+						<xs:attributeGroup ref="更改标识"/>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="其他限制信息">
+		<xs:complexType>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="段落"/>
+				<xs:group ref="图表"/>
+				<xs:group ref="警示信息"/>
+			</xs:choice>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="处置说明">
+		<xs:complexType mixed="true">
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="段落"/>
+				<xs:group ref="图表"/>
+				<xs:group ref="警示信息"/>
+			</xs:choice>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="出口控制">
+		<xs:complexType>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="段落"/>
+				<xs:group ref="图表"/>
+				<xs:group ref="警示信息"/>
+			</xs:choice>
+			<xs:attribute ref="出口授权单位"/>
+			<xs:attribute ref="权限范围"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="权限范围" default="全部">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="全部"/>
+				<xs:enumeration value="部分"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="出口授权单位" type="xs:string"/>
+	<xs:element name="分发说明">
+		<xs:complexType mixed="true">
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="段落"/>
+				<xs:group ref="图表"/>
+				<xs:group ref="警示信息"/>
+			</xs:choice>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="披露说明">
+		<xs:complexType mixed="true">
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="段落"/>
+				<xs:group ref="图表"/>
+				<xs:group ref="警示信息"/>
+			</xs:choice>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="版权说明">
+		<xs:complexType>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="段落"/>
+				<xs:group ref="图表"/>
+				<xs:group ref="警示信息"/>
+			</xs:choice>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="密级">
+		<xs:complexType>
+			<xs:attribute ref="密级等级" use="required"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="密级等级">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:enumeration value="公开"/>
+				<xs:enumeration value="内部"/>
+				<xs:enumeration value="秘密"/>
+				<xs:enumeration value="机密"/>
+				<xs:enumeration value="绝密"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="数据模块代码">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="型号识别码"/>
+				<xs:element ref="系统差异码"/>
+				<xs:element ref="系统码"/>
+				<xs:element ref="分系统码"/>
+				<xs:element ref="分分系统码"/>
+				<xs:element ref="单元组件码"/>
+				<xs:element ref="分解码"/>
+				<xs:element ref="分解差异码"/>
+				<xs:element ref="信息码"/>
+				<xs:element ref="信息差异码"/>
+				<xs:element ref="对象信息适用码"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="系统差异码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{1,4}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="系统码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{2,3}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="分系统码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{1}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="分分系统码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{1}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="单元组件码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="([IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{2,4})"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="分解码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{2}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="分解差异码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{1,3}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="信息码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{3}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="信息差异码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{1}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="对象信息适用码">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[IOABCDEFGHJKLMNPQRSTUVWXYZ0-9]{1}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:element>
+	<xs:element name="责任合作方" type="xs:string"/>
+	<xs:element name="创作单位" type="xs:string"/>
+	<xs:element name="内容" type="内容类型"/>
+	<xs:complexType name="内容类型">
+		<xs:sequence>
+			<xs:element ref="出版物模块条目" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="出版物模块条目" type="出版物模块条目类型"/>
+	<xs:complexType name="出版物模块条目类型">
+		<xs:sequence>
+			<xs:element ref="标题"/>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element ref="数据模块引用"/>
+				<xs:element ref="出版物模块引用"/>
+				<xs:element ref="外部出版物引用"/>
+				<xs:element ref="出版物模块条目"/>
+			</xs:choice>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="出版物模块标题" type="xs:string"/>
+	<xs:element name="出版物模块引用" type="出版物模块引用类型"/>
+	<xs:complexType name="出版物模块引用类型">
+		<xs:choice>
+			<xs:sequence>
+				<xs:element ref="出版物模块代码"/>
+				<xs:element ref="出版物模块名称" minOccurs="0"/>
+				<xs:element ref="版本" minOccurs="0"/>
+				<xs:element ref="发布日期" minOccurs="0"/>
+				<xs:element ref="语言" minOccurs="0"/>
+				<xs:element ref="密级" minOccurs="0"/>
+				<xs:element ref="责任合作方" minOccurs="0"/>
+			</xs:sequence>
+		</xs:choice>
+		<xs:attribute ref="适用性引用"/>
+		<xs:attributeGroup ref="更改标识"/>
+	</xs:complexType>
+	<xs:element name="出版日期" type="出版日期类型"/>
+	<xs:complexType name="出版日期类型">
+		<xs:attributeGroup ref="日期"/>
+	</xs:complexType>
+	<xs:attribute name="版本号">
+		<xs:simpleType>
+			<xs:restriction base="xs:nonNegativeInteger">
+				<xs:pattern value="\d{3}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="临时版本">
+		<xs:simpleType>
+			<xs:restriction base="xs:nonNegativeInteger">
+				<xs:totalDigits value="2" fixed="true"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="版本类型" default="新建">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="新建"/>
+				<xs:enumeration value="更改"/>
+				<xs:enumeration value="已被删除"/>
+				<xs:enumeration value="内容修订"/>
+				<xs:enumeration value="状态信息变更"/>
+				<xs:enumeration value="删除后恢复-内容更改"/>
+				<xs:enumeration value="删除后恢复-修订"/>
+				<xs:enumeration value="删除后恢复-状态信息变更"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="版本">
+		<xs:complexType>
+			<xs:attribute ref="版本号" use="required"/>
+			<xs:attribute ref="临时版本"/>
+			<xs:attribute ref="版本类型" default="新建"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="数据模块引用">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="数据模块代码"/>
+				<xs:element ref="数据模块名称" minOccurs="0"/>
+				<xs:element ref="版本" minOccurs="0"/>
+				<xs:element ref="发布日期" minOccurs="0"/>
+				<xs:element ref="语言" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute ref="目标代码"/>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="目标代码" type="xs:string"/>
+	<xs:element name="数据模块名称">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="部件名称"/>
+				<xs:element ref="信息名称"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="部件名称" type="xs:string"/>
+	<xs:element name="信息名称" type="xs:string"/>
+	<xs:element name="外部出版物引用">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="外部出版物名称" type="xs:string" minOccurs="0"/>
+				<xs:element name="外部出版物编码" type="xs:string" minOccurs="0"/>
+				<xs:element name="外部出版物版本号" type="xs:string" minOccurs="0"/>
+				<xs:element name="外部出版物出版日期" type="日期格式" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="日期格式">
+		<xs:attributeGroup ref="日期"/>
+	</xs:complexType>
+	<xs:element name="适用性信息">
+		<xs:complexType>
+			<xs:choice>
+				<xs:sequence>
+					<xs:element ref="显示文本"/>
+					<xs:choice minOccurs="0">
+						<xs:element ref="单个布尔判断"/>
+						<xs:element ref="多个布尔判断组合"/>
+						<xs:element ref="表达式"/>
+					</xs:choice>
+				</xs:sequence>
+				<xs:choice>
+					<xs:element ref="单个布尔判断"/>
+					<xs:element ref="多个布尔判断组合"/>
+					<xs:element ref="表达式"/>
+				</xs:choice>
+			</xs:choice>
+			<xs:attribute ref="标识"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attributeGroup name="更改标识">
+		<xs:attribute ref="更改前版本号"/>
+		<xs:attribute ref="更改类型"/>
+		<xs:attribute ref="更改原因"/>
+		<xs:attribute ref="是否显示更改标记"/>
+	</xs:attributeGroup>
+	<xs:attribute name="是否显示更改标记">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="是"/>
+				<xs:enumeration value="否"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="更改类型">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="新增"/>
+				<xs:enumeration value="删除"/>
+				<xs:enumeration value="更改"/>
+				<xs:enumeration value="修订"/>
+				<xs:enumeration value="状态信息变更"/>
+				<xs:enumeration value="删除后恢复-状态信息变更"/>
+				<xs:enumeration value="删除后恢复-内容更改"/>
+				<xs:enumeration value="删除后恢复-修订"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="更改原因" type="xs:string"/>
+	<xs:attribute name="更改前版本号">
+		<xs:simpleType>
+			<xs:restriction base="xs:nonNegativeInteger">
+				<xs:pattern value="\d{3}"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="多个布尔判断组合">
+		<xs:complexType>
+			<xs:choice minOccurs="2" maxOccurs="unbounded">
+				<xs:element ref="多个布尔判断组合"/>
+				<xs:element ref="单个布尔判断"/>
+			</xs:choice>
+			<xs:attribute ref="逻辑运算符" use="required"/>
+			<xs:attribute ref="显示格式"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="逻辑运算符">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="且"/>
+				<xs:enumeration value="或"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="显示文本">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="段落" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="段落">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:group ref="段落内容组" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+			<xs:attribute ref="标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:group name="段落内容组">
+		<xs:choice>
+			<xs:group ref="文本"/>
+			<xs:group ref="列表"/>
+		</xs:choice>
+	</xs:group>
+	<xs:group name="文本">
+		<xs:choice>
+			<xs:element ref="重点内容"/>
+			<xs:element ref="符号"/>
+			<xs:element ref="下标"/>
+			<xs:element ref="上标"/>
+			<xs:element ref="缩略语"/>
+			<xs:element ref="脚注"/>
+			<xs:element ref="标题"/>
+			<xs:element ref="链接"/>
+			<xs:element ref="普通文本"/>
+			<xs:element ref="数据模块引用"/>
+		</xs:choice>
+	</xs:group>
+	<xs:group name="列表">
+		<xs:choice>
+			<xs:element ref="有序列表"/>
+			<xs:element ref="无序列表"/>
+			<xs:element ref="定义列表"/>
+		</xs:choice>
+	</xs:group>
+	<xs:element name="无序列表">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="标题" minOccurs="0"/>
+				<xs:element ref="列表条目" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="无序列表标识形式" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="无序列表标识形式" default="圆点">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:enumeration value="无"/>
+				<xs:enumeration value="圆点"/>
+				<xs:enumeration value="圆圈"/>
+				<xs:enumeration value="短横线"/>
+				<xs:enumeration value="实心方块"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="有序列表">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="标题" minOccurs="0"/>
+				<xs:element ref="列表条目" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="有序列表标识形式" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="有序列表标识形式" default="1">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:enumeration value="1"/>
+				<xs:enumeration value="a"/>
+				<xs:enumeration value="A"/>
+				<xs:enumeration value="i"/>
+				<xs:enumeration value="I"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="定义列表">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="标题" minOccurs="0"/>
+				<xs:sequence>
+					<xs:element name="定义列表条目" maxOccurs="unbounded">
+						<xs:complexType>
+							<xs:sequence>
+								<xs:element name="名词">
+									<xs:complexType>
+										<xs:sequence>
+											<xs:element ref="适用性信息" minOccurs="0"/>
+											<xs:choice maxOccurs="unbounded">
+												<xs:element ref="段落"/>
+												<xs:group ref="图表"/>
+												<xs:group ref="警示信息"/>
+											</xs:choice>
+										</xs:sequence>
+									</xs:complexType>
+								</xs:element>
+								<xs:element name="解释">
+									<xs:complexType>
+										<xs:sequence>
+											<xs:element ref="适用性信息" minOccurs="0"/>
+											<xs:choice>
+												<xs:element ref="段落"/>
+												<xs:group ref="图表"/>
+												<xs:group ref="警示信息"/>
+											</xs:choice>
+										</xs:sequence>
+									</xs:complexType>
+								</xs:element>
+							</xs:sequence>
+						</xs:complexType>
+					</xs:element>
+				</xs:sequence>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="列表条目">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:choice>
+					<xs:element ref="段落"/>
+					<xs:group ref="图表"/>
+					<xs:group ref="警示信息"/>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="适用性引用" type="xs:IDREF"/>
+	<xs:group name="警示信息">
+		<xs:choice>
+			<xs:element ref="警告" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element ref="注意" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element ref="注释" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:choice>
+	</xs:group>
+	<xs:element name="警告">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:sequence>
+					<xs:element ref="符号" minOccurs="0"/>
+					<xs:element ref="段落"/>
+				</xs:sequence>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="注意">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:sequence>
+					<xs:element ref="符号" minOccurs="0"/>
+					<xs:element ref="段落"/>
+				</xs:sequence>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="注释">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:sequence>
+					<xs:element ref="符号" minOccurs="0"/>
+					<xs:element ref="段落"/>
+				</xs:sequence>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:group name="图表">
+		<xs:choice>
+			<xs:element ref="图形" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element ref="多媒体" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element ref="表格" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:choice>
+	</xs:group>
+	<xs:element name="表格">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="标题" minOccurs="0"/>
+				<xs:element ref="表格组" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="标识"/>
+			<xs:attribute ref="表格方向"/>
+			<xs:attribute name="页宽" type="xs:nonNegativeInteger"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="表格组">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="列信息" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="单元格信息" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="表头内容" minOccurs="0"/>
+				<xs:element ref="表脚内容" minOccurs="0"/>
+				<xs:element ref="表格内容"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="标识"/>
+			<xs:attribute ref="列数"/>
+			<xs:attribute ref="水平对齐方式" default="左对齐"/>
+			<xs:attribute ref="垂直边框宽度"/>
+			<xs:attribute ref="水平边框宽度"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="水平对齐方式" default="左对齐">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="左对齐"/>
+				<xs:enumeration value="居中对齐"/>
+				<xs:enumeration value="右对齐"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="垂直对齐方式" default="居中">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="靠上"/>
+				<xs:enumeration value="居中"/>
+				<xs:enumeration value="靠下"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="垂直边框宽度" default="1">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="0"/>
+				<xs:enumeration value="1"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="水平边框宽度" default="1">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="0"/>
+				<xs:enumeration value="1"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="表格方向" default="纵向">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="横向"/>
+				<xs:enumeration value="纵向"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="列信息">
+		<xs:complexType>
+			<xs:attribute ref="列标识"/>
+			<xs:attribute ref="列名称"/>
+			<xs:attribute ref="水平对齐方式"/>
+			<xs:attribute ref="列宽"/>
+			<xs:attribute ref="垂直边框宽度"/>
+			<xs:attribute ref="水平边框宽度"/>
+			<xs:attribute ref="对齐字符"/>
+			<xs:attribute ref="偏移量"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="列标识" type="xs:positiveInteger"/>
+	<xs:attribute name="列名称" type="xs:NMTOKEN"/>
+	<xs:attribute name="列宽" type="xs:string"/>
+	<xs:element name="单元格信息">
+		<xs:complexType>
+			<xs:attribute ref="单元格起始列" use="required"/>
+			<xs:attribute ref="单元格结束列" use="required"/>
+			<xs:attribute ref="单元格名称" use="required"/>
+			<xs:attribute ref="水平对齐方式" default="左对齐"/>
+			<xs:attribute ref="垂直边框宽度"/>
+			<xs:attribute ref="水平边框宽度"/>
+			<xs:attribute ref="对齐字符"/>
+			<xs:attribute ref="偏移量"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="单元格起始列" type="xs:NMTOKEN"/>
+	<xs:attribute name="单元格结束列" type="xs:NMTOKEN"/>
+	<xs:attribute name="单元格名称" type="xs:NMTOKEN"/>
+	<xs:element name="表头内容">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="行" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="垂直对齐方式" default="居中"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="表格内容">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="行" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="垂直对齐方式" default="居中"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="行">
+		<xs:complexType>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="单元格"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="标识"/>
+			<xs:attribute ref="水平边框宽度"/>
+			<xs:attribute ref="垂直对齐方式" default="居中"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="单元格">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:choice maxOccurs="unbounded">
+					<xs:element ref="段落"/>
+					<xs:group ref="警示信息"/>
+					<xs:group ref="图表"/>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="列名称"/>
+			<xs:attribute ref="单元格起始列"/>
+			<xs:attribute ref="单元格结束列"/>
+			<xs:attribute ref="单元格名称"/>
+			<xs:attribute ref="垂直方向合并行数" default="0"/>
+			<xs:attribute ref="垂直边框宽度"/>
+			<xs:attribute ref="水平边框宽度"/>
+			<xs:attribute ref="垂直对齐方式" default="居中"/>
+			<xs:attribute ref="水平对齐方式"/>
+			<xs:attribute ref="文字方向"/>
+			<xs:attribute ref="对齐字符"/>
+			<xs:attribute ref="偏移量"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="垂直方向合并行数" type="xs:nonNegativeInteger"/>
+	<xs:attribute name="列数" type="xs:positiveInteger"/>
+	<xs:attribute name="文字方向" default="横向">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="横向"/>
+				<xs:enumeration value="纵向"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="对齐字符" type="xs:string"/>
+	<xs:attribute name="偏移量" type="xs:nonNegativeInteger"/>
+	<xs:element name="表脚内容">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="行" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="垂直对齐方式" default="居中"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="图形">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="标题" minOccurs="0"/>
+				<xs:element ref="图片" maxOccurs="unbounded"/>
+				<xs:element ref="图注" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="标识"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="图片">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<!--<xs:element ref="rfa" minOccurs="0" maxOccurs="unbounded"/>-->
+				<xs:choice>
+					<xs:element ref="热点" minOccurs="0" maxOccurs="unbounded"/>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attribute ref="标识"/>
+			<xs:attributeGroup ref="更改标识"/>
+			<xs:attribute ref="信息控制代码" use="required"/>
+			<xs:attribute name="文件格式" type="xs:string"/>
+			<xs:attribute ref="宽度"/>
+			<xs:attribute ref="高度"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="热点">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:choice minOccurs="0" maxOccurs="unbounded">
+					<xs:element ref="热点"/>
+					<xs:element ref="链接"/>
+					<xs:element ref="数据模块引用"/>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute ref="热点ID"/>
+			<xs:attribute name="描述" type="xs:string"/>
+			<xs:attribute ref="显示控制" default="显示"/>
+			<xs:attribute name="文件格式" type="xs:string"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="热点ID" type="xs:string"/>
+	<xs:attribute name="热点名称" type="xs:string"/>
+	<xs:element name="图注">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="定义列表"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="多媒体">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="标题" minOccurs="0"/>
+				<xs:element ref="多媒体对象" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="多媒体对象">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="参数" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+			<xs:attributeGroup ref="更改标识"/>
+			<xs:attribute ref="自动播放"/>
+			<xs:attribute ref="全屏播放"/>
+			<xs:attribute ref="信息控制代码" use="required"/>
+			<xs:attribute ref="多媒体格式" use="required"/>
+			<xs:attribute ref="显示控制"/>
+			<xs:attribute ref="持续时间"/>
+			<xs:attribute ref="宽度"/>
+			<xs:attribute ref="高度"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="高度" type="xs:string"/>
+	<xs:attribute name="宽度" type="xs:string"/>
+	<xs:attribute name="持续时间" type="xs:integer"/>
+	<xs:attribute name="显示控制" default="显示">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:enumeration value="隐藏"/>
+				<xs:enumeration value="显示"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="多媒体格式" type="xs:string"/>
+	<xs:attribute name="信息控制代码" type="xs:string"/>
+	<xs:element name="参数">
+		<xs:complexType>
+			<xs:attributeGroup ref="更改标识"/>
+			<xs:attribute ref="参数标识"/>
+			<xs:attribute ref="参数值"/>
+			<xs:attribute ref="参数名称"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="参数标识" type="xs:string"/>
+	<xs:attribute name="参数值" type="xs:string"/>
+	<xs:attribute name="参数名称" type="xs:string"/>
+	<xs:attribute name="自动播放" type="是否"/>
+	<xs:attribute name="全屏播放" type="是否"/>
+	<xs:simpleType name="是否">
+		<xs:restriction base="xs:NMTOKEN">
+			<xs:enumeration value="是"/>
+			<xs:enumeration value="否"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="普通文本">
+		<xs:complexType mixed="true">
+			<xs:simpleContent>
+				<xs:extension base="xs:string"/>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="标题">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:group ref="文本" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="颜色"/>
+			<xs:attribute ref="宽度"/>
+			<xs:attribute ref="高度"/>
+			<xs:attribute ref="标题级别"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="标题级别">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="1级"/>
+				<xs:enumeration value="2级"/>
+				<xs:enumeration value="3级"/>
+				<xs:enumeration value="4级"/>
+				<xs:enumeration value="5级"/>
+				<xs:enumeration value="6级"/>
+				<xs:enumeration value="7级"/>
+				<xs:enumeration value="8级"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:attribute name="颜色">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:enumeration value="黑色"/>
+				<xs:enumeration value="红色"/>
+				<xs:enumeration value="黄色"/>
+				<xs:enumeration value="绿色"/>
+				<xs:enumeration value="紫色"/>
+				<xs:enumeration value="蓝色"/>
+				<xs:enumeration value="青色"/>
+				<xs:enumeration value="橙色"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="链接">
+		<xs:complexType mixed="true">
+			<xs:attribute name="目标代码" type="xs:string"/>
+			<xs:attribute ref="目标类型"/>
+			<xs:attribute name="显示文本" type="xs:string" use="required"/>
+			<xs:attribute name="目标名称" type="xs:string" use="optional"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="目标类型" type="目标类型属性"/>
+	<xs:simpleType name="目标类型属性">
+		<xs:restriction base="xs:NMTOKEN">
+			<xs:enumeration value="图形"/>
+			<xs:enumeration value="表格"/>
+			<xs:enumeration value="多媒体"/>
+			<xs:enumeration value="设备"/>
+			<xs:enumeration value="耗材"/>
+			<xs:enumeration value="备件"/>
+			<xs:enumeration value="段落"/>
+			<xs:enumeration value="步骤"/>
+			<xs:enumeration value="图片"/>
+			<xs:enumeration value="多媒体对象"/>
+			<xs:enumeration value="热点"/>
+			<xs:enumeration value="参数"/>
+			<xs:enumeration value="其它"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:element name="脚注">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="适用性信息" minOccurs="0"/>
+				<xs:element ref="段落" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="适用性引用"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="缩略语">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="缩写"/>
+				<xs:element ref="缩写定义"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="缩写">
+		<xs:complexType mixed="true">
+			<xs:group ref="文本" maxOccurs="unbounded"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="缩写定义">
+		<xs:complexType mixed="true">
+			<xs:group ref="文本" maxOccurs="unbounded"/>
+			<xs:attributeGroup ref="更改标识"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="上标" type="xs:string"/>
+	<xs:element name="下标" type="xs:string"/>
+	<xs:element name="符号">
+		<xs:complexType>
+			<xs:attribute ref="信息控制代码" use="required"/>
+			<xs:attribute ref="宽度"/>
+			<xs:attribute ref="高度"/>
+			<xs:attribute ref="显示比例"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="显示比例" type="xs:string"/>
+	<xs:element name="重点内容">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="段落" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute ref="标记格式"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="标记格式">
+		<xs:simpleType>
+			<xs:restriction base="xs:NMTOKEN">
+				<xs:enumeration value="粗体"/>
+				<xs:enumeration value="斜体"/>
+				<xs:enumeration value="下划线"/>
+				<xs:enumeration value="删除线"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="单个布尔判断">
+		<xs:complexType mixed="true">
+			<xs:attribute ref="测试项目名称"/>
+			<xs:attribute ref="标准值"/>
+			<xs:attribute ref="显示格式"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="标准值">
+		<xs:simpleType>
+			<xs:restriction base="xs:string">
+				<xs:pattern value="[^~|\t\n\r]+(~[^~|\t\n\r]+)?(\|[^~|\t\n\r]+(~[^~|\t\n\r]+)?)*"/>
+			</xs:restriction>
+		</xs:simpleType>
+	</xs:attribute>
+	<xs:element name="等于"/>
+	<xs:element name="不等于"/>
+	<xs:element name="小于"/>
+	<xs:element name="大于"/>
+	<xs:element name="小于等于"/>
+	<xs:element name="大于等于"/>
+	<xs:element name="与"/>
+	<xs:element name="或"/>
+	<xs:element name="异或"/>
+	<xs:element name="字符串相加"/>
+	<xs:element name="子串判断"/>
+	<xs:element name="加"/>
+	<xs:element name="减"/>
+	<xs:element name="乘"/>
+	<xs:element name="除以"/>
+	<xs:element name="整除"/>
+	<xs:element name="求指数"/>
+	<xs:element name="取模"/>
+	<xs:element name="添加元"/>
+	<xs:element name="删除元"/>
+	<xs:element name="并集"/>
+	<xs:element name="交集"/>
+	<xs:element name="补集"/>
+	<xs:element name="子元"/>
+	<xs:element name="子集"/>
+	<xs:element name="交集为空"/>
+	<xs:element name="非"/>
+	<xs:element name="空值判断"/>
+	<xs:element name="取负"/>
+	<xs:element name="取整"/>
+	<xs:element name="实数转换"/>
+	<xs:element name="求子串">
+		<xs:complexType>
+			<xs:sequence maxOccurs="2">
+				<xs:element ref="子串位置"/>
+				<xs:element ref="子串长度" minOccurs="0"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="子串位置" type="xs:string"/>
+	<xs:element name="子串长度" type="xs:positiveInteger"/>
+	<xs:element name="变量定义"/>
+	<xs:element name="求长度"/>
+	<xs:element name="布尔型">
+		<xs:complexType>
+			<xs:choice>
+				<xs:element ref="真值"/>
+				<xs:element ref="假值"/>
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="真值"/>
+	<xs:element name="假值"/>
+	<xs:element name="字符串型" type="xs:string"/>
+	<xs:element name="实型" type="xs:string"/>
+	<xs:element name="整型" type="xs:string"/>
+	<xs:element name="集合类型">
+		<xs:complexType>
+			<xs:choice>
+				<xs:element ref="字符串型" maxOccurs="unbounded"/>
+				<xs:element ref="实型" maxOccurs="unbounded"/>
+				<xs:element ref="整型" maxOccurs="unbounded"/>
+				<xs:element ref="空值"/>
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="空值"/>
+	<xs:attribute name="显示格式" type="xs:string"/>
+	<xs:attribute name="测试项目名称" type="xs:NCName"/>
+	<xs:element name="表达式">
+		<xs:complexType>
+			<xs:choice>
+				<xs:sequence>
+					<xs:element ref="表达式"/>
+					<xs:choice>
+						<xs:element ref="等于"/>
+						<xs:element ref="不等于"/>
+						<xs:element ref="小于"/>
+						<xs:element ref="大于"/>
+						<xs:element ref="小于等于"/>
+						<xs:element ref="大于等于"/>
+						<xs:element ref="与"/>
+						<xs:element ref="或"/>
+						<xs:element ref="异或"/>
+						<xs:element ref="字符串相加"/>
+						<xs:element ref="子串判断"/>
+						<xs:element ref="加"/>
+						<xs:element ref="减"/>
+						<xs:element ref="乘"/>
+						<xs:element ref="除以"/>
+						<xs:element ref="整除"/>
+						<xs:element ref="求指数"/>
+						<xs:element ref="取模"/>
+						<xs:element ref="添加元"/>
+						<xs:element ref="删除元"/>
+						<xs:element ref="并集"/>
+						<xs:element ref="交集"/>
+						<xs:element ref="补集"/>
+						<xs:element ref="子元"/>
+						<xs:element ref="子集"/>
+						<xs:element ref="交集为空"/>
+					</xs:choice>
+					<xs:element ref="表达式"/>
+				</xs:sequence>
+				<xs:sequence>
+					<xs:choice>
+						<xs:element ref="非"/>
+						<xs:element ref="空值判断"/>
+						<xs:element ref="取负"/>
+						<xs:element ref="取整"/>
+						<xs:element ref="实数转换"/>
+						<xs:element ref="求子串"/>
+						<xs:element ref="变量定义"/>
+						<xs:element ref="求长度"/>
+					</xs:choice>
+					<xs:element ref="表达式"/>
+				</xs:sequence>
+				<xs:element ref="引用变量"/>
+				<xs:choice>
+					<xs:element ref="布尔型"/>
+					<xs:element ref="字符串型"/>
+					<xs:element ref="实型"/>
+					<xs:element ref="整型"/>
+					<xs:element ref="集合类型"/>
+					<xs:element ref="空值"/>
+				</xs:choice>
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="标识" type="xs:ID"/>
+	<xs:element name="引用变量">
+		<xs:complexType>
+			<xs:attribute ref="变量名称"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:attribute name="变量名称" type="xs:string"/>
+</xs:schema>

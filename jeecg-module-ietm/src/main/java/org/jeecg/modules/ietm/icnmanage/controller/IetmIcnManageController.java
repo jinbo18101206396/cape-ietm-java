@@ -554,5 +554,162 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             return Result.error(e.getMessage());
         }
     }
+
+    /**
+     * 图符弹窗-分页查询图符类ICN
+     */
+    @AutoLog(value = "图符弹窗-分页查询图符类ICN")
+    @ApiOperation(value = "图符弹窗-分页查询图符类ICN", notes = "用于编辑器图符弹窗，只返回cgm/bmp/jpg/png/gif/tif/svg等图符文件")
+    @GetMapping(value = "/listSymbolsForDialog")
+    public Result<IPage<IetmIcnManage>> listSymbolsForDialog(
+            @RequestParam(name = "cmNodeId") @NotBlank(message = "请先选择构型节点") String cmNodeId,
+            @RequestParam(name = "includeChildren", defaultValue = "0") String includeChildren,
+            @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
+
+        IPage<IetmIcnManage> page = ietmIcnManageService.listSymbolsForDialog(
+                cmNodeId, includeChildren, pageNo, pageSize);
+        return Result.OK(page);
+    }
+
+    /**
+     * 预览-查看ICN图片（用于DM预览中的图形显示）
+     *
+     * @param icnCode ICN完整编码（如：ICN-ZB1-A-02-60101-30101-00001-A-001-01）
+     */
+    @ApiOperation(value = "查看ICN图片", notes = "用于DM预览中显示图形，根据ICN编码返回图片文件流")
+    @GetMapping(value = "/view/{icnCode}")
+    public void viewIcn(@PathVariable("icnCode") String icnCode, HttpServletResponse response) {
+        try {
+            // 根据icnCode查询ICN实体（含附件）
+            QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
+            qw.eq("icn", icnCode);
+            IetmIcnManage icn = ietmIcnManageService.getOne(qw);
+
+            if (icn == null) {
+                log.warn("ICN不存在: {}", icnCode);
+                sendPlaceholderImage(response, "ICN不存在");
+                return;
+            }
+
+            // 加载附件信息
+            ietmIcnManageService.loadAttachment(icn);
+
+            if (icn.getIetmAttachment() == null || icn.getIetmAttachment().getFileKey() == null) {
+                log.warn("ICN附件缺失: {}", icnCode);
+                sendPlaceholderImage(response, "图片文件缺失");
+                return;
+            }
+
+            // 获取文件Key和扩展名
+            String fileKey = icn.getIetmAttachment().getFileKey();
+            String fileName = icn.getIetmAttachment().getFileName();
+            String fileExtension = extractFileExtension(fileName);
+
+            // 读取文件内容
+            String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
+            java.io.File file = new java.io.File(fileStorageLocation, fileKey);
+
+            if (!file.exists()) {
+                log.warn("ICN文件不存在: fileKey={}, path={}", fileKey, file.getAbsolutePath());
+                sendPlaceholderImage(response, "文件不存在");
+                return;
+            }
+
+            byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
+
+            // 设置响应头
+            response.setContentType(getContentType(fileExtension));
+            response.setContentLength(fileContent.length);
+            response.setHeader("Cache-Control", "public, max-age=86400"); // 缓存1天
+
+            // 写入文件内容
+            response.getOutputStream().write(fileContent);
+            response.getOutputStream().flush();
+
+        } catch (Exception e) {
+            log.error("查看ICN图片失败: icnCode={}", icnCode, e);
+            try {
+                sendPlaceholderImage(response, "加载失败");
+            } catch (Exception ex) {
+                log.error("发送占位图失败", ex);
+            }
+        }
+    }
+
+    /**
+     * 从文件名提取扩展名
+     */
+    private String extractFileExtension(String fileName) {
+        if (fileName == null || !fileName.contains(".")) {
+            return "";
+        }
+        return fileName.substring(fileName.lastIndexOf(".") + 1);
+    }
+
+    /**
+     * 根据文件扩展名获取MIME类型
+     */
+    private String getContentType(String fileExtension) {
+        if (fileExtension == null) {
+            return "application/octet-stream";
+        }
+
+        switch (fileExtension.toLowerCase()) {
+            case "cgm":
+                return "image/cgm";
+            case "svg":
+                return "image/svg+xml";
+            case "png":
+                return "image/png";
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "gif":
+                return "image/gif";
+            case "bmp":
+                return "image/bmp";
+            case "tif":
+            case "tiff":
+                return "image/tiff";
+            default:
+                return "application/octet-stream";
+        }
+    }
+
+    /**
+     * 发送占位图（当ICN不存在或加载失败时）
+     */
+    private void sendPlaceholderImage(HttpServletResponse response, String message) throws Exception {
+        response.setContentType("image/svg+xml");
+        response.setCharacterEncoding("UTF-8");
+
+        // 生成一个简单的SVG占位图
+        String svg = String.format(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"300\" height=\"200\" viewBox=\"0 0 300 200\">" +
+            "  <rect width=\"300\" height=\"200\" fill=\"#f0f0f0\" stroke=\"#ccc\" stroke-width=\"2\"/>" +
+            "  <text x=\"150\" y=\"100\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"14\" fill=\"#666\">" +
+            "    %s" +
+            "  </text>" +
+            "</svg>",
+            escapeXml(message)
+        );
+
+        response.getOutputStream().write(svg.getBytes("UTF-8"));
+        response.getOutputStream().flush();
+    }
+
+    /**
+     * XML转义（用于SVG文本）
+     */
+    private String escapeXml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&apos;");
+    }
 }
 

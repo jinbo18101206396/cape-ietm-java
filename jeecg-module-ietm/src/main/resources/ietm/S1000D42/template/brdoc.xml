@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://www.purl.org/dc/elements/1.1/" xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/brdoc.xsd">
+	<identAndStatusSection>
+		<dmAddress>
+			<dmIdent>
+				<dmCode modelIdentCode="" systemDiffCode="" systemCode="" subSystemCode="" subSubSystemCode="" assyCode="" disassyCode="" disassyCodeVariant="" infoCode="" infoCodeVariant="" itemLocationCode=""/>
+				<language countryIsoCode="" languageIsoCode=""/>
+				<issueInfo issueNumber="" inWork=""/>
+			</dmIdent>
+			<dmAddressItems>
+				<issueDate year="" month="" day=""/>
+				<dmTitle>
+					<techName></techName>
+					<infoName></infoName>
+				</dmTitle>
+			</dmAddressItems>
+		</dmAddress>
+		<dmStatus issueType="new">
+			<security securityClassification=""/>
+			<dataRestrictions>
+				<restrictionInstructions>
+					<dataDistribution></dataDistribution>
+					<exportControl>
+						<exportRegistrationStmt>
+							<simplePara></simplePara>
+						</exportRegistrationStmt>
+					</exportControl>
+					<dataHandling></dataHandling>
+					<dataDestruction></dataDestruction>
+					<dataDisclosure></dataDisclosure>
+				</restrictionInstructions>
+				<restrictionInfo>
+					<copyright>
+						<copyrightPara></copyrightPara>
+					</copyright>
+					<policyStatement></policyStatement>
+					<dataConds></dataConds>
+				</restrictionInfo>
+			</dataRestrictions>
+			<responsiblePartnerCompany enterpriseCode="">
+				<enterpriseName></enterpriseName>
+			</responsiblePartnerCompany>
+			<originator enterpriseCode="">
+				<enterpriseName></enterpriseName>
+			</originator>
+			<applic>
+				<displayText>
+					<simplePara></simplePara>
+				</displayText>
+			</applic>
+			<techStandard>
+				<authorityInfoAndTp>
+					<authorityInfo></authorityInfo>
+					<techPubBase></techPubBase>
+				</authorityInfoAndTp>
+				<authorityExceptions></authorityExceptions>
+				<authorityNotes></authorityNotes>
+			</techStandard>
+			<brexDmRef>
+				<dmRef>
+					<dmRefIdent>
+						<dmCode modelIdentCode="" systemDiffCode="" systemCode="" subSystemCode="" subSubSystemCode="" assyCode="" disassyCode="" disassyCodeVariant="" infoCode="" infoCodeVariant="" itemLocationCode=""/>
+					</dmRefIdent>
+				</dmRef>
+			</brexDmRef>
+			<qualityAssurance>
+				<unverified></unverified>
+			</qualityAssurance>
+			<reasonForUpdate>
+				<simplePara></simplePara>
+			</reasonForUpdate>
+			<remarks></remarks>
+		</dmStatus>
+	</identAndStatusSection>
+	<content>
+	    <brDoc></brDoc>
+	</content>
+</dmodule>

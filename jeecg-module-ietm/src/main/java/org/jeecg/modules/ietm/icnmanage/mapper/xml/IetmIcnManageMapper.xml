@@ -217,4 +217,70 @@
         ORDER BY icn.create_time DESC
     </select>
 
+    <!-- 图符弹窗-分页查询图符类ICN（当前节点）-->
+    <select id="listSymbolsForDialog" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.cm_node_id as cmNodeId,
+            icn.sns,
+            att.file_name as fileName,
+            att.file_size as fileSize,
+            att.file_key as fileKey,
+            -- 判断是否需要尺寸参数：位图类型需要，矢量类型（cgm/svg）不需要
+            CASE
+                WHEN LOWER(SUBSTRING(att.file_name, LENGTH(att.file_name) - INSTR(REVERSE(att.file_name), '.') + 2))
+                     IN ('bmp','jpg','jpeg','png','gif','tif','tiff')
+                THEN '1'
+                ELSE '0'
+            END as needDimension
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn.cm_node_id = #{cmNodeId}
+          AND icn.isdeleted = '0'
+          AND att.file_name IS NOT NULL
+          -- 扩展名白名单：9种可插入图符的文件类型
+          -- 位图（7种，需要尺寸）：bmp/jpg/jpeg/png/gif/tif/tiff
+          -- 矢量（2种，不需要尺寸）：cgm/svg
+          -- 提取扩展名逻辑处理边界：无扩展名/多个点/以点结尾都会被正确过滤
+          AND LOWER(SUBSTRING(att.file_name, LENGTH(att.file_name) - INSTR(REVERSE(att.file_name), '.') + 2))
+              IN ('cgm','bmp','jpg','jpeg','png','gif','tif','tiff','svg')
+        ORDER BY icn.create_time DESC
+    </select>
+
+    <!-- 图符弹窗-分页查询图符类ICN（含子节点）-->
+    <select id="listSymbolsForDialogIncludeChildren" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.cm_node_id as cmNodeId,
+            icn.sns,
+            att.file_name as fileName,
+            att.file_size as fileSize,
+            att.file_key as fileKey,
+            -- 判断是否需要尺寸参数：位图类型需要，矢量类型（cgm/svg）不需要
+            CASE
+                WHEN LOWER(SUBSTRING(att.file_name, LENGTH(att.file_name) - INSTR(REVERSE(att.file_name), '.') + 2))
+                     IN ('bmp','jpg','jpeg','png','gif','tif','tiff')
+                THEN '1'
+                ELSE '0'
+            END as needDimension
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn.cm_node_id IN (
+            SELECT id
+            FROM ietm_project_configuration_management
+            START WITH id = #{cmNodeId}
+            CONNECT BY PRIOR id = pid
+        )
+          AND icn.isdeleted = '0'
+          AND att.file_name IS NOT NULL
+          -- 扩展名白名单：9种可插入图符的文件类型
+          -- 位图（7种，需要尺寸）：bmp/jpg/jpeg/png/gif/tif/tiff
+          -- 矢量（2种，不需要尺寸）：cgm/svg
+          AND LOWER(SUBSTRING(att.file_name, LENGTH(att.file_name) - INSTR(REVERSE(att.file_name), '.') + 2))
+              IN ('cgm','bmp','jpg','jpeg','png','gif','tif','tiff','svg')
+        ORDER BY icn.create_time DESC
+    </select>
+
 </mapper>

@@ -71,4 +71,24 @@ public interface IetmIcnManageMapper extends BaseMapper<IetmIcnManage> {
      */
     List<IetmIcnManage> listByIdsWithAttachments(@Param("ids") List<String> ids,
                                                   @Param("includeRelated") String includeRelated);
+
+    /**
+     * 图符弹窗-分页查询图符类ICN（当前节点）
+     * @param cmNodeId 构型节点ID
+     * @param page 分页对象
+     * @return ICN分页列表（含附件信息）
+     */
+    com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listSymbolsForDialog(
+            @Param("cmNodeId") String cmNodeId,
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmIcnManage> page);
+
+    /**
+     * 图符弹窗-分页查询图符类ICN（含子节点）
+     * @param cmNodeId 构型节点ID
+     * @param page 分页对象
+     * @return ICN分页列表（含附件信息）
+     */
+    com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listSymbolsForDialogIncludeChildren(
+            @Param("cmNodeId") String cmNodeId,
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmIcnManage> page);
 }

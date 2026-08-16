@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.workflow.mapper.WfTemplateMapper">
+
+    <!-- ResultMap -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.workflow.entity.WfTemplate">
+        <id     column="id"            property="id"/>
+        <result column="tmplname_"     property="tmplname"/>
+        <result column="status_"       property="status"/>
+        <result column="stagenames_"   property="stagenames"/>
+        <result column="tmpltype_"     property="tmpltype"/>
+        <result column="create_by"     property="createBy"/>
+        <result column="create_time"   property="createTime"/>
+        <result column="update_by"     property="updateBy"/>
+        <result column="update_time"   property="updateTime"/>
+    </resultMap>
+
+    <!-- 查询已发布的模板列表 -->
+    <select id="selectPublishedTemplates" resultMap="BaseResultMap">
+        SELECT * FROM "IETM"."wf_template"
+        WHERE "status_" = '1'
+        <if test="tmpltype != null and tmpltype != ''">
+            AND "tmpltype_" = #{tmpltype}
+        </if>
+        ORDER BY "create_time" DESC
+    </select>
+
+</mapper>

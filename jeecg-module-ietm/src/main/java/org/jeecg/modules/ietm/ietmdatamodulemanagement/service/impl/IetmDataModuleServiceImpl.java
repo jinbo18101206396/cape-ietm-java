@@ -18,11 +18,14 @@ import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDmComment;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDmRef;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDmType;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmCommentMapper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmRefMapper;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmTypeMapper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDataModuleService;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.VersionCalculator;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmcUtils;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmCopyVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmProjectInfoVO;
@@ -33,6 +36,7 @@ import org.jeecg.modules.ietm.projectconfigurationmanagement.service.IIetmProjec
 import org.jeecg.modules.ietm.projectmanagement.entity.IetmProject;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectService;
 import org.jeecg.modules.ietm.common.service.ISnsCalculateService;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +74,20 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     private static final Pattern DMC_SAFE_ALPHANUMERIC = Pattern.compile("^[A-Z0-9-]*$");
     private static final Pattern DMC_SAFE_SINGLE_CHAR  = Pattern.compile("^[A-Z0-9]?$");
 
+    /** 版本号同步：正则表达式常量（性能优化） */
+    private static final Pattern ISSUE_INFO_TAG_PATTERN = Pattern.compile(
+        "<issueInfo[^>]*/>",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern ISSUE_NUMBER_ATTR_PATTERN = Pattern.compile(
+        "issueNumber\\s*=\\s*[\"']([^\"']+)[\"']",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern IN_WORK_ATTR_PATTERN = Pattern.compile(
+        "inWork\\s*=\\s*[\"']([^\"']+)[\"']",
+        Pattern.CASE_INSENSITIVE
+    );
+
 
     @Autowired
     private IetmDataModuleMapper ietmDataModuleMapper;
@@ -92,6 +110,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Autowired
     private IIetmProjectCompanyService projectCompanyService;
 
+    @Autowired
+    private org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper wfInstanceMapper;
+
+    @Autowired
+    private IetmDmTypeMapper dmTypeMapper;
+
     /**
      * 获取项目信息（包含SNS编码）
      */
@@ -109,8 +133,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("项目信息不存在");
         }
 
-        // 3. 计算SNS编码（使用公共服务）
-        String sns = snsCalculateService.calculateSns(cmNodeId);
+        // 3. 计算SNS编码（DM算法：coderule补全 + i=4/7位合并）
+        String sns = snsCalculateService.calculateSnsForDm(cmNodeId);
 
         // 4. 组装返回对象
         DmProjectInfoVO vo = new DmProjectInfoVO();
@@ -137,6 +161,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean saveDm(IetmDataModule dataModule) {
         log.info("保存数据模块，项目ID：{}", dataModule.getProjectId());
+
+        // 校验 SNS 必填（SNS 空会导致 DMC 双横线脏数据）
+        if (oConvertUtils.isEmpty(dataModule.getSns())) {
+            throw new JeecgBootException("SNS 编码不能为空，请检查构型节点路径是否完整（至少2层）");
+        }
+
         String dmc = generateDmc(dataModule);
         dataModule.setDmcCode(dmc);
         if (validateDmc(dataModule)) {
@@ -150,7 +180,22 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         }
         dataModule.setIsLatest("1");
         dataModule.setStatus("1");
-        return this.save(dataModule);
+        // 对齐旧系统：新建DM时设置版本日期
+        if (dataModule.getIssueDate() == null) {
+            dataModule.setIssueDate(new Date());
+        }
+        // 设置issueType默认值（S1000D标准）
+        if (oConvertUtils.isEmpty(dataModule.getIssueType())) {
+            dataModule.setIssueType("new");
+        }
+        boolean success = this.save(dataModule);
+
+        // ✅ 保存后同步版本号到XML（导入等场景可能存在XML与数据库不一致）
+        if (success && StringUtils.isNotEmpty(dataModule.getId()) && StringUtils.isNotEmpty(dataModule.getDmContent())) {
+            syncVersionToXml(dataModule.getId());
+        }
+
+        return success;
     }
 
     @Override
@@ -164,7 +209,54 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         if (oConvertUtils.isNotEmpty(existDm.getCheckoutUser())) {
             throw new JeecgBootException("数据模块已被签出，无法修改");
         }
-        return this.updateById(dataModule);
+
+        // 检查版本号是否变更
+        boolean versionChanged = !java.util.Objects.equals(existDm.getIssueNo(), dataModule.getIssueNo())
+                              || !java.util.Objects.equals(existDm.getInWork(), dataModule.getInWork());
+
+        // 若 DMC 组成字段有变更，重算 dmc_code 并检查唯一性
+        // UI 编辑态已将这些字段全部禁用，正常路径下不会触发；此处为 API 层兜底防止旁路调用导致脏数据
+        boolean dmcFieldChanged = isDmcFieldChanged(existDm, dataModule);
+        if (dmcFieldChanged) {
+            String newDmc = generateDmc(dataModule);
+            dataModule.setDmcCode(newDmc);
+            IetmDataModule conflict = ietmDataModuleMapper.selectByDmcForValidation(
+                dataModule.getSns(), dataModule.getInfoCode(), dataModule.getInfoCodeVariant(),
+                dataModule.getIetmLocationCode(), dataModule.getLanguageIsoCode(), dataModule.getCountryIsoCode(),
+                dataModule.getId()
+            );
+            if (conflict != null) {
+                throw new JeecgBootException("编辑失败：DMC冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
+            }
+            log.info("updateDm: DMC字段变更，已重算 dmc_code={}", newDmc);
+
+            // ✅ 同步 DMC 字段变更到 XML 内部的 dmIdent（dmCode/language/issueInfo）
+            if (StringUtils.isNotBlank(dataModule.getDmContent())) {
+                String syncedXml = DmXmlHelper.syncDmIdentToXml(dataModule.getDmContent(), dataModule);
+                dataModule.setDmContent(syncedXml);
+            }
+        }
+
+        boolean success = this.updateById(dataModule);
+
+        // ✅ 如果版本号变更且有XML内容，同步版本号到XML
+        if (success && versionChanged && StringUtils.isNotEmpty(dataModule.getDmContent())) {
+            syncVersionToXml(dataModule.getId());
+        }
+
+        return success;
+    }
+
+    /** 判断 DMC 组成字段是否发生变更（任一字段不同即视为变更） */
+    private boolean isDmcFieldChanged(IetmDataModule existing, IetmDataModule updated) {
+        return !java.util.Objects.equals(existing.getSns(),              updated.getSns())
+            || !java.util.Objects.equals(existing.getInfoCode(),         updated.getInfoCode())
+            || !java.util.Objects.equals(existing.getInfoCodeVariant(),  updated.getInfoCodeVariant())
+            || !java.util.Objects.equals(existing.getIetmLocationCode(), updated.getIetmLocationCode())
+            || !java.util.Objects.equals(existing.getIssueNo(),          updated.getIssueNo())
+            || !java.util.Objects.equals(existing.getInWork(),           updated.getInWork())
+            || !java.util.Objects.equals(existing.getLanguageIsoCode(),  updated.getLanguageIsoCode())
+            || !java.util.Objects.equals(existing.getCountryIsoCode(),   updated.getCountryIsoCode());
     }
 
     @Override
@@ -267,9 +359,18 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         log.info("签出数据模块，ID：{}，用户：{}", id, username);
 
         // ==================== 第1步：查询并校验原记录 ====================
-        IetmDataModule originalDm = this.getById(id);
+        // ✅ 修复：使用baseMapper.selectById确保查询包含dm_content大字段
+        // MyBatis-Plus的this.getById()可能使用轻量级查询，跳过CLOB字段
+        IetmDataModule originalDm = baseMapper.selectById(id);
         if (originalDm == null) {
             throw new JeecgBootException("数据模块不存在");
+        }
+
+        // ✅ 调试日志：验证dm_content是否被正确查询
+        int dmContentLength = (originalDm.getDmContent() != null) ? originalDm.getDmContent().length() : 0;
+        log.debug("[签出-校验] 原版本ID：{}，dmContent长度：{} 字节", id, dmContentLength);
+        if (dmContentLength == 0) {
+            log.warn("[签出-警告] 原版本dmContent为空！签出后的历史版本将无法浏览。请检查数据完整性。");
         }
 
         // 校验1：是否已被签出
@@ -277,17 +378,83 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("数据模块已被用户 " + originalDm.getCheckoutUser() + " 签出");
         }
 
-        // 校验2：是否已发布（新增）
+        // 校验5：工作流是否已启动（方案A：workflow_instance_id 列不再回写，
+        // 以 workflow_status 判定：null/空/'0'=未启动或已结束，'1'=流转中，'2'=已撤销）
+        String wfStatus = originalDm.getWorkflowStatus();
+        if (oConvertUtils.isEmpty(wfStatus) || "0".equals(wfStatus)) {
+            throw new JeecgBootException("数据模块未启动工作流，不能签出");
+        }
+        if ("2".equals(wfStatus)) {
+            throw new JeecgBootException("工作流已撤销，不能签出");
+        }
+
+        // 校验6：当前节点是否为DM编写（方案A：workflow_step 不回写基表，从 v_wf_instance 视图动态查询）
+        IetmDataModule dmWithFlow = ietmDataModuleMapper.selectByIdWithFlow(id);
+        String currentStep = dmWithFlow != null ? dmWithFlow.getWorkflowStep() : null;
+        if (!"DM编写".equals(currentStep)) {
+            throw new JeecgBootException("当前流程节点不是'DM编写'，不能签出（当前节点："
+                + (currentStep != null ? currentStep : "无") + "）");
+        }
+
+        // 校验7：流程权限检查（对标旧系统attribute05权限验证）
+        // 检查当前用户是否在流程节点的执行人列表中
+        String workflowHandler = dmWithFlow != null ? dmWithFlow.getWorkflowHandler() : null;
+        if (oConvertUtils.isNotEmpty(workflowHandler)) {
+            // workflowHandler格式：userid1,userid2,userid3 或包含角色前缀如 rol_xxx,dpt_xxx
+            // 也可能是用户真实姓名，如："管理员,张三,李四"
+            boolean hasPermission = false;
+            String[] handlers = workflowHandler.split(",");
+
+            // 获取当前用户信息（用于匹配用户名称）
+            LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+            String realname = loginUser != null ? loginUser.getRealname() : null;
+
+            log.debug("[签出-权限检查] 当前用户：username={}, realname={}, 执行人列表：{}",
+                     username, realname, workflowHandler);
+
+            for (String handler : handlers) {
+                handler = handler.trim();
+
+                // 基础验证1：直接匹配用户ID（username）
+                if (username.equals(handler)) {
+                    hasPermission = true;
+                    log.debug("[签出-权限检查] 匹配成功：用户ID匹配");
+                    break;
+                }
+
+                // 基础验证2：匹配用户真实姓名（realname）
+                if (oConvertUtils.isNotEmpty(realname) && realname.equals(handler)) {
+                    hasPermission = true;
+                    log.debug("[签出-权限检查] 匹配成功：用户名称匹配");
+                    break;
+                }
+
+                // TODO: 扩展验证角色/部门/岗位/工作组（如果handler包含前缀rol_/dpt_/pst_/grp_）
+                // 当前为保守实现，只验证直接用户ID和真实姓名匹配，避免影响现有功能
+                // 如需支持角色等复杂权限，需要：
+                // 1. 获取当前用户的角色/部门/岗位/工作组信息
+                // 2. 解析handler前缀并匹配
+            }
+
+            if (!hasPermission) {
+                log.warn("[签出-权限检查] 权限验证失败：username={}, realname={}, handlers={}",
+                         username, realname, workflowHandler);
+                throw new JeecgBootException("您没有权限签出此DM，只能由流程指定的DM编写者才能签出（执行人："
+                    + workflowHandler + "）");
+            }
+        }
+
+        // 校验2：是否已发布
         if ("1".equals(originalDm.getVersionType())) {
             throw new JeecgBootException("已发布的数据模块不能签出");
         }
 
-        // 校验3：是否最新版本（新增）
+        // 校验3：是否最新版本
         if (!"1".equals(originalDm.getIsLatest())) {
             throw new JeecgBootException("只能签出最新版本，历史版本不可签出");
         }
 
-        // 校验4：inwork版本号边界检查（新增）
+        // 校验4：inwork版本号边界检查
         String currentInwork = originalDm.getInWork() != null ? originalDm.getInWork() : "00";
         String currentIssueno = originalDm.getIssueNo() != null ? originalDm.getIssueNo() : "001";
         int inwork = Integer.parseInt(currentInwork);
@@ -301,6 +468,15 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 2.1 复制所有字段（使用Spring的BeanUtils）
         org.springframework.beans.BeanUtils.copyProperties(originalDm, newDm);
 
+        // ✅ 调试日志：验证dm_content是否被正确复制
+        int newDmContentLength = (newDm.getDmContent() != null) ? newDm.getDmContent().length() : 0;
+        log.debug("[签出-复制] 新版本dmContent长度：{} 字节（复制后）", newDmContentLength);
+        if (newDmContentLength == 0 && dmContentLength > 0) {
+            log.error("[签出-错误] BeanUtils.copyProperties未能复制dmContent！原：{} → 新：{}",
+                dmContentLength, newDmContentLength);
+            throw new JeecgBootException("签出失败：XML内容复制失败，请联系系统管理员");
+        }
+
         // 2.2 清空主键和版本字段（让MyBatis-Plus自动生成新ID）
         newDm.setId(null);
         newDm.setVersion(null);
@@ -312,7 +488,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 2.4 设置签出信息
         newDm.setCheckoutUser(username);
         newDm.setCheckoutTime(new Date());
-        newDm.setCheckoutDmId(originalDm.getId()); // ⚠️ 关键：记录原版本ID
+        newDm.setCheckoutDmId(originalDm.getId()); // 关键：记录原版本ID
 
         // 2.5 标记为最新版本
         newDm.setIsLatest("1");
@@ -320,6 +496,14 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 2.6 重新生成DMC（因为inwork变化了）
         String newDmc = generateDmc(newDm);
         newDm.setDmcCode(newDmc);
+
+        // ✅ 同步版本号变更到 XML 内部的 issueInfo
+        // 签出时 inWork+1，需要同步到 XML
+        if (StringUtils.isNotBlank(newDm.getDmContent())) {
+            String syncedXml = DmXmlHelper.syncDmIdentToXml(newDm.getDmContent(), newDm);
+            newDm.setDmContent(syncedXml);
+            log.info("签出时已同步版本号到XML: 新版本inWork={}", newDm.getInWork());
+        }
 
         // 2.7 更新时间戳
         newDm.setCreateTime(new Date());
@@ -330,7 +514,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 2.8 清空签入/发布时间（新版本未签入/发布）
         newDm.setCheckinTime(null);
         newDm.setPublishDate(null);
-        newDm.setIssueDate(null);
+        // 对齐旧系统：签出时继承原版本的issueDate，不清空
+        // 只有在编辑属性时才更新为当前日期
 
         // ==================== 第3步：校验DMC唯一性 ====================
         IetmDataModule conflict = ietmDataModuleMapper.selectByDmcForValidation(
@@ -342,37 +527,20 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("签出失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
         }
 
-        // ==================== 第4步：先将原版本标为历史版本（UPDATE）====================
-        // ⚠️ 约束问题：uk_dm_dmc 包含 is_latest 字段，同一DM只能有1条 is_latest='0'
-        // 解法：签出前先将该DM的所有历史版本(is_latest='0')的 status 改为 '0'（逻辑删除/归档）
-        //       这样它们不再计入 status='1' 的约束范围，当前版本可以安全降级为 is_latest='0'
-
-        // 第4.1步：将该DM所有历史版本改为 status='0'（归档）
-        LambdaUpdateWrapper<IetmDataModule> archiveWrapper = new LambdaUpdateWrapper<IetmDataModule>()
-                .eq(IetmDataModule::getSns, originalDm.getSns())
-                .eq(IetmDataModule::getInfoCode, originalDm.getInfoCode())
-                .eq(IetmDataModule::getInfoCodeVariant, originalDm.getInfoCodeVariant())
-                .eq(IetmDataModule::getIetmLocationCode, originalDm.getIetmLocationCode())
-                .eq(IetmDataModule::getLanguageIsoCode, originalDm.getLanguageIsoCode())
-                .eq(IetmDataModule::getCountryIsoCode, originalDm.getCountryIsoCode())
-                .eq(IetmDataModule::getStatus, "1")
-                .eq(IetmDataModule::getIsLatest, "0")  // 🔑 关键修复：只归档历史版本
-                .ne(IetmDataModule::getId, originalDm.getId())  // 排除当前版本
-                .set(IetmDataModule::getStatus, "0")  // 归档：status='0'
-                .set(IetmDataModule::getUpdateTime, new Date())
-                .set(IetmDataModule::getUpdateBy, username);
-
-        this.update(archiveWrapper);
-
-        // 第4.2步：将当前版本标为历史版本
+        // ==================== 第4步：将当前版本标为历史版本（UPDATE）====================
+        // 并发防护(CAS)：加 is_latest='1' 条件，把"读到未签出→降级"变成原子比较更新。
+        // 两个用户并发签出同一DM时，只有一个能把 is_latest 从'1'改为'0'（影响1行），
+        // 另一个匹配0行→updateSuccess=false→抛异常回滚，避免产生两个 is_latest='1' 版本。
+        // 正常流程签出前 is_latest 必为'1'（第286行校验保证），故此条件对正常路径无影响。
         boolean updateSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, originalDm.getId())
+                .eq(IetmDataModule::getIsLatest, "1")
                 .set(IetmDataModule::getIsLatest, "0")
                 .set(IetmDataModule::getUpdateTime, new Date())
                 .set(IetmDataModule::getUpdateBy, username)
         );
         if (!updateSuccess) {
-            throw new JeecgBootException("签出失败：更新原版本失败（乐观锁冲突，请刷新后重试）");
+            throw new JeecgBootException("签出失败：该数据模块可能已被他人签出，请刷新后重试");
         }
 
         // ==================== 第5步：再保存新版本（INSERT）====================
@@ -380,6 +548,26 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         if (!insertSuccess) {
             throw new JeecgBootException("签出失败：创建新版本失败");
         }
+
+        // ==================== 第6步：迁移工作流实例的formid关联 ====================
+        // 将活动的工作流实例从旧版本关联到新版本，使列表页能继续显示"流程当前步骤"
+        // 这是旧系统的行为：签出后新版本仍显示"DM编写"等流程信息
+        // 注意：不依赖 workflow_instance_id 字段（该字段在当前系统中未使用），
+        // 而是直接通过 wf_instance 表的 formid_ 字段来判断和迁移
+        int updated = wfInstanceMapper.migrateFormid(
+            originalDm.getId(),      // 旧版本id
+            newDm.getId(),           // 新版本id
+            username
+        );
+        if (updated > 0) {
+            log.info("迁移工作流实例 formid: {} -> {}, 影响行数: {}",
+                     originalDm.getId(), newDm.getId(), updated);
+        } else {
+            log.debug("无需迁移工作流实例：DM {} 没有关联的活动流程", originalDm.getId());
+        }
+
+        // ✅ 第7步：同步版本号到XML（签出后新版本的XML中issueInfo标签需要更新）
+        syncVersionToXml(newDm.getId());
 
         log.info("签出成功！原版本ID：{}，新版本ID：{}，版本号：{}-{} -> {}-{}",
                  originalDm.getId(), newDm.getId(),
@@ -389,13 +577,15 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         return true;
     }
 
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean cancelCheckOut(String id, String username) {
         log.info("取消签出数据模块，ID：{}，用户：{}", id, username);
 
         // ==================== 第1步：查询并校验工作版本 ====================
-        IetmDataModule workDm = this.getById(id);
+        // ✅ 修复：使用baseMapper.selectById确保查询完整字段（虽然取消签出不需要dm_content，但保持一致性）
+        IetmDataModule workDm = baseMapper.selectById(id);
         if (workDm == null) {
             throw new JeecgBootException("数据模块不存在");
         }
@@ -417,7 +607,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         // ==================== 第2步：查询原版本 ====================
         String originalDmId = workDm.getCheckoutDmId();
-        IetmDataModule originalDm = this.getById(originalDmId);
+        // ✅ 修复：使用baseMapper.selectById确保查询完整字段
+        IetmDataModule originalDm = baseMapper.selectById(originalDmId);
         if (originalDm == null) {
             throw new JeecgBootException("取消签出失败：原版本记录不存在（ID=" + originalDmId + "）");
         }
@@ -427,13 +618,30 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             log.warn("原版本的 isLatest 应该为 '0'，当前值为 '{}'，数据可能异常", originalDm.getIsLatest());
         }
 
-        // ==================== 第3步：删除工作版本（当前签出的记录）====================
+        // ==================== 第3步：反向迁移工作流实例的formid关联 ====================
+        // 取消签出时，将工作流实例从当前工作版本迁移回原版本
+        // 必须在删除工作版本之前执行，否则找不到关联记录
+        // 注意：不依赖 workflow_instance_id 字段（该字段在当前系统中未使用），
+        // 而是直接通过 wf_instance 表的 formid_ 字段来判断和迁移
+        int updated = wfInstanceMapper.migrateFormid(
+            workDm.getId(),          // 当前工作版本id（即将删除）
+            originalDm.getId(),      // 原版本id（将恢复为最新）
+            username
+        );
+        if (updated > 0) {
+            log.info("取消签出：反向迁移工作流实例 formid: {} -> {}, 影响行数: {}",
+                     workDm.getId(), originalDm.getId(), updated);
+        } else {
+            log.debug("无需反向迁移工作流实例：工作版本 {} 没有关联的活动流程", workDm.getId());
+        }
+
+        // ==================== 第4步：删除工作版本（当前签出的记录）====================
         boolean deleteSuccess = this.removeById(id);
         if (!deleteSuccess) {
             throw new JeecgBootException("取消签出失败：删除工作版本失败");
         }
 
-        // ==================== 第4步：恢复原版本为最新版本 ====================
+        // ==================== 第5步：恢复原版本为最新版本 ====================
         // 只更新 is_latest 字段，避免触发其他唯一约束
         boolean updateSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, originalDm.getId())
@@ -477,30 +685,11 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         dm.setCheckoutTime(null);
         dm.setCheckinTime(new Date());
 
-        // 🔑 关键修复：签入时归档原版本（避免下次签出时唯一约束冲突）
-        // 原因：签出时原版本被降级为 is_latest='0', status='1'（作为历史版本）
-        //      签入后当前版本仍为 is_latest='1', status='1'（最新版本）
-        //      下次签出时，会再次尝试降级当前版本为 is_latest='0'，但此时已有原版本 is_latest='0', status='1'
-        //      违反唯一约束：(sns, info_code, ..., status='1', is_latest='0') 只能有1条
-        // 解决方案：签入时将原版本归档为 status='0'（逻辑删除），保留历史记录但不参与唯一约束
+        // ✅ 签入时保留原版本作为历史版本 (is_latest='0', status='1')
+        // 说明：签入后，原版本保留为 status='1' 以便在"历史版本"列表中可见
         if (oConvertUtils.isNotEmpty(dm.getCheckoutDmId())) {
             String originalDmId = dm.getCheckoutDmId();
-            IetmDataModule originalDm = this.getById(originalDmId);
-            if (originalDm != null) {
-                // 将原版本归档：status='1' → '0'
-                boolean archiveSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
-                        .eq(IetmDataModule::getId, originalDmId)
-                        .set(IetmDataModule::getStatus, "0")  // 归档：不再参与唯一约束
-                        .set(IetmDataModule::getUpdateTime, new Date())
-                        .set(IetmDataModule::getUpdateBy, username)
-                );
-                if (!archiveSuccess) {
-                    log.warn("签入时归档原版本失败，原版本ID：{}", originalDmId);
-                } else {
-                    log.info("签入时已归档原版本，原版本ID：{}，版本号：{}-{} (status='0')",
-                             originalDmId, originalDm.getIssueNo(), originalDm.getInWork());
-                }
-            }
+            log.info("签入成功，原版本ID：{} 保留为历史版本 (is_latest='0', status='1')", originalDmId);
         }
 
         // 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
@@ -509,7 +698,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                 .set(IetmDataModule::getCheckoutUser, null)
                 .set(IetmDataModule::getCheckoutTime, null)
                 .set(IetmDataModule::getCheckinTime, dm.getCheckinTime())
-                .set(IetmDataModule::getCheckoutDmId, null)  // 清除原版本ID引用
+                // 保留 checkout_dm_id 字段，用于追溯版本历史（对标旧系统行为）
                 .set(IetmDataModule::getUpdateBy, username)
                 .set(IetmDataModule::getUpdateTime, new Date());
 
@@ -583,7 +772,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("发布失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
         }
 
-        // 9. 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
+        // 9. 计算 issueType（S1000D 标准）
+        String issueType = "001".equals(dm.getIssueNo()) ? "new" : "revised";
+
+        // 10. 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
         boolean success = this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, dm.getId())
                 .set(IetmDataModule::getInWork, "00")
@@ -593,12 +785,32 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                 .set(IetmDataModule::getVersionType, "1")
                 .set(IetmDataModule::getStatus, "2")
                 .set(IetmDataModule::getIssueDate, dm.getIssueDate())
+                .set(IetmDataModule::getIssueType, issueType)
+                .set(IetmDataModule::getWorkflowStatus, "0")  // 流程结束（方案A：只回写 workflowStatus）
+                // 注意：不设置 workflowStep 和 workflowHandler，视图会自动返回空
                 .set(IetmDataModule::getUpdateBy, username)
                 .set(IetmDataModule::getUpdateTime, new Date())
         );
         if (!success) {
             throw new JeecgBootException("发布失败：数据已被其他用户修改，请刷新后重试");
         }
+
+        // ✅ 同步版本号变更到 XML 内部的 issueInfo
+        // 注意：发布时版本号已变化（issueNo+1, inWork=00），需要同步到 XML
+        if (StringUtils.isNotBlank(dm.getDmContent())) {
+            // 重新加载完整实体（包含 dm_content 大字段）
+            IetmDataModule fullDm = this.getById(dm.getId());
+            if (fullDm != null && StringUtils.isNotBlank(fullDm.getDmContent())) {
+                String syncedXml = DmXmlHelper.syncDmIdentToXml(fullDm.getDmContent(), dm);
+                // 单独更新 dm_content 字段
+                this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                    .eq(IetmDataModule::getId, dm.getId())
+                    .set(IetmDataModule::getDmContent, syncedXml)
+                );
+                log.info("发布成功，已同步版本号到XML: ID={}, DMC={}", dm.getId(), dm.getDmcCode());
+            }
+        }
+
         return true;
     }
 
@@ -723,17 +935,237 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Override
     public void updateReferenceCount(String dmId) {
-        // 1. 统计作为被引用方的引用数量（其他DM引用了此DM）
-        Integer beReferencedCount = ietmDmRefMapper.countInReferences(dmId);
+        Integer refCount    = ietmDmRefMapper.countOutReferences(dmId);
+        Integer refedCount  = ietmDmRefMapper.countInReferences(dmId);
 
-        // 2. 统计作为引用方的引用数量（此DM引用了其他DM）
-        Integer referenceCount = ietmDmRefMapper.countOutReferences(dmId);
+        this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, dmId)
+                .set(IetmDataModule::getRefCount,   refCount   != null ? refCount   : 0)
+                .set(IetmDataModule::getRefedCount, refedCount != null ? refedCount : 0));
 
-        log.info("更新引用计数成功，DM ID：{}，被引用数：{}，引用数：{}",
-                dmId, beReferencedCount, referenceCount);
+        log.info("updateReferenceCount dmId={} refCount={} refedCount={}", dmId, refCount, refedCount);
+    }
 
-        // 注意：IetmDataModule没有beReferencedCount/referenceCount字段
-        // 如需保存，需要在Entity中添加这些字段
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> calculateDmReferences(String dmId) throws Exception {
+        System.out.println("【强制输出】calculateDmReferences 被调用！dmId=" + dmId);
+        log.warn("【WARN级别】calculateDmReferences START dmId={}", dmId);
+        log.info("calculateDmReferences START dmId={}", dmId);
+
+        // ① 查询DM（含 dm_content）
+        IetmDataModule dm = ietmDataModuleMapper.selectContentById(dmId);
+        if (dm == null) {
+            throw new JeecgBootException("DM不存在，ID：" + dmId);
+        }
+        String dmContent = dm.getDmContent();
+        if (oConvertUtils.isEmpty(dmContent)) {
+            throw new JeecgBootException("DM内容为空，无法计算引用关系，DMC：" + dm.getDmcCode());
+        }
+
+        // ② 解析XML，提取引用条目
+        List<org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmRefExtractItemVO> extracted;
+        try {
+            extracted = org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper
+                    .extractReferencesFromXml(dmContent);
+            log.info("calculateDmReferences 提取引用 dmId={} 提取数量={}", dmId, extracted.size());
+        } catch (Exception e) {
+            log.error("calculateDmReferences XML解析失败 dmId={} error={}", dmId, e.getMessage(), e);
+            throw new JeecgBootException("XML解析失败：" + e.getMessage());
+        }
+
+        // 如果没有提取到任何引用，直接返回
+        if (extracted.isEmpty()) {
+            log.info("calculateDmReferences dmId={} 无引用内容", dmId);
+            Map<String, Object> result = new HashMap<>();
+            result.put("dmId", dmId);
+            result.put("dmcCode", dm.getDmcCode());
+            result.put("techName", dm.getTechName());
+            result.put("refCount", 0);
+            result.put("details", new ArrayList<>());
+            return result;
+        }
+
+        // ③ 查询已有出引用（用于幂等合并：只删失效的、只插新增的）
+        List<IetmDmRef> existingRefs = ietmDmRefMapper.selectList(
+                new LambdaQueryWrapper<IetmDmRef>().eq(IetmDmRef::getSourceDmId, dmId));
+        // key = targetDmId + ":" + refType + ":" + refPosition
+        Map<String, IetmDmRef> existingMap = new HashMap<>();
+        for (IetmDmRef r : existingRefs) {
+            existingMap.put(r.getTargetDmId() + ":" + r.getRefType() + ":" + r.getRefPosition(), r);
+        }
+
+        String currentUser = getCurrentUsername();
+        Date   now         = new Date();
+        String srcDmc      = dm.getDmcCode();
+
+        List<IetmDmRef> toInsert = new ArrayList<>();
+        List<Map<String, Object>> details = new ArrayList<>();
+
+        // 只处理 dmRef，graphic/multimedia 暂不建立 DM 间关系（目标不是 DM 主表）
+        for (org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmRefExtractItemVO item : extracted) {
+            if (!"dmRef".equals(item.getRefType())) {
+                log.debug("calculateDmReferences 跳过非DM引用 dmId={} refType={} target={}",
+                         dmId, item.getRefType(), item.getTargetDmc());
+                Map<String, Object> d = new HashMap<>();
+                d.put("refType", item.getRefType()); d.put("targetDmc", item.getTargetDmc());
+                d.put("targetExists", false); d.put("note", "非DM引用，不建立关联");
+                details.add(d);
+                continue;
+            }
+            // 根据DMC查目标DM（最新有效版本）
+            IetmDataModule target = ietmDataModuleMapper.selectOne(
+                    new LambdaQueryWrapper<IetmDataModule>()
+                            .eq(IetmDataModule::getDmcCode, item.getTargetDmc())
+                            .eq(IetmDataModule::getStatus,  "1")
+                            .eq(IetmDataModule::getIsLatest,"1")
+                            .last("FETCH FIRST 1 ROWS ONLY"));
+            if (target == null) {
+                log.warn("calculateDmReferences 目标DM不存在 dmId={} targetDmc={}", dmId, item.getTargetDmc());
+                Map<String, Object> d = new HashMap<>();
+                d.put("refType", item.getRefType()); d.put("targetDmc", item.getTargetDmc());
+                d.put("targetExists", false); d.put("note", "目标DM不存在");
+                details.add(d);
+                continue;
+            }
+
+            log.debug("calculateDmReferences 找到目标DM dmId={} targetDmc={} targetId={}",
+                     dmId, item.getTargetDmc(), target.getId());
+
+            String key = target.getId() + ":" + item.getRefType() + ":" + item.getRefPosition();
+            if (!existingMap.containsKey(key)) {
+                // 仅插入新增的引用
+                IetmDmRef ref = new IetmDmRef();
+                ref.setId(org.jeecg.common.util.UUIDGenerator.generate());  // 手动生成ID（INSERT ALL 需要）
+                ref.setSourceDmId(dmId);
+                ref.setTargetDmId(target.getId());
+                ref.setRefType(item.getRefType());
+                ref.setRefDmc(srcDmc);
+                ref.setTargetDmc(item.getTargetDmc());
+                ref.setRefPosition(item.getRefPosition());
+                ref.setCreateBy(currentUser);
+                ref.setCreateTime(now);
+                toInsert.add(ref);
+            }
+            // 从 existingMap 中移除，剩余的是失效引用
+            existingMap.remove(key);
+
+            Map<String, Object> d = new HashMap<>();
+            d.put("refType", item.getRefType()); d.put("targetDmc", item.getTargetDmc());
+            d.put("targetDmId", target.getId()); d.put("targetExists", true);
+            details.add(d);
+        }
+
+        // ④ 删除失效引用（本次XML中已不存在的 dmRef 条目）
+        if (!existingMap.isEmpty()) {
+            List<String> staleIds = new ArrayList<>();
+            for (IetmDmRef stale : existingMap.values()) staleIds.add(stale.getId());
+            ietmDmRefMapper.deleteBatchIds(staleIds);
+            log.info("calculateDmReferences 删除失效引用 {} 条 dmId={}", staleIds.size(), dmId);
+        }
+
+        // ⑤ 批量插入新增引用
+        if (!toInsert.isEmpty()) {
+            log.info("calculateDmReferences 准备插入引用 dmId={} 数量={}", dmId, toInsert.size());
+            // 打印第一条记录的详细信息用于调试
+            if (!toInsert.isEmpty()) {
+                IetmDmRef first = toInsert.get(0);
+                log.info("calculateDmReferences 首条记录 id={} sourceDmId={} targetDmId={} refType={} createBy={}",
+                        first.getId(), first.getSourceDmId(), first.getTargetDmId(),
+                        first.getRefType(), first.getCreateBy());
+            }
+            // 分批插入，避免 DM8 INSERT ALL 过大
+            int batchSize = 100;
+            for (int i = 0; i < toInsert.size(); i += batchSize) {
+                List<IetmDmRef> batch = toInsert.subList(i, Math.min(i + batchSize, toInsert.size()));
+                try {
+                    int insertCount = ietmDmRefMapper.batchInsert(batch);
+                    log.info("calculateDmReferences 批次插入成功 dmId={} batch={} count={}",
+                            dmId, (i / batchSize) + 1, insertCount);
+                } catch (Exception e) {
+                    log.error("calculateDmReferences 批次插入失败 dmId={} batch={} error={}",
+                            dmId, (i / batchSize) + 1, e.getMessage(), e);
+                    throw e;
+                }
+            }
+            log.info("calculateDmReferences 插入新引用完成 {} 条 dmId={}", toInsert.size(), dmId);
+        } else {
+            log.info("calculateDmReferences 无需插入新引用 dmId={}", dmId);
+        }
+
+        // ⑥ 刷新 ref_count / refed_count
+        updateReferenceCount(dmId);
+        // 被引用方的 refed_count 也需要刷新
+        Set<String> affectedTargetIds = new HashSet<>();
+        for (IetmDmRef r : toInsert) affectedTargetIds.add(r.getTargetDmId());
+        for (IetmDmRef r : existingMap.values()) affectedTargetIds.add(r.getTargetDmId());
+        for (String tid : affectedTargetIds) updateReferenceCount(tid);
+
+        Integer finalRefCount = ietmDmRefMapper.countOutReferences(dmId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("dmId", dmId);
+        result.put("dmcCode", srcDmc);
+        result.put("techName", dm.getTechName());
+        result.put("refCount", finalRefCount);
+        result.put("details", details);
+
+        log.info("calculateDmReferences END dmId={} refCount={}", dmId, finalRefCount);
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> calculateAllDmReferences(int batchSize) {
+        System.out.println("======================================");
+        System.out.println("【强制输出】calculateAllDmReferences 被调用！");
+        System.out.println("【强制输出】batchSize = " + batchSize);
+        System.out.println("【强制输出】时间 = " + new java.util.Date());
+        System.out.println("======================================");
+        log.warn("【WARN级别】calculateAllDmReferences START batchSize={}", batchSize);
+        log.info("calculateAllDmReferences START batchSize={}", batchSize);
+        int total = 0, success = 0, fail = 0, skip = 0;
+        long start = System.currentTimeMillis();
+        int page = 1;
+        while (true) {
+            // BUG修复：selectPage 不会加载 CLOB 字段，需要只查 ID，再单独加载内容
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmDataModule> p =
+                    new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, batchSize);
+            com.baomidou.mybatisplus.core.metadata.IPage<IetmDataModule> pageResult =
+                    ietmDataModuleMapper.selectPage(p, new LambdaQueryWrapper<IetmDataModule>()
+                            .select(IetmDataModule::getId, IetmDataModule::getDmcCode)  // 只查 ID 和 DMC
+                            .eq(IetmDataModule::getStatus,   "1")
+                            .eq(IetmDataModule::getIsLatest, "1")
+                            .isNotNull(IetmDataModule::getDmContent)
+                            .orderByAsc(IetmDataModule::getCreateTime));
+            if (pageResult.getRecords().isEmpty()) break;
+            for (IetmDataModule dm : pageResult.getRecords()) {
+                total++;
+                try {
+                    // 通过 selectContentById 加载完整内容（含 dm_content）
+                    calculateDmReferences(dm.getId());
+                    success++;
+                } catch (Exception e) {
+                    fail++;
+                    log.error("calculateAllDmReferences FAIL dmId={} dmc={} error={}",
+                            dm.getId(), dm.getDmcCode(), e.getMessage());
+                }
+                if (total % 100 == 0) {
+                    try { Thread.sleep(50); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt(); break;
+                    }
+                }
+            }
+            page++;
+        }
+        long duration = System.currentTimeMillis() - start;
+        log.info("calculateAllDmReferences END total={} success={} fail={} skip={} duration={}ms",
+                total, success, fail, skip, duration);
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalCount",   total);
+        result.put("successCount", success);
+        result.put("failCount",    fail);
+        result.put("skipCount",    skip);
+        result.put("duration",     duration);
+        return result;
     }
 
     @Override
@@ -777,7 +1209,16 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                         Element dmCode = dmIdent2.element("dmCode");
                         if (dmCode != null) {
                             dataModule.setSchema(getAttributeValue(dmCode, "modelIdentCode", "J"));
-                            dataModule.setSns(getAttributeValue(dmCode, "systemDiffCode"));
+                            // 【方案A】SNS 含 equipname 作首段，从 dmCode 全 8 属性重建（对标老系统）
+                            dataModule.setSns(DmcUtils.composeSns(
+                                    getAttributeValue(dmCode, "modelIdentCode"),
+                                    getAttributeValue(dmCode, "systemDiffCode"),
+                                    getAttributeValue(dmCode, "systemCode"),
+                                    getAttributeValue(dmCode, "subSystemCode"),
+                                    getAttributeValue(dmCode, "subSubSystemCode"),
+                                    getAttributeValue(dmCode, "assyCode"),
+                                    getAttributeValue(dmCode, "disassyCode"),
+                                    getAttributeValue(dmCode, "disassyCodeVariant")));
                             dataModule.setInfoCode(getAttributeValue(dmCode, "infoCode"));
                             dataModule.setInfoCodeVariant(getAttributeValue(dmCode, "infoCodeVariant"));
                             dataModule.setIetmLocationCode(getAttributeValue(dmCode, "itemLocationCode"));
@@ -990,16 +1431,26 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         xml.append("    <dmAddress>\n");
         xml.append("      <dmIdent>\n");
 
-        // DMC码
+        // DMC码【方案A】SNS 含 equipname 作首段(=modelIdentCode)，按 - 拆分对标老系统
+        java.util.Map<String, String> dmcSeg = DmcUtils.decomposeSns(dataModule.getSns());
+        String dmcModelIdentCode = dmcSeg.get("modelIdentCode");
+        if (dmcModelIdentCode == null || dmcModelIdentCode.trim().isEmpty()) {
+            dmcModelIdentCode = DmcUtils.resolveModelIdentCode(dataModule.getSchema(), null);
+        }
+        // subSubSystemCode/disassyCodeVariant XSD 要求非空，缺省兜底老逻辑默认值
+        String dmcSubSub = dmcSeg.get("subSubSystemCode");
+        if (dmcSubSub == null || dmcSubSub.isEmpty()) dmcSubSub = "0";
+        String dmcVariant = dmcSeg.get("disassyCodeVariant");
+        if (dmcVariant == null || dmcVariant.isEmpty()) dmcVariant = "A";
         xml.append("        <dmCode");
-        xml.append(" modelIdentCode=\"").append(nvl(dataModule.getSchema(), "J")).append("\"");
-        xml.append(" systemDiffCode=\"").append(nvl(dataModule.getSns(), "")).append("\"");
-        xml.append(" systemCode=\"").append(extractSystemCode(dataModule.getSns())).append("\"");
-        xml.append(" subSystemCode=\"").append(extractSubSystemCode(dataModule.getSns())).append("\"");
-        xml.append(" subSubSystemCode=\"").append(extractSubSubSystemCode(dataModule.getSns())).append("\"");
-        xml.append(" assyCode=\"").append(extractAssyCode(dataModule.getSns())).append("\"");
-        xml.append(" disassyCode=\"").append(extractDisassyCode(dataModule.getSns())).append("\"");
-        xml.append(" disassyCodeVariant=\"").append(extractDisassyCodeVariant(dataModule.getSns())).append("\"");
+        xml.append(" modelIdentCode=\"").append(dmcModelIdentCode).append("\"");
+        xml.append(" systemDiffCode=\"").append(dmcSeg.get("systemDiffCode")).append("\"");
+        xml.append(" systemCode=\"").append(dmcSeg.get("systemCode")).append("\"");
+        xml.append(" subSystemCode=\"").append(dmcSeg.get("subSystemCode")).append("\"");
+        xml.append(" subSubSystemCode=\"").append(dmcSubSub).append("\"");
+        xml.append(" assyCode=\"").append(dmcSeg.get("assyCode")).append("\"");
+        xml.append(" disassyCode=\"").append(dmcSeg.get("disassyCode")).append("\"");
+        xml.append(" disassyCodeVariant=\"").append(dmcVariant).append("\"");
         xml.append(" infoCode=\"").append(nvl(dataModule.getInfoCode(), "")).append("\"");
         xml.append(" infoCodeVariant=\"").append(nvl(dataModule.getInfoCodeVariant(), "")).append("\"");
         xml.append(" itemLocationCode=\"").append(nvl(dataModule.getIetmLocationCode(), "A")).append("\"");
@@ -1012,7 +1463,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         xml.append("/>\n");
 
         // 语言信息
-        xml.append("        <language languageIsoCode=\"").append(nvl(dataModule.getLanguageIsoCode(), "ZH")).append("\"");
+        xml.append("        <language languageIsoCode=\"").append(nvl(dataModule.getLanguageIsoCode(), "zh")).append("\"");
         xml.append(" countryIsoCode=\"").append(nvl(dataModule.getCountryIsoCode(), "CN")).append("\"/>\n");
 
         // 发行信息
@@ -1063,46 +1514,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
      */
     /**
      * 构建DMC编码（用于文件名等场景）
-     * 使用标准S1000D格式，与generateDmc()保持一致
+     * 委托 generateDmc() 保证与存储/查重/展示完全一致（单一数据源）
      */
     private String buildDmcCode(IetmDataModule dm) {
-        StringBuilder dmc = new StringBuilder();
-        dmc.append("DMC-");
-
-        // 第1段：Schema
-        dmc.append(nvl(dm.getSchema(), "J")).append("-");
-
-        // 第2段：SNS
-        dmc.append(nvl(dm.getSns(), "")).append("-");
-
-        // 第3段：InfoCode + InfoCodeVariant
-        dmc.append(nvl(dm.getInfoCode(), "")).append(nvl(dm.getInfoCodeVariant(), "")).append("-");
-
-        // 第4段：IetmLocationCode + LearnCode + LearnCodeEventCode
-        dmc.append(nvl(dm.getIetmLocationCode(), ""));
-        if (!oConvertUtils.isEmpty(dm.getLearnCode())) {
-            dmc.append(dm.getLearnCode()).append(nvl(dm.getLearnEventCode(), ""));
-        }
-        dmc.append("-");
-
-        // 第5段：YearOfChange + SeqNo
-        dmc.append(nvl(dm.getYearOfChange(), "")).append(nvl(dm.getSeqNo(), ""));
-        dmc.append("-");
-
-        // 第6段：Originator
-        dmc.append(nvl(dm.getOriginator(), "")).append("-");
-
-        // 第7段：IssueNo
-        dmc.append(nvl(dm.getIssueNo(), "001")).append("-");
-
-        // 第8段：InWork + LanguageIsoCode
-        dmc.append(nvl(dm.getInWork(), "00"));
-        dmc.append(nvl(dm.getLanguageIsoCode(), "ZH")).append("-");
-
-        // 第9段：CountryIsoCode
-        dmc.append(nvl(dm.getCountryIsoCode(), "CN"));
-
-        return dmc.toString();
+        return generateDmc(dm);
     }
 
     // 辅助方法
@@ -1119,28 +1534,67 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                    .replace("'", "&apos;");
     }
 
-    private String extractSystemCode(String sns) {
-        return sns != null && sns.length() >= 2 ? sns.substring(0, 2) : "00";
-    }
+    /**
+     * 同步版本号：确保XML中的issueInfo与数据库字段一致
+     * 原则：以数据库为准，自动修正XML
+     * 用途：签出时自动同步新版本的XML
+     *
+     * @param dmId 数据模块ID
+     */
+    private void syncVersionToXml(String dmId) {
+        IetmDataModule dm = ietmDataModuleMapper.selectById(dmId);
+        if (dm == null || StringUtils.isEmpty(dm.getDmContent())) {
+            return;
+        }
 
-    private String extractSubSystemCode(String sns) {
-        return sns != null && sns.length() >= 3 ? sns.substring(2, 3) : "0";
-    }
+        String content = dm.getDmContent();
+        String dbIssueNo = dm.getIssueNo();
+        String dbInWork = StringUtils.isNotEmpty(dm.getInWork()) ? dm.getInWork() : "00";
 
-    private String extractSubSubSystemCode(String sns) {
-        return sns != null && sns.length() >= 4 ? sns.substring(3, 4) : "0";
-    }
+        if (StringUtils.isEmpty(dbIssueNo)) {
+            return;
+        }
 
-    private String extractAssyCode(String sns) {
-        return sns != null && sns.length() >= 6 ? sns.substring(4, 6) : "00";
-    }
+        try {
+            // 使用静态常量Pattern（性能优化）
+            java.util.regex.Matcher matcher = ISSUE_INFO_TAG_PATTERN.matcher(content);
 
-    private String extractDisassyCode(String sns) {
-        return sns != null && sns.length() >= 8 ? sns.substring(6, 8) : "00";
-    }
+            if (matcher.find()) {
+                // 提取当前XML中的版本号
+                String issueInfoTag = matcher.group();
 
-    private String extractDisassyCodeVariant(String sns) {
-        return sns != null && sns.length() >= 9 ? sns.substring(8, 9) : "A";
+                java.util.regex.Matcher issueNumberMatcher = ISSUE_NUMBER_ATTR_PATTERN.matcher(issueInfoTag);
+                java.util.regex.Matcher inWorkMatcher = IN_WORK_ATTR_PATTERN.matcher(issueInfoTag);
+
+                String xmlIssueNumber = issueNumberMatcher.find() ? issueNumberMatcher.group(1) : "";
+                String xmlInWork = inWorkMatcher.find() ? inWorkMatcher.group(1) : "";
+
+                // 如果不一致，替换整个标签
+                if (!xmlIssueNumber.equals(dbIssueNo) || !xmlInWork.equals(dbInWork)) {
+                    String newTag = String.format(
+                        "<issueInfo issueNumber=\"%s\" inWork=\"%s\"/>",
+                        escapeXml(dbIssueNo),
+                        escapeXml(dbInWork)
+                    );
+
+                    content = ISSUE_INFO_TAG_PATTERN.matcher(content).replaceAll(
+                        java.util.regex.Matcher.quoteReplacement(newTag)
+                    );
+
+                    // 重新保存修正后的XML
+                    IetmDataModule update = new IetmDataModule();
+                    update.setId(dmId);
+                    update.setDmContent(content);
+                    ietmDataModuleMapper.updateById(update);
+
+                    log.debug("[版本号同步] DM: {}, 已将XML版本号从 {}-{} 修正为 {}-{}",
+                        dmId, xmlIssueNumber, xmlInWork, dbIssueNo, dbInWork);
+                }
+            }
+        } catch (Exception e) {
+            log.error("[版本号同步失败] DM: {}, 错误: {}", dmId, e.getMessage(), e);
+            // 同步失败不影响签出，只记录日志
+        }
     }
 
     private String getCurrentYear() {
@@ -1365,52 +1819,36 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 输入白名单校验（防止 SQL 注入和路径遍历）
         validateDmcInput(dataModule);
 
-        // 生成DMC编码（S1000D标准格式）：
-        // DMC-{schema}-{sns}-{infocode}{variant}-{location}{learn}{event}-{yearOfChange}-{seqNo}{originator}-{issueno}-{inwork}_{lang}-{country}
+        // 防御性检查：SNS 空会导致 DMC 双横线（`DMC--...`）
+        if (oConvertUtils.isEmpty(dataModule.getSns())) {
+            log.warn("生成 DMC 时 SNS 为空，将产生双横线格式（DMC--...），请检查构型路径，dmId={}", dataModule.getId());
+        }
+
+        // 生成DMC编码：逐字符对标老系统 IetmEditorUtils.js getDmc()（纯S1000D缩略标识+文件名后缀）：
+        // DMC-{sns}-{infoCode}{infoCodeVariant}-{itemLocationCode}_{issueNo}-{inWork}_{lang}-{country}
+        // 注：yearOfChange/seqNo/originator/learnCode 不进 DMC 字符串（老系统 getDmc 亦不含），仅存实体列与 <dmCode> XML 属性。
         StringBuilder dmc = new StringBuilder("DMC-");
 
-        // 第1段：Schema（模式代码，默认J）
-        dmc.append(oConvertUtils.getString(dataModule.getSchema(), "J")).append("-");
-
-        // 第2段：SNS（系统编号）
+        // SNS（系统编号，含 equipname 首段=modelIdentCode）
         dmc.append(oConvertUtils.getString(dataModule.getSns(), "")).append("-");
 
-        // 第3段：InfoCode + InfoCodeVariant（信息码+变体）
+        // InfoCode + InfoCodeVariant（信息码+变体，无分隔符）
         dmc.append(oConvertUtils.getString(dataModule.getInfoCode(), ""));
         if (oConvertUtils.isNotEmpty(dataModule.getInfoCodeVariant())) {
             dmc.append(dataModule.getInfoCodeVariant());
         }
         dmc.append("-");
 
-        // 第4段：IetmLocationCode + LearnCode + LearnCodeEventCode（位置码+学习码+学习事件码）
-        if (oConvertUtils.isNotEmpty(dataModule.getIetmLocationCode())) {
-            dmc.append(dataModule.getIetmLocationCode());
-        }
-        if (oConvertUtils.isNotEmpty(dataModule.getLearnCode())) {
-            dmc.append(dataModule.getLearnCode());
-        }
-        if (oConvertUtils.isNotEmpty(dataModule.getLearnEventCode())) {
-            dmc.append(dataModule.getLearnEventCode());
-        }
-        dmc.append("-");
+        // ItemLocationCode（位置码，默认A；老系统 getDmc 此段仅 itemLocationCode）
+        dmc.append(oConvertUtils.getString(dataModule.getIetmLocationCode(), "A"));
 
-        // 第5段：YearOfChange（变更年代码，默认00）
-        dmc.append(oConvertUtils.getString(dataModule.getYearOfChange(), "00")).append("-");
+        // 文件名后缀：_{issueNo}-{inWork}（发行块，下划线起始，连字符分隔）
+        dmc.append("_").append(oConvertUtils.getString(dataModule.getIssueNo(), "001"));
+        dmc.append("-").append(oConvertUtils.getString(dataModule.getInWork(), "00"));
 
-        // 第6段：SeqNo + Originator（顺序码+发行方代码，无分隔符，顺序码默认00）
-        dmc.append(oConvertUtils.getString(dataModule.getSeqNo(), "00"));
-        dmc.append(oConvertUtils.getString(dataModule.getOriginator(), "")).append("-");
-
-        // 第7段：IssueNo（发行编号，默认001）
-        dmc.append(oConvertUtils.getString(dataModule.getIssueNo(), "001")).append("-");
-
-        // 第8段：InWork_LanguageIsoCode（在编编号_语言代码，使用下划线分隔，保持大写）
-        dmc.append(oConvertUtils.getString(dataModule.getInWork(), "00"));
-        dmc.append("_");  // 使用下划线分隔
-        dmc.append(oConvertUtils.getString(dataModule.getLanguageIsoCode(), "ZH")).append("-");
-
-        // 第9段：CountryIsoCode（国家代码，默认CN，保持大写）
-        dmc.append(oConvertUtils.getString(dataModule.getCountryIsoCode(), "CN"));
+        // 文件名后缀：_{lang}-{country}（语言块，下划线起始，连字符分隔）
+        dmc.append("_").append(oConvertUtils.getString(dataModule.getLanguageIsoCode(), "zh"));
+        dmc.append("-").append(oConvertUtils.getString(dataModule.getCountryIsoCode(), "CN"));
 
         return dmc.toString();
     }
@@ -1513,6 +1951,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         this.saveDm(newDm);
 
+        // ✅ 复制后同步版本号到XML（复制的dmContent中issueInfo标签是旧版本号）
+        syncVersionToXml(newDm.getId());
+
         return newDm.getId();
     }
 
@@ -1533,15 +1974,17 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             //     createProcessVariables(dm, username)
             // );
 
+            // 暂时返回模拟的实例ID，等待集成工作流引擎
+            String mockInstanceId = "workflow-" + id + "-" + System.currentTimeMillis();
+
             // TODO: 集成工作流引擎后，用专属常量替换此状态值
             // 注意：STATUS_PUBLISHED="2" 含义为"已发布"，此处"审批中"需区分
             dm.setStatus("2"); // 占位：待工作流集成后改为审批中专属状态
+            dm.setWorkflowStatus("1"); // 1=流转中（方案A：只回写 workflowStatus，不回写 workflowInstanceId）
             this.updateById(dm);
 
-            log.info("启动工作流成功，DM ID：{}，流程Key：{}，用户：{}", id, processKey, username);
+            log.info("启动工作流成功，DM ID：{}，流程Key：{}，用户：{}，Mock实例ID：{}", id, processKey, username, mockInstanceId);
 
-            // 暂时返回模拟的实例ID，等待集成工作流引擎
-            String mockInstanceId = "workflow-" + id + "-" + System.currentTimeMillis();
             return mockInstanceId;
 
         } catch (Exception e) {
@@ -1566,15 +2009,18 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             // variables.put("comment", comment);
             // taskService.complete(taskId, variables);
 
-            // 2. 更新DM状态
+            // 2. 更新DM状态和工作流状态
             if (approved) {
                 dm.setStatus("3"); // 假设3表示已批准
+                dm.setWorkflowStatus("0"); // 0=已结束（方案A：只回写 workflowStatus）
             } else {
                 dm.setStatus("4"); // 假设4表示已拒绝
+                dm.setWorkflowStatus("0"); // 0=已结束
             }
+            // 注意：不设置 workflowStep 和 workflowHandler，这些字段从 v_wf_instance 视图动态获取
             this.updateById(dm);
 
-            log.info("完成工作流任务成功，DM ID：{}，任务ID：{}，是否通过：{}", id, taskId, approved);
+            log.info("完成工作流任务成功，DM ID：{}，任务ID：{}，是否通过：{}，workflowStatus已更新", id, taskId, approved);
             return true;
 
         } catch (Exception e) {
@@ -1855,16 +2301,96 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     }
 
     @Override
-    public List<IetmDataModule> queryHistoryVersions(String sns, String infoCode, String infoCodeVariant) {
-        log.info("查询历史版本，sns：{}，infoCode：{}，infoCodeVariant：{}", sns, infoCode, infoCodeVariant);
-        LambdaQueryWrapper<IetmDataModule> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(IetmDataModule::getSns, sns);
-        queryWrapper.eq(IetmDataModule::getInfoCode, infoCode);
-        if (oConvertUtils.isNotEmpty(infoCodeVariant)) {
-            queryWrapper.eq(IetmDataModule::getInfoCodeVariant, infoCodeVariant);
+    public List<IetmDataModule> queryHistoryVersions(String projectId, String sns, String infoCode,
+                                                     String infoCodeVariant, String ietmLocationCode, Boolean onlyPublished) {
+        log.info("查询历史版本 projectId={}, sns={}, infoCode={}, variant={}, locationCode={}, onlyPublished={}",
+                projectId, sns, infoCode, infoCodeVariant, ietmLocationCode, onlyPublished);
+        // 走 Mapper：含 status IN ('1','2') 过滤、issue_no/in_work 倒序、包含 dm_content
+        return baseMapper.selectHistoryVersions(projectId, sns, infoCode, infoCodeVariant, ietmLocationCode, onlyPublished);
+    }
+
+    @Override
+    public Map<String, Object> compareVersions(String sourceId, String targetId) {
+        IetmDataModule source = baseMapper.selectContentById(sourceId);
+        IetmDataModule target = baseMapper.selectContentById(targetId);
+        Map<String, Object> data = new HashMap<>(4);
+        if (source == null || target == null) {
+            log.warn("版本记录不存在，sourceId={}, targetId={}", sourceId, targetId);
+            return data;
         }
-        queryWrapper.orderByDesc(IetmDataModule::getIssueNo, IetmDataModule::getInWork);
-        return this.list(queryWrapper);
+
+        String sourceContent = getContentWithTemplateFallback(source);
+        String targetContent = getContentWithTemplateFallback(target);
+
+        data.put("sourceContent", sourceContent);
+        data.put("targetContent", targetContent);
+        return data;
+    }
+
+    /**
+     * 获取DM内容，如果dm_content为空则从模板加载
+     * @param dm DM实体
+     * @return XML内容
+     */
+    private String getContentWithTemplateFallback(IetmDataModule dm) {
+        String content = dm.getDmContent();
+        if (StringUtils.isNotBlank(content)) {
+            return content;
+        }
+
+        // dm_content为空，从模板加载
+        String standard = "S1000D4.0";
+        if (StringUtils.isNotBlank(dm.getProjectId())) {
+            IetmProject project = projectService.getById(dm.getProjectId());
+            if (project != null && StringUtils.isNotBlank(project.getIetmStandard())) {
+                standard = project.getIetmStandard();
+            }
+        }
+
+        String templateFile = null;
+        if (StringUtils.isNotBlank(dm.getDmType())) {
+            templateFile = getDmTypeTemplateFile(dm.getDmType(), standard);
+        }
+        if (StringUtils.isBlank(templateFile)) {
+            templateFile = "descript.xml";
+        }
+
+        try {
+            return DmXmlHelper.loadTemplate(standard, templateFile, dm);
+        } catch (Exception e) {
+            log.error("DM[{}] 加载模板失败", dm.getId(), e);
+            return "";
+        }
+    }
+
+    /**
+     * 从dm_type表获取模板文件名
+     * @param dmTypeCode DM类型编码
+     * @param standard 标准
+     * @return 模板文件名
+     */
+    private String getDmTypeTemplateFile(String dmTypeCode, String standard) {
+        try {
+            if (StringUtils.isBlank(dmTypeCode) || StringUtils.isBlank(standard)) {
+                return null;
+            }
+
+            LambdaQueryWrapper<IetmDmType> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(IetmDmType::getTypeCode, dmTypeCode)
+                   .eq(IetmDmType::getIetmStandard, standard)
+                   .eq(IetmDmType::getStatus, "1")
+                   .last("FETCH FIRST 1 ROWS ONLY");
+
+            IetmDmType dmType = dmTypeMapper.selectOne(wrapper);
+            if (dmType != null && StringUtils.isNotBlank(dmType.getTemplateFile())) {
+                return dmType.getTemplateFile();
+            }
+
+            return null;
+        } catch (Exception e) {
+            log.warn("获取dm_type模板文件失败: {}", e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -1935,10 +2461,20 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                 if (dmIdent != null) {
                     Element dmCode = dmIdent.element("dmCode");
                     if (dmCode != null) {
-                        dataModule.setSns(dmCode.attributeValue("systemCode"));
+                        dataModule.setSchema(dmCode.attributeValue("modelIdentCode"));
+                        // 【方案A】SNS 含 equipname 作首段，从 dmCode 全 8 属性重建（对标老系统）
+                        dataModule.setSns(DmcUtils.composeSns(
+                                dmCode.attributeValue("modelIdentCode"),
+                                dmCode.attributeValue("systemDiffCode"),
+                                dmCode.attributeValue("systemCode"),
+                                dmCode.attributeValue("subSystemCode"),
+                                dmCode.attributeValue("subSubSystemCode"),
+                                dmCode.attributeValue("assyCode"),
+                                dmCode.attributeValue("disassyCode"),
+                                dmCode.attributeValue("disassyCodeVariant")));
                         dataModule.setInfoCode(dmCode.attributeValue("infoCode"));
                         dataModule.setInfoCodeVariant(dmCode.attributeValue("infoCodeVariant"));
-                        dataModule.setIetmLocationCode(dmCode.attributeValue("disassyCode"));
+                        dataModule.setIetmLocationCode(dmCode.attributeValue("itemLocationCode"));
                         dataModule.setLearnCode(dmCode.attributeValue("learnCode"));
                         dataModule.setLearnEventCode(dmCode.attributeValue("learnEventCode"));
                     }
@@ -2013,8 +2549,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<?> editProp(String id, DmEditPropVO vo, String currentUser) {
-        // 1. 查询DM
-        IetmDataModule dm = this.getById(id);
+        // 1. 查询DM（JOIN流程视图，获取实时的workflowStep）
+        IetmDataModule dm = baseMapper.selectByIdWithFlow(id);
         if (dm == null) {
             return Result.error("DM不存在");
         }
@@ -2023,17 +2559,19 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         log.info("编辑DM属性 - 当前数据: id={}, issueNo={}, inWork={}, checkoutUser={}",
             id, dm.getIssueNo(), dm.getInWork(), dm.getCheckoutUser());
 
-        // 2. 校验工作流已启动
-        // TODO: 临时禁用工作流校验，方便测试
-        // if (StringUtils.isBlank(dm.getWorkflowInstanceId())) {
-        //     return Result.error("还没有启动流程，不能编辑DM属性");
-        // }
+        // 2. 校验工作流状态（使用 workflowStatus 字段，来自 v_wf_instance 视图）
+        // workflowStatus 含义：null/空=未启动，0=已结束，1=流转中，2=已撤销
+        if (dm.getWorkflowStatus() == null || "0".equals(dm.getWorkflowStatus())) {
+            return Result.error("还没有启动流程，不能编辑DM属性。");
+        }
+        if ("2".equals(dm.getWorkflowStatus())) {
+            return Result.error("流程已撤销，不能编辑DM属性。");
+        }
 
-        // 3. 校验当前节点为"DM编写"
-        // TODO: 临时禁用工作流节点校验，方便测试
-        // if (!WORKFLOW_STEP_DM_WRITE.equals(dm.getWorkflowStep())) {
-        //     return Result.error("流程状态不是DM编写状态，不能编辑DM属性");
-        // }
+        // 3. 校验当前节点为"DM编写"（workflowStep 来自 v_wf_instance 视图动态计算）
+        if (dm.getWorkflowStep() != null && !"DM编写".equals(dm.getWorkflowStep())) {
+            return Result.error("流程状态不是DM编写状态，不能编辑DM属性。当前状态：" + dm.getWorkflowStep());
+        }
 
         String checkoutUser = dm.getCheckoutUser();
         boolean isCheckedOut = StringUtils.isNotBlank(checkoutUser);
@@ -2062,6 +2600,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
             dm.setTechName(vo.getTechName());
             dm.setInfoName(vo.getInfoName());
+            // 对齐旧系统：编辑DM属性时更新版本日期
             dm.setIssueDate(new Date());
             dm.setUpdateBy(currentUser);
             boolean updateSuccess = this.updateById(dm);
@@ -2095,6 +2634,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             dm.setCheckoutTime(new Date());
             dm.setTechName(vo.getTechName());
             dm.setInfoName(vo.getInfoName());
+            // 对齐旧系统：编辑DM属性（自动签出）时更新版本日期
             dm.setIssueDate(new Date());
             dm.setUpdateBy(currentUser);
 
@@ -2135,6 +2675,13 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         if (conflict != null) {
             log.warn("复制新建失败：DMC冲突，dmcCode={}，冲突ID={}", newDm.getDmcCode(), conflict.getId());
             return Result.error("DMC 冲突：" + newDm.getDmcCode() + " 已存在（ID=" + conflict.getId() + "）");
+        }
+
+        // ✅ 同步数据库字段到 XML 内部的 dmIdent（dmCode/language/issueInfo）
+        // 确保复制后的 XML 内容与新的数据库字段一致
+        if (StringUtils.isNotBlank(newDm.getDmContent())) {
+            String syncedXml = DmXmlHelper.syncDmIdentToXml(newDm.getDmContent(), newDm);
+            newDm.setDmContent(syncedXml);
         }
 
         setAuditFieldsAndSave(newDm);
@@ -2181,7 +2728,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         if (StringUtils.isNotBlank(vo.getSns())) {
             return vo.getSns();
         }
-        String calculated = snsCalculateService.calculateSns(vo.getTargetCmNodeId());
+        String calculated = snsCalculateService.calculateSnsForDm(vo.getTargetCmNodeId());
         if (StringUtils.isBlank(calculated)) {
             throw new JeecgBootException("计算SNS失败，请检查构型节点配置");
         }
@@ -2197,10 +2744,13 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     private void setVersionAndStatus(IetmDataModule newDm, DmCopyVO vo) {
         newDm.setIssueNo(getValueOrDefault(vo.getIssueNo(), INITIAL_ISSUE_NO));
         newDm.setInWork(getValueOrDefault(vo.getInWork(), "00"));
+        // 对齐旧系统：复制新建DM时设置版本日期
         newDm.setIssueDate(new Date());
         newDm.setIsLatest("1");
         newDm.setStatus("1");
         newDm.setVersionType("0");
+        // 设置issueType默认值（对齐addDm逻辑，S1000D标准）
+        newDm.setIssueType("new");
         newDm.setCheckoutUser(null);
         newDm.setCheckoutTime(null);
     }
@@ -2223,6 +2773,11 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     // 仅负责生成 DMC 编码；唯一性校验由调用方（copyAndCreateDm）通过
     // selectByDmcForValidation 做完整校验，此处不再做残缺的浅层重复校验。
     private Result<?> generateAndValidateDmc(IetmDataModule newDm) {
+        // 校验 SNS 必填（防止空 SNS 导致 DMC 双横线）
+        if (oConvertUtils.isEmpty(newDm.getSns())) {
+            return Result.error("SNS 编码不能为空，请检查构型节点路径是否完整（至少2层）");
+        }
+
         String dmcCode = generateDmcCode(newDm);
         newDm.setDmcCode(dmcCode);
         return Result.OK();
@@ -2410,7 +2965,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     private void setRpcFromProject(IetmDataModule dm) {
         try {
             QueryWrapper<IetmProjectCompany> qw = new QueryWrapper<>();
-            qw.eq("pid", dm.getProjectId()).eq("type", 2).last("LIMIT 1");
+            qw.eq("pid", dm.getProjectId()).eq("type", 2).last("FETCH FIRST 1 ROWS ONLY");
             IetmProjectCompany company = projectCompanyService.getOne(qw);
             if (company != null && StringUtils.isNotBlank(company.getCompanyCode())) {
                 dm.setRpc(company.getCompanyCode());
@@ -2511,12 +3066,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         validateField("InfoCodeVariant", dm.getInfoCodeVariant(), DMC_SAFE_SINGLE_CHAR);
         validateField("LearnEventCode", dm.getLearnEventCode(), DMC_SAFE_SINGLE_CHAR);
 
-        // 校验语言/国家代码（2位大写字母）
-        if (dm.getLanguageIsoCode() != null && !dm.getLanguageIsoCode().matches("^[A-Z]{2}$")) {
-            throw new IllegalArgumentException("LanguageIsoCode 只允许2位大写字母");
+        // 校验语言/国家代码（接受小写，与VO Pattern保持一致）
+        if (dm.getLanguageIsoCode() != null && !dm.getLanguageIsoCode().matches("^[a-z]{2,3}$")) {
+            throw new IllegalArgumentException("LanguageIsoCode 必须为2-3位小写字母");
         }
         if (dm.getCountryIsoCode() != null && !dm.getCountryIsoCode().matches("^[A-Z]{2}$")) {
-            throw new IllegalArgumentException("CountryIsoCode 只允许2位大写字母");
+            throw new IllegalArgumentException("CountryIsoCode 必须为2位大写字母");
         }
     }
 

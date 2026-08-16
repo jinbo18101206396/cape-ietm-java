@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE webcgm []>
+<webcgm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://www.purl.org/dc/elements/1.1/" xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/xcf.xsd">
+	<grobject apsid="">
+		<linkuri uri=""/>
+	</grobject>
+	<bindById apsid="">
+		<linkuri uri=""/>
+	</bindById>
+	<bindByName apstargetname="">
+		<linkuri uri=""/>
+	</bindByName>
+</webcgm>

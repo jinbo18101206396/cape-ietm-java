@@ -166,4 +166,9 @@ public interface IIetmProjectConfigurationManagementService extends IService<Iet
 		Integer security
 	);
 
+    /**
+     * 动态获取项目 code_rule（空值或非7段格式回退默认模板 "A-00-0-0-00-00-A"）
+     */
+    String getCodeRuleByProjectId(String projectId);
+
 }

@@ -1,13 +1,16 @@
 package org.jeecg.modules.ietm.icnmanage.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.vo.LoginUser;
+import org.jeecg.modules.ietm.common.IetmConstants;
 import org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage;
 import org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper;
 import org.jeecg.modules.ietm.icnmanage.service.IIetmIcnManageService;
@@ -115,7 +118,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         // 4. 保存文件附件
         if (files != null && files.length > 0) {
             for (MultipartFile file : files) {
-                saveAttachment(icnId, file, "实体文件", icnManage.getSecurity(), loginUser.getUsername());
+                saveAttachment(icnId, file, IetmConstants.FILE_TYPE_ENTITY, icnManage.getSecurity(), loginUser.getUsername());
             }
         }
 
@@ -135,7 +138,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         // 删除旧的相关文件
         LambdaQueryWrapper<IetmAttachment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(IetmAttachment::getPid, icnId)
-               .eq(IetmAttachment::getFileType, "相关文件");
+               .eq(IetmAttachment::getFileType, IetmConstants.FILE_TYPE_RELATED);
         List<IetmAttachment> oldAttachments = attachmentService.list(wrapper);
         if (!oldAttachments.isEmpty()) {
             for (IetmAttachment att : oldAttachments) {
@@ -146,7 +149,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
         // 保存新的相关文件
         for (MultipartFile file : files) {
-            saveAttachment(icnId, file, "相关文件", icnManage.getSecurity(), loginUser.getUsername());
+            saveAttachment(icnId, file, IetmConstants.FILE_TYPE_RELATED, icnManage.getSecurity(), loginUser.getUsername());
         }
 
         // 注意：不要修改uniqueId，它应该保持原值
@@ -195,7 +198,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
         // 5. 保存文件附件
         for (MultipartFile file : files) {
-            saveAttachment(newIcnId, file, "实体文件", newIcn.getSecurity(), loginUser.getUsername());
+            saveAttachment(newIcnId, file, IetmConstants.FILE_TYPE_ENTITY, newIcn.getSecurity(), loginUser.getUsername());
         }
 
         log.info("差异上传成功，原ICN：{}，新ICN：{}", originalIcn.getIcn(), newIcnCode);
@@ -214,7 +217,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         // 1. 删除原实体文件
         LambdaQueryWrapper<IetmAttachment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(IetmAttachment::getPid, icnId)
-               .eq(IetmAttachment::getFileType, "实体文件");
+               .eq(IetmAttachment::getFileType, IetmConstants.FILE_TYPE_ENTITY);
         List<IetmAttachment> oldAttachments = attachmentService.list(wrapper);
         if (!oldAttachments.isEmpty()) {
             for (IetmAttachment att : oldAttachments) {
@@ -225,7 +228,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
         // 2. 保存新文件
         for (MultipartFile file : files) {
-            saveAttachment(icnId, file, "实体文件", icnManage.getSecurity(), loginUser.getUsername());
+            saveAttachment(icnId, file, IetmConstants.FILE_TYPE_ENTITY, icnManage.getSecurity(), loginUser.getUsername());
         }
 
         // 3. 更新ICN记录
@@ -297,8 +300,8 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
             throw new JeecgBootException("项目信息不存在");
         }
 
-        // 3. 计算SNS编码（使用公共服务）
-        String sns = snsCalculateService.calculateSns(cmNodeId);
+        // 3. 计算SNS编码（ICN算法：取前6段 + i>=3连写）
+        String sns = snsCalculateService.calculateSnsForIcn(cmNodeId);
 
         // 4. 获取下一个uniqueId
         String uniqueId = getNextUniqueId(cmNodeId);
@@ -345,8 +348,8 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
     @Override
     public String calculateSns(String cmNodeId) {
-        // 委托给公共服务实现
-        return snsCalculateService.calculateSns(cmNodeId);
+        // 委托给公共服务实现（ICN算法）
+        return snsCalculateService.calculateSnsForIcn(cmNodeId);
     }
 
     @Override
@@ -357,6 +360,20 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         } else {
             // 只查询当前节点的ICN
             return this.baseMapper.listWithAttachments(cmNodeId);
+        }
+    }
+
+    @Override
+    public IPage<IetmIcnManage> listSymbolsForDialog(String cmNodeId, String includeChildren,
+                                                      Integer pageNo, Integer pageSize) {
+        Page<IetmIcnManage> page = new Page<>(pageNo, pageSize);
+
+        if ("1".equals(includeChildren)) {
+            // 查询当前节点及所有子节点的图符类ICN
+            return this.baseMapper.listSymbolsForDialogIncludeChildren(cmNodeId, page);
+        } else {
+            // 只查询当前节点的图符类ICN
+            return this.baseMapper.listSymbolsForDialog(cmNodeId, page);
         }
     }
 
@@ -613,6 +630,9 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         // 这样预览时 CommonController 会拼接为：D:\workspace\IETM\file + icn/xxxxx.jpg
         String relativeFileKey = "icn" + File.separator + fileKey;
 
+        // 4. 提取位图尺寸，存入 fileProp = "宽,高"（供图符弹窗自动回填宽高输入框）
+        String fileProp = extractImageDimensions(file, fileName);
+
         IetmAttachment attachment = new IetmAttachment();
         attachment.setId(String.valueOf(IdWorker.getId()));
         attachment.setPid(icnId);
@@ -620,11 +640,40 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         attachment.setFileKey(relativeFileKey);
         attachment.setFileSize(new BigDecimal(file.getSize()).divide(new BigDecimal(1024), 2, BigDecimal.ROUND_HALF_UP));
         attachment.setFileType(fileType);
+        attachment.setFileProp(fileProp);
         attachment.setSecurity(security);
         attachment.setCreateBy(createBy);
         attachment.setCreateTime(new Date());
 
         attachmentService.save(attachment);
+    }
+
+    /**
+     * 读取位图文件的像素尺寸，返回 "宽,高"。
+     * 仅对 bmp/jpg/jpeg/png/gif/tif/tiff 处理；非位图或读取失败返回 null（不影响上传流程）。
+     */
+    private String extractImageDimensions(MultipartFile file, String fileName) {
+        if (fileName == null) return null;
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0) return null;
+        String ext = fileName.substring(dot + 1).toLowerCase();
+        switch (ext) {
+            case "bmp": case "jpg": case "jpeg":
+            case "png": case "gif": case "tif": case "tiff":
+                break;
+            default:
+                return null;
+        }
+        try {
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(
+                    new ByteArrayInputStream(file.getBytes()));
+            if (img != null) {
+                return img.getWidth() + "," + img.getHeight();
+            }
+        } catch (Exception e) {
+            log.warn("读取图片尺寸失败，fileName={}: {}", fileName, e.getMessage());
+        }
+        return null;
     }
 
     /**
@@ -654,9 +703,6 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         }
     }
 
-    /**
-     * 递归构建构型路径
-     */
     /**
      * 批量新增ICN
      */
@@ -724,6 +770,15 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
         // 构建预览信息VO
         org.jeecg.modules.ietm.icnmanage.vo.PreviewInfoVO vo = new org.jeecg.modules.ietm.icnmanage.vo.PreviewInfoVO();
+        populateBasicInfo(vo, icn, attachment);
+        populateFileInfo(vo, attachment);
+        vo.setFileUrl(buildFileUrl(attachment, uploadType));
+
+        return vo;
+    }
+
+    /** 填充基础信息 */
+    private void populateBasicInfo(org.jeecg.modules.ietm.icnmanage.vo.PreviewInfoVO vo, IetmIcnManage icn, IetmAttachment attachment) {
         vo.setIcnId(icn.getId());
         vo.setIcn(icn.getIcn());
         vo.setFileName(attachment.getFileName());
@@ -732,6 +787,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         vo.setFilePath(attachment.getFileKey());
         vo.setIssueNo(icn.getIssueNo());
         vo.setSecurity(icn.getSecurity());
+
         // 格式化创建时间为 YYYY-MM-DD
         if (icn.getCreateTime() != null) {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -739,7 +795,10 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         } else {
             vo.setCreateTime("");
         }
+    }
 
+    /** 填充文件信息（扩展名、预览类型） */
+    private void populateFileInfo(org.jeecg.modules.ietm.icnmanage.vo.PreviewInfoVO vo, IetmAttachment attachment) {
         // 获取文件扩展名
         String fileName = attachment.getFileName();
         String fileExt = "";
@@ -752,28 +811,23 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         String previewType = determinePreviewType(fileExt);
         vo.setPreviewType(previewType);
         vo.setCanPreview(!"OTHER".equals(previewType));
+    }
 
-        // 根据uploadType生成文件访问URL
-        String fileUrl;
+    /** 根据存储类型生成文件访问URL */
+    private String buildFileUrl(IetmAttachment attachment, String uploadType) {
         String fileKey = attachment.getFileKey();
 
         if ("alioss".equalsIgnoreCase(uploadType)) {
-            // 阿里云OSS：使用完整的OSS URL
-            // fileKey已经包含完整的OSS URL
-            fileUrl = fileKey;
+            // 阿里云OSS：fileKey已包含完整URL
+            return fileKey;
         } else if ("minio".equalsIgnoreCase(uploadType)) {
-            // MinIO：使用MinIO URL
-            fileUrl = fileKey;
+            // MinIO：fileKey已包含完整URL
+            return fileKey;
         } else {
             // 本地存储：使用ICN专用的预览接口（支持解密）
-            // 将Windows路径分隔符转换为URL格式
             String normalizedFileKey = fileKey.replace("\\", "/");
-            fileUrl = "/icnmanage/ietmIcnManage/viewFile?fileKey=" + normalizedFileKey;
+            return "/icnmanage/ietmIcnManage/viewFile?fileKey=" + normalizedFileKey;
         }
-
-        vo.setFileUrl(fileUrl);
-
-        return vo;
     }
 
     @Override
@@ -1111,7 +1165,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         }
 
         // 校验引用类型
-        if (!"ICN_TO_ICN".equals(referenceType) && !"ICN_TO_DM".equals(referenceType)) {
+        if (!IetmConstants.REFERENCE_TYPE_ICN_TO_ICN.equals(referenceType) && !IetmConstants.REFERENCE_TYPE_ICN_TO_DM.equals(referenceType)) {
             throw new JeecgBootException("引用类型必须是 ICN_TO_ICN 或 ICN_TO_DM");
         }
 
@@ -1129,9 +1183,9 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         reference.setRemark(remark);
 
         // 根据引用类型设置不同字段
-        if ("ICN_TO_ICN".equals(referenceType)) {
+        if (IetmConstants.REFERENCE_TYPE_ICN_TO_ICN.equals(referenceType)) {
             reference.setTargetIcnId(targetIcnId);
-        } else if ("ICN_TO_DM".equals(referenceType)) {
+        } else if (IetmConstants.REFERENCE_TYPE_ICN_TO_DM.equals(referenceType)) {
             reference.setDmCode(targetIcnId);
         }
 
@@ -1292,6 +1346,28 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         } catch (Exception e) {
             log.error("ZIP打包下载失败", e);
             throw new Exception("ZIP打包下载失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void loadAttachment(IetmIcnManage icn) {
+        if (icn == null || icn.getId() == null) {
+            return;
+        }
+
+        // 查询附件信息
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> attachmentQw =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        attachmentQw.eq("business_id", icn.getId());
+        attachmentQw.eq("business_type", "ICN");
+        attachmentQw.orderByAsc("create_time");
+
+        List<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> attachments =
+                attachmentService.list(attachmentQw);
+
+        if (attachments != null && !attachments.isEmpty()) {
+            // 取第一个附件作为主文件
+            icn.setIetmAttachment(attachments.get(0));
         }
     }
 }

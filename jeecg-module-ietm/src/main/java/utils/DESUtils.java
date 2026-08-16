@@ -50,7 +50,6 @@ public class DESUtils {
     public static String getjiami(String str) {
 
         BASE64Encoder base64Encoder = new BASE64Encoder();
-        System.out.println(key);
         try {
             byte[] strBytes = str.getBytes("UTF-8");
             //获取加密对象
@@ -125,12 +124,11 @@ public class DESUtils {
             }
 
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            System.out.println("加密文件失败");
             fo.close();
             if (foreal != null) {
                 foreal.close();
             }
+            throw new RuntimeException("加密文件失败: " + e.getMessage(), e);
         }
     }
 
@@ -254,8 +252,7 @@ public class DESUtils {
             fo.write(result.getBytes());
             fo.close();
         } catch (Exception e) {
-            System.out.println("加密文件失败:" + e.getMessage());
-
+            throw new RuntimeException("加密文件失败: " + e.getMessage(), e);
         }
     }
 
@@ -278,7 +275,7 @@ public class DESUtils {
             }
 
         } catch (Exception e) {
-            System.out.println("加密文件失败:" + e.getMessage());
+            throw new RuntimeException("加密文件失败: " + e.getMessage(), e);
         }
     }
 
@@ -296,18 +293,7 @@ public class DESUtils {
         return false;
     }
 
-    public static void main(String[] args) {
-        encodeALLFiles("D:\\bzhgzResource\\file_resource\\standard_pdf_view");
-        /*String name ="root";
-        String password="sy601bzhgz";
-        String encryname = getjiami(name);
-        String encrypassword = getjiami(password);
-        System.out.println(encryname);
-        System.out.println(encrypassword);
-
-        System.out.println(getjiemi(encryname));
-        System.out.println(getjiemi(encrypassword));*/
-    }
+    // main方法已移除：仅用于测试，生产环境不应使用
 
 
 }

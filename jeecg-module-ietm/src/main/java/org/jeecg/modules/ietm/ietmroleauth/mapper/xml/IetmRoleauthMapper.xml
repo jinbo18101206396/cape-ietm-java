@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.ietmroleauth.mapper.IetmRoleauthMapper">
+
+    <!-- 查询授权列表（带关联信息） -->
+    <select id="selectRoleauthWithNames" resultType="org.jeecg.modules.ietm.ietmroleauth.vo.IetmRoleauthVO">
+        SELECT
+            r.id,
+            r.role_id,
+            r.obj_type,
+            r.project_id,
+            r.obj_id,
+            r.can_read,
+            r.can_edit,
+            r.note,
+            r.create_by,
+            r.create_time,
+            r.update_by,
+            r.update_time,
+            r.sys_org_code,
+            sr.role_name,
+            ip.name as project_name
+        FROM ietm_roleauth r
+        LEFT JOIN sys_role sr ON r.role_id = sr.id
+        LEFT JOIN ietm_project ip ON r.project_id = ip.id
+        WHERE 1=1
+        <if test="objType != null and objType != ''">
+            AND r.obj_type = #{objType}
+        </if>
+        <if test="objId != null and objId != ''">
+            AND r.obj_id = #{objId}
+        </if>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <!-- 查询指定项目的所有授权 -->
+    <select id="selectByProjectId" resultType="org.jeecg.modules.ietm.ietmroleauth.vo.IetmRoleauthVO">
+        SELECT
+            r.id,
+            r.role_id,
+            r.obj_type,
+            r.project_id,
+            r.obj_id,
+            r.can_read,
+            r.can_edit,
+            r.note,
+            r.create_by,
+            r.create_time,
+            r.update_by,
+            r.update_time,
+            r.sys_org_code,
+            sr.role_name,
+            ip.name as project_name
+        FROM ietm_roleauth r
+        LEFT JOIN sys_role sr ON r.role_id = sr.id
+        LEFT JOIN ietm_project ip ON r.project_id = ip.id
+        WHERE r.project_id = #{projectId}
+        <if test="objType != null and objType != ''">
+            AND r.obj_type = #{objType}
+        </if>
+        ORDER BY r.create_time DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmRefMapper">
+
+    <!-- 查询出引用列表（当前DM引用了哪些DM），只返回有效的目标DM -->
+    <select id="selectOutReferences" resultType="java.util.HashMap">
+        SELECT
+            r.id,
+            r.target_dm_id   AS targetDmId,
+            r.target_dmc     AS targetDmc,
+            r.ref_type       AS refType,
+            r.ref_position   AS refPosition,
+            d.dmc_code       AS dmcCode,
+            d.tech_name      AS techName,
+            d.info_name      AS infoName
+        FROM ietm_dm_reference r
+        INNER JOIN ietm_data_module d ON r.target_dm_id = d.id
+        WHERE r.source_dm_id = #{sourceDmId}
+          AND d.status    = '1'
+          AND d.is_latest = '1'
+        ORDER BY r.ref_type, r.create_time DESC
+    </select>
+
+    <!-- 查询入引用列表（哪些DM引用了当前DM），只返回有效的引用方DM -->
+    <select id="selectInReferences" resultType="java.util.HashMap">
+        SELECT
+            r.id,
+            r.source_dm_id  AS sourceDmId,
+            r.ref_dmc       AS refDmc,
+            r.ref_type      AS refType,
+            r.ref_position  AS refPosition,
+            d.dmc_code      AS dmcCode,
+            d.tech_name     AS techName,
+            d.info_name     AS infoName
+        FROM ietm_dm_reference r
+        INNER JOIN ietm_data_module d ON r.source_dm_id = d.id
+        WHERE r.target_dm_id = #{targetDmId}
+          AND d.status    = '1'
+          AND d.is_latest = '1'
+        ORDER BY r.ref_type, r.create_time DESC
+    </select>
+
+    <!-- 统计入引用数量 -->
+    <select id="countInReferences" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM ietm_dm_reference
+        WHERE target_dm_id = #{targetDmId}
+    </select>
+
+    <!-- 统计出引用数量 -->
+    <select id="countOutReferences" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM ietm_dm_reference
+        WHERE source_dm_id = #{sourceDmId}
+    </select>
+
+    <!-- 删除DM的所有引用关系 -->
+    <delete id="deleteByDmId">
+        DELETE FROM ietm_dm_reference
+        WHERE source_dm_id = #{dmId} OR target_dm_id = #{dmId}
+    </delete>
+
+    <!-- 批量插入引用关系（DM8 INSERT ALL 语法，兼容达梦数据库） -->
+    <insert id="batchInsert">
+        INSERT ALL
+        <foreach collection="refs" item="item">
+            INTO ietm_dm_reference (id, source_dm_id, target_dm_id, ref_type, ref_dmc, target_dmc, ref_position, create_by, create_time)
+            VALUES (#{item.id}, #{item.sourceDmId}, #{item.targetDmId}, #{item.refType},
+                    #{item.refDmc}, #{item.targetDmc}, #{item.refPosition}, #{item.createBy}, SYSDATE)
+        </foreach>
+        SELECT 1 FROM DUAL
+    </insert>
+
+    <!-- 仅删除指定DM作为出引用方的关系（calcref 专用，不影响入引用记录） -->
+    <delete id="deleteBySourceDmId">
+        DELETE FROM ietm_dm_reference
+        WHERE source_dm_id = #{sourceDmId}
+    </delete>
+
+</mapper>

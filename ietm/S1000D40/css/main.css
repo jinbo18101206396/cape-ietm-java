@@ -1,0 +1,855 @@
+@CHARSET "UTF-8";
+/* ========================================
+   S1000D DM预览样式表 - 从旧系统迁移
+   来源: apache-tomcat-7.0.82/webapps/ietm/avicit/ietm/csdb/ietmdm/preview/css/
+   ======================================== */
+
+/* ========== 基础布局 ========== */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background-color: white;
+}
+
+/* 全局样式（§18.13.1） */
+body {
+    font-family: Arial, "宋体", SimSun;
+    font-size: 10.5pt;
+    font-style: normal;
+}
+
+div {
+    font-family: Arial, "宋体", SimSun;
+    font-size: 10.5pt;
+    font-style: normal;
+    padding: 0;
+    margin: 0;
+    line-height: 180%;
+}
+
+span, a {
+    padding: 0;
+    margin: 0;
+}
+
+sub, sup {
+    font-size: 65%;
+}
+
+/* 表格全局样式（§18.13.4） */
+table {
+    padding: 0;
+    margin-top: 22px;
+    margin-bottom: 22px;
+    border: 1px solid #000000;
+    width: 100%;
+    border-collapse: collapse;
+    empty-cells: show;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+th, td {
+    font-family: Arial, "宋体", SimSun;
+    font-size: 10.5pt;
+    font-style: normal;
+    font-weight: normal;
+    color: #000000;
+    text-align: left;
+    text-indent: 0 !important;
+    padding: 4px;
+    border: 1px solid #000000;
+    vertical-align: top;
+    line-height: 180%;
+}
+
+th {
+    font-weight: bold;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* 列表全局样式（§18.13.5） */
+ul, ol {
+    padding-left: 40px;
+    margin: 10px 0;
+}
+
+li {
+    margin: 4px 0;
+    line-height: 180%;
+}
+
+/* ========== 通用样式 ========== */
+.dmview {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+}
+
+.idstatus, .content, .refs, .descript, .para0, .refdm, .figure, .table {
+    padding-top: 0px;
+    padding-bottom: 0px;
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+
+.spanWorkAround {
+    display: block;
+}
+
+/* ========== 强调样式 ========== */
+.boldemphasis {
+    font-weight: bold;
+}
+
+.italicemphasis {
+    font-style: italic;
+}
+
+.underlineemphasis {
+    text-decoration: underline;
+}
+
+.overlinemphasis {
+    text-decoration: overline;
+}
+
+.strikethroughemphasis {
+    text-decoration: line-through;
+}
+
+.subscript {
+    vertical-align: sub;
+}
+
+.supscript {
+    vertical-align: super;
+}
+
+/* ========== 标题样式 ========== */
+/* 0级标题（文档级，§18.13.2） */
+.SideTitle_0 {
+    font-family: Arial, "黑体", SimHei;
+    font-weight: bold;
+    font-size: 14pt;
+    font-style: normal;
+    text-align: left;
+}
+
+.techTitle {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    padding-bottom: 10pt;
+}
+
+.dmTypeTitle {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    padding-bottom: 10pt;
+}
+
+.checkListTitle {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    padding-bottom: 10pt;
+}
+
+.pdmrTitle {
+    font-family: "黑体", SimHei, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.para0Title {
+    font-family: "黑体", SimHei, Arial, sans-serif;
+    font-size: 12pt;
+    line-height: 18pt;
+}
+
+.subpara1Title, .subpara2Title, .subpara3Title, .subpara4Title, .subpara5Title, .subpara6Title {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 18pt;
+}
+
+.title {
+    font-weight: bold;
+}
+
+/* ========== 段落样式 ========== */
+.pdmrText {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 18pt;
+}
+
+.pdmrTextProceduralStepPara, .pdmrTextProceduralStepPara2 {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 18pt;
+}
+
+.pdmrTextLevel {
+    text-indent: 2em;
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 150%;
+    margin: 5px;
+}
+
+.subparaX {
+    text-indent: 2em;
+    font-weight: normal;
+    padding-top: 10pt;
+    padding-bottom: 0px;
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+
+.subparaXNoTitlePara {
+    margin-left: 30px;
+    font-weight: normal;
+    font-size: 11pt;
+    font-style: normal;
+}
+
+/* 段落缩进 */
+.paraXPadding1 { padding-left: 0px; }
+.paraXPadding2 { padding-left: 20px; }
+.paraXPadding3 { padding-left: 30px; }
+.paraXPadding4 { padding-left: 45px; }
+.paraXPadding5 { padding-left: 65px; }
+.paraXPadding6 { padding-left: 70px; }
+
+.paraYPadding1 { padding-left: 20px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+.paraYPadding2 { padding-left: 33px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+.paraYPadding3 { padding-left: 50px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+.paraYPadding4 { padding-left: 65px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+.paraYPadding5 { padding-left: 75px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+.paraYPadding6 { padding-left: 80px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+.paraYPadding7 { padding-left: 135px; font-size: 10.5pt; font-family: "宋体", SimSun; line-height: 15.6pt; }
+
+/* ========== 图片样式 ========== */
+.figure {
+    text-align: center;
+}
+
+/* 图片特定样式（§18.13.8） */
+.figure img {
+    padding: 1px;
+    cursor: pointer;
+    display: inline;
+}
+
+.level_figure {
+    font-family: "黑体", SimHei, Arial, sans-serif;
+    font-size: 10.5pt;
+    font-weight: bold;
+    text-align: center;
+}
+
+.graphicTitleDiv {
+    font-family: Arial Unicode MS, Arial;
+    font-size: 10pt;
+}
+
+.figureLinkGraphic {
+    cursor: pointer;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 10px auto;
+}
+
+/* ========== 表格样式 ========== */
+.tableBorders, table.tableBorders {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 10.5pt;
+}
+
+.tableBorders th,
+.tableBorders td {
+    border: 1px solid #000;
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.tableBorders th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+.tabletitle {
+    margin-top: 10px;
+    width: 100%;
+    text-align: center;
+    font-size: 10.5pt;
+    font-family: "黑体", SimHei, Arial, sans-serif;
+}
+
+.thead {
+    width: 95%;
+    border-right: 1px solid #000;
+    text-align: center;
+    font-size: 10.5pt;
+    font-family: "黑体", SimHei, Arial, sans-serif;
+    line-height: 18pt;
+}
+
+.thead td,
+.thead th {
+    border-left: 1px solid #000;
+    border-top: 1px solid #000;
+}
+
+.tbody {
+    width: 95%;
+    border-right: 1px solid #000;
+    border-bottom: 1px solid #000;
+}
+
+.tbody td {
+    border-left: 1px solid #000;
+    border-top: 1px solid #000;
+}
+
+.tbodydiv {
+    line-height: 18pt;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.topBorders {
+    border-top-width: thin;
+    border-top-style: solid;
+}
+
+.bottomBorders {
+    border-bottom-width: thin;
+    border-bottom-style: solid;
+}
+
+.sideBorders {
+    border-left-width: thin;
+    border-left-style: solid;
+    border-right-width: thin;
+    border-right-style: solid;
+}
+
+.rightBorder {
+    border-right-width: thin;
+    border-right-style: solid;
+}
+
+/* ========== IPD表格样式 ========== */
+table.ipcTable {
+    width: 95%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+table.ipcTable th {
+    border-bottom-color: black;
+    border-bottom-width: 1pt;
+    border-bottom-style: solid;
+    border-top-color: black;
+    border-top-width: 1pt;
+    border-top-style: solid;
+    vertical-align: text-top;
+}
+
+table.ipcTable td {
+    valign: top;
+    vertical-align: top;
+    padding-top: 5pt;
+    padding-bottom: 5pt;
+}
+
+.ipcTableCursor {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* ========== 列表样式 ========== */
+ul, ol {
+    margin: 8px 0;
+    padding-left: 30px;
+}
+
+li {
+    margin: 4px 0;
+}
+
+.seqItem {
+    display: block;
+    padding-top: 10px;
+    padding-bottom: 0px;
+    margin-bottom: 0px;
+    margin-top: 0px;
+    margin-left: 30px;
+}
+
+.randlistItem {
+    margin-left: 15px;
+    padding-top: 10px;
+}
+
+/* ========== 步骤样式 ========== */
+.stepArea {
+    margin-left: 30pt;
+    padding-top: 5pt;
+    padding-bottom: 5pt;
+}
+
+.stepNumber {
+    padding-right: 25pt;
+    margin-left: -30pt;
+}
+
+.singlestepNumber {
+    font-weight: bold;
+    font-size: 12pt;
+    text-align: center;
+    padding: 5pt;
+}
+
+.stepTitle {
+    padding-bottom: 10pt;
+}
+
+.reqcondsTitle,
+.supequipTitle,
+.reqpersTitle,
+.reqTechInfoTitle,
+.sparesTitle,
+.reqcondTitle,
+.safetyTitle {
+    padding-top: 10pt;
+    font-weight: bold;
+}
+
+/* ========== 警告/注意/说明样式 ========== */
+.warning {
+    font-style: bold;
+    font-size: 12pt;
+    text-align: center;
+}
+
+.wcContentArea {
+    background-color: white;
+    border-style: solid;
+    border-width: 3pt;
+    padding: 5pt;
+}
+
+.wcTitle {
+    font-weight: bold;
+    text-align: center;
+}
+
+.wcContent {
+    font-weight: normal;
+    text-align: center;
+}
+
+.noteTitle {
+    font-weight: bold;
+}
+
+.noteBlock {
+    margin-bottom: 15pt;
+    margin-top: 15pt;
+}
+
+/* ========== 故障排除样式 ========== */
+.action {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+    padding-left: 34px;
+}
+
+.actionText {
+    font-weight: bold;
+}
+
+.question {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+}
+
+.questionText {
+    font-weight: bold;
+}
+
+.yesno {
+    text-indent: 2.5em;
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+}
+
+.closetxt {
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* ========== 变更标记 ========== */
+.add {
+    background-color: green;
+}
+
+.modify {
+    background-color: yellow;
+    font-weight: normal;
+    font-family: "宋体", SimSun, Arial, sans-serif;
+    font-size: 14px;
+}
+
+.delete {
+    background-color: gray;
+    text-decoration: line-through;
+}
+
+.changeMarker {
+    background-color: #CCEEFF;
+    text-indent: 2em;
+}
+
+/* ========== 交叉引用样式 ========== */
+.xrefText {
+    margin-right: 5px;
+}
+
+.xrefLink {
+    cursor: pointer;
+    color: #000080;
+    text-decoration: underline;
+}
+
+/* ========== 其他样式 ========== */
+.dmEnd {
+    padding-top: 10pt;
+    font-weight: bold;
+    font-size: 14pt;
+    text-align: center;
+}
+
+.inlineApplic {
+    margin-left: 20px;
+}
+
+.applicAnnotation {
+    padding-top: 15pt;
+    padding-bottom: 5pt;
+}
+
+.refNotFound {
+    font-family: Arial Unicode MS, Arial;
+    font-size: 22pt;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+/* ========== 打印样式 ========== */
+@media print {
+    .tbodydiv {
+        overflow: visible;
+    }
+}
+
+/* ========== 目录样式 ========== */
+/* 正文目录（LOC - List of Contents） */
+.loclefttd {
+    width: 15%;
+    text-align: right;
+    padding-right: 10px;
+    vertical-align: top;
+}
+
+.locrighttd {
+    width: 85%;
+    text-align: left;
+    cursor: pointer;
+    vertical-align: top;
+}
+
+.locrighttd:hover {
+    color: #1890ff;
+    text-decoration: underline;
+}
+
+/* 插图目录（LOF - List of Figures） */
+.loflefttd {
+    width: 15%;
+    text-align: right;
+    padding-right: 10px;
+    vertical-align: top;
+}
+
+.lofrighttd {
+    width: 85%;
+    text-align: left;
+    cursor: pointer;
+    vertical-align: top;
+}
+
+.lofrighttd:hover {
+    color: #1890ff;
+    text-decoration: underline;
+}
+
+/* 表格目录（LOT - List of Tables） */
+.lotlefttd {
+    width: 15%;
+    text-align: right;
+    padding-right: 10px;
+    vertical-align: top;
+}
+
+.lotrighttd {
+    width: 85%;
+    text-align: left;
+    cursor: pointer;
+    vertical-align: top;
+}
+
+.lotrighttd:hover {
+    color: #1890ff;
+    text-decoration: underline;
+}
+
+/* ========== 分级段落样式 ========== */
+/* 一级标题 */
+.SideTitle_1, .lvlParaSideTitle_1 {
+    font-family: Arial, "黑体", SimHei;
+    font-weight: bold;
+    font-size: 10.5pt;
+    font-style: normal;
+    text-align: left;
+    text-indent: -7mm;
+    margin-left: 7mm;
+}
+
+/* 二级、三级、四级、五级标题 */
+.SideTitle_2, .SideTitle_3, .SideTitle_4, .SideTitle_5 {
+    font-family: Arial, "黑体", SimHei;
+    font-weight: bold;
+    font-size: 10.5pt;
+    font-style: normal;
+    text-align: left;
+    text-indent: -7mm;
+    margin-left: 7mm;
+}
+
+/* 段落内容 */
+.para, .paramargin {
+    text-align: left;
+    text-indent: 2em;
+    font-family: Arial, "宋体", SimSun;
+    font-size: 10.5pt;
+    line-height: 180%;
+}
+
+/* 段落嵌套样式（§18.13.3） */
+.lvlParaSideTitle_1 .para,
+.lvlParaSideTitle_2 .para {
+    text-indent: 2em;
+}
+
+.lvlParaContent_1,
+.lvlParaContent_2 {
+    margin-left: 0;
+}
+
+/* 段落编号缩进 */
+.paraNumberTitleIndent {
+    margin-left: 0.5em;
+}
+
+/* ========== 图表标题样式 ========== */
+/* 图片标题 */
+.PicTitle {
+    font-family: Arial, "黑体", SimHei;
+    font-size: 10.5pt;
+    font-style: italic;
+    text-align: center;
+    margin-top: 5px;
+}
+
+/* 表格标题 */
+.TableTitle {
+    font-family: Arial, "宋体", SimSun;
+    font-size: 10.5pt;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+/* ========== 警告/注意/说明样式 ========== */
+/* 标题样式 */
+.warninglegend, .cautionlegend, .notelegend {
+    font-family: Arial, "黑体", SimHei;
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+/* 容器样式 */
+.warningfieldset {
+    width: 80%;
+    padding: 10px;
+    margin: 15px auto;
+    border: 2px solid #ff4d4f;
+    background: repeating-linear-gradient(
+        45deg,
+        #fff,
+        #fff 10px,
+        #ffe4e4 10px,
+        #ffe4e4 20px
+    );
+    border-radius: 4px;
+}
+
+.cautionfieldset {
+    width: 80%;
+    padding: 10px;
+    margin: 15px auto;
+    border: 2px solid #faad14;
+    background: repeating-linear-gradient(
+        45deg,
+        #fff,
+        #fff 10px,
+        #fffbe6 10px,
+        #fffbe6 20px
+    );
+    border-radius: 4px;
+}
+
+.notefieldset {
+    width: 80%;
+    padding: 10px;
+    margin: 15px auto;
+    border: 2px solid #8c8c8c;
+    background: repeating-linear-gradient(
+        45deg,
+        #fff,
+        #fff 10px,
+        #f5f5f5 10px,
+        #f5f5f5 20px
+    );
+    border-radius: 4px;
+}
+
+/* ========== 超链接样式 ========== */
+a:link {
+    color: #0000FF;
+    border-bottom: 1px solid #0000FF;
+    text-decoration: none;
+}
+
+a:visited {
+    color: #551A8B;
+    border-bottom: 1px solid #551A8B;
+}
+
+a:hover {
+    color: #FE5A01;
+    border-bottom: none;
+}
+
+a:active {
+    color: #FF0000;
+}
+
+/* ========== 目录表格样式（无边框） ========== */
+/* 目录表格（LOC/LOF/LOT）不应有边框，与数据表格区分 */
+.toc-table,
+.toc-table th,
+.toc-table td {
+    border: none !important;
+}
+
+.toc-table {
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.toc-table td {
+    padding: 2px 10px;
+    vertical-align: top;
+}
+
+/* ========== 状况模块显示修复 ========== */
+/* 修复：identAndStatusSection被hidesection类隐藏的问题 */
+/* 日期：2026-08-07 */
+/* 原因：base.xsl中使用class="hidesection"导致状况模块默认隐藏 */
+.hidesection#idstatus {
+    display: block !important;
+    visibility: visible !important;
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.hidesection#idstatus .statusTitle {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #1890ff;
+}
+
+.hidesection#idstatus table {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.hidesection#idstatus td.idStatus {
+    padding: 8px 12px;
+    vertical-align: top;
+    line-height: 1.6;
+}
+
+.hidesection#idstatus td.idStatus:first-child {
+    font-weight: bold;
+    width: 30%;
+    color: #666;
+}
+
+/* ========== 目录序号显示增强 ========== */
+/* 确保目录序号清晰可见 */
+.loclefttd,
+.loclefttd * {
+    color: #1890ff !important;
+    visibility: visible !important;
+}
+
+.loclefttd .xrefLink {
+    font-weight: bold !important;
+    font-size: 11pt !important;
+    cursor: pointer;
+}
+
+.loclefttd .xrefLink:hover {
+    color: #40a9ff !important;
+    text-decoration: underline;
+}
+}

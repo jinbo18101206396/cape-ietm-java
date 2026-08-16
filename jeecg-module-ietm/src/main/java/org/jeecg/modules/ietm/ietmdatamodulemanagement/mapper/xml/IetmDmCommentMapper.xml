@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmCommentMapper">
+
+    <!-- 根据DM ID查询资源列表 -->
+    <select id="selectByDmId" resultType="java.util.HashMap">
+        SELECT
+            id,
+            dm_id as dmId,
+            resource_name as resourceName,
+            file_name as fileName,
+            file_path as filePath,
+            file_size as fileSize,
+            file_type as fileType,
+            remark,
+            operator,
+            TO_CHAR(operate_time, 'YYYY-MM-DD HH24:MI:SS') as operateTime,
+            create_by as createBy,
+            TO_CHAR(create_time, 'YYYY-MM-DD HH24:MI:SS') as createTime
+        FROM ietm_dm_resource
+        WHERE dm_id = #{dmId}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 根据DM ID统计资源数量 -->
+    <select id="countByDmId" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM ietm_dm_resource
+        WHERE dm_id = #{dmId}
+    </select>
+
+    <!-- 删除DM的所有资源记录 -->
+    <delete id="deleteByDmId">
+        DELETE FROM ietm_dm_resource
+        WHERE dm_id = #{dmId}
+    </delete>
+
+</mapper>

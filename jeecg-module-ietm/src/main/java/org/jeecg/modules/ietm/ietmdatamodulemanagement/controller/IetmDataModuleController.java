@@ -13,6 +13,7 @@ import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDataModuleService;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmFormVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmProjectInfoVO;
@@ -22,15 +23,20 @@ import org.jeecg.common.system.vo.LoginUser;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Api(tags = "数据模块管理")
 @RestController
 @RequestMapping("/ietm/datamodule")
@@ -69,8 +75,8 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
                 page,
                 projectId,
                 cmNodeId,
-                nodePath,
-                showChildren
+                nodePath,           // 前端传nodePath，Mapper需要cmNodePath
+                showChildren        // 前端传showChildren，Mapper需要includeChildren
         );
 
         return Result.OK(pageList);
@@ -346,16 +352,37 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
 
     /**
      * 查询历史版本
+     * TODO-权限: @RequiresPermissions("ietm:datamodule:history") 需在菜单/权限表登记后启用，否则返回403
      */
     @AutoLog(value = "数据模块管理-查询历史版本")
-    @ApiOperation(value = "数据模块管理-查询历史版本", notes = "数据模块管理-查询历史版本")
+    @ApiOperation(value = "数据模块管理-查询历史版本", notes = "查询同一DMC的所有历史版本（轻量列表）")
     @GetMapping(value = "/historyVersions")
     public Result<List<IetmDataModule>> queryHistoryVersions(
+            @ApiParam(value = "项目ID") @RequestParam(required = false) String projectId,
             @ApiParam(value = "SNS编号", required = true) @RequestParam String sns,
             @ApiParam(value = "信息代码", required = true) @RequestParam String infoCode,
-            @ApiParam(value = "信息代码变体") @RequestParam(required = false) String infoCodeVariant) {
-        List<IetmDataModule> list = ietmDataModuleService.queryHistoryVersions(sns, infoCode, infoCodeVariant);
+            @ApiParam(value = "信息代码变体") @RequestParam(required = false) String infoCodeVariant,
+            @ApiParam(value = "位置代码") @RequestParam(required = false) String ietmLocationCode,
+            @ApiParam(value = "仅显示发布版本(version_type=1)") @RequestParam(required = false, defaultValue = "false") Boolean onlyPublished) {
+        List<IetmDataModule> list = ietmDataModuleService.queryHistoryVersions(
+                projectId, sns, infoCode, infoCodeVariant, ietmLocationCode, onlyPublished);
         return Result.OK(list);
+    }
+
+    /**
+     * 版本内容对比（按需取两版本XML，供前端MergeView渲染）
+     */
+    @AutoLog(value = "数据模块管理-版本内容对比")
+    @ApiOperation(value = "数据模块管理-版本内容对比", notes = "返回两个版本的XML原文用于差异比对")
+    @GetMapping(value = "/compareVersions")
+    public Result<Map<String, Object>> compareVersions(
+            @ApiParam(value = "源版本ID", required = true) @RequestParam String sourceId,
+            @ApiParam(value = "目标版本ID", required = true) @RequestParam String targetId) {
+        Map<String, Object> data = ietmDataModuleService.compareVersions(sourceId, targetId);
+        if (data.isEmpty()) {
+            return Result.error("对比版本不存在或已删除");
+        }
+        return Result.OK(data);
     }
 
     /**
@@ -369,6 +396,46 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
             @ApiParam(value = "引用类型（out-出引用，in-入引用）", required = true) @RequestParam String refType) {
         List<Map<String, Object>> tree = ietmDataModuleService.queryReferenceTree(dmId, refType);
         return Result.OK(tree);
+    }
+
+    /**
+     * 计算指定DM的引用关系
+     * <p>
+     * 解析 dm_content XML，提取 dmRef/graphic/multimedia 引用，更新 ietm_dm_reference 表，
+     * 并刷新 ref_count / refed_count 统计字段。
+     * <ul>
+     *   <li>id 为普通 DM 主键：计算单个 DM</li>
+     *   <li>id 为字面量 {@code "all"}：批量计算全部有效 DM（管理员功能，耗时较长）</li>
+     * </ul>
+     */
+    @AutoLog(value = "数据模块管理-计算DM引用关系")
+    @ApiOperation(value = "数据模块管理-计算DM引用关系", notes = "解析XML内容，提取引用关系并存储到ietm_dm_reference表")
+    @PostMapping(value = "/calcref/{id}")
+    public Result<Map<String, Object>> calculateDmReferences(
+            @ApiParam(value = "DM主键ID，或 'all' 批量计算所有DM", required = true)
+            @PathVariable("id") String id) {
+        System.out.println("===============================================");
+        System.out.println("【Controller强制输出】/calcref/" + id + " 被访问！");
+        System.out.println("【Controller强制输出】时间 = " + new java.util.Date());
+        System.out.println("===============================================");
+        try {
+            if ("all".equalsIgnoreCase(id)) {
+                log.warn("【Controller】calcref/all 批量计算触发");
+                System.out.println("【Controller强制输出】进入批量计算分支");
+                Map<String, Object> result = ietmDataModuleService.calculateAllDmReferences(100);
+                System.out.println("【Controller强制输出】批量计算完成，result=" + result);
+                return Result.OK("批量计算完成", result);
+            }
+            log.warn("【Controller】calcref/{} 单个计算触发", id);
+            System.out.println("【Controller强制输出】进入单个计算分支 id=" + id);
+            Map<String, Object> result = ietmDataModuleService.calculateDmReferences(id);
+            return Result.OK("计算引用关系成功", result);
+        } catch (Exception e) {
+            log.error("calcref 失败 id={} error={}", id, e.getMessage(), e);
+            System.err.println("【Controller错误输出】calcref失败：" + e.getMessage());
+            e.printStackTrace();
+            return Result.error("计算引用关系失败：" + e.getMessage());
+        }
     }
 
     /**
@@ -615,20 +682,16 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
 
             int count = 0;
             for (IetmDataModule dm : dmList) {
-                // 重新生成DMC编码（DMC是动态计算的，不需要存储到数据库）
+                // 重新生成DMC编码，与存储值比对；不一致则更新落库（dmcCode 字段确实存储）
                 String newDmc = ietmDataModuleService.generateDmc(dm);
-                // 注意：Entity没有dmCode字段，DMC由generateDmc计算得出
-                // if (newDmc != null && !newDmc.equals(dm.getDmCode())) {
-                //     dm.setDmCode(newDmc);
-                //     ietmDataModuleService.updateById(dm);
-                //     count++;
-                // }
-                if (newDmc != null) {
+                if (newDmc != null && !newDmc.equals(dm.getDmcCode())) {
+                    dm.setDmcCode(newDmc);
+                    ietmDataModuleService.updateById(dm);
                     count++;
                 }
             }
 
-            return Result.OK("计算完成", count);
+            return Result.OK("计算完成，更新" + count + "条", count);
 
         } catch (Exception e) {
             return Result.error("计算DMC编码失败: " + e.getMessage());
@@ -750,5 +813,238 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
                                      @RequestParam(name = "nodeName", required = true) String nodeName) {
         String techName = ietmDataModuleService.extractTechName(nodeName);
         return Result.OK("提取成功", techName);
+    }
+
+    /**
+     * 引用DM弹窗-分页查询（§14.5）
+     */
+    @AutoLog(value = "引用DM弹窗-分页查询")
+    @ApiOperation(value = "引用DM弹窗-分页查询", notes = "§14.5 引用DM弹窗使用，返回最新版DM列表")
+    @GetMapping(value = "/listForDialog")
+    public Result<IPage<IetmDataModule>> listForDialog(
+            @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+            @RequestParam(name = "cmNodeId", required = false) String cmNodeId,
+            @RequestParam(name = "cmNodePath", required = false) String cmNodePath,
+            @RequestParam(name = "includeChildren", required = false, defaultValue = "false") Boolean includeChildren,
+            @RequestParam(name = "onlyIssued", required = false, defaultValue = "false") Boolean onlyIssued,
+            @RequestParam(name = "dmc", required = false) String dmc,
+            @RequestParam(name = "techName", required = false) String techName,
+            @RequestParam(name = "infoName", required = false) String infoName,
+            @RequestParam(name = "dmTypeName", required = false) String dmTypeName) {
+
+        Page<IetmDataModule> page = new Page<>(pageNo, pageSize);
+        IPage<IetmDataModule> pageList = ietmDataModuleMapper.selectPageForDialog(
+                page,
+                cmNodeId,
+                cmNodePath,
+                includeChildren,
+                onlyIssued,
+                dmc,
+                techName,
+                infoName,
+                dmTypeName
+        );
+        return Result.OK(pageList);
+    }
+
+    /**
+     * 预览DM（列表页专用）
+     * 复用编辑器预览的DmXsltTransformer转换引擎
+     *
+     * @param id DM主键ID
+     * @param request HTTP请求（获取contextPath用于ICN路径构建）
+     * @return {flag, html, message}
+     */
+    @AutoLog(value = "数据模块管理-预览DM")
+    @ApiOperation(value = "预览DM", notes = "预览已保存的DM内容（复用编辑器预览引擎）")
+    @GetMapping(value = "/preview/{id}")
+    public Result<Map<String, Object>> preview(
+            @PathVariable("id") String id,
+            HttpServletRequest request) {
+
+        try {
+            // 1. 查询dmcontent（独立查询，避免大字段随列表加载）
+            long queryStart = System.currentTimeMillis();
+            String dmContent = ietmDataModuleMapper.getDmcontentById(id);
+            long queryTime = System.currentTimeMillis() - queryStart;
+
+            if (dmContent == null || dmContent.trim().isEmpty()) {
+                Map<String, Object> ret = new HashMap<>();
+                ret.put("flag", "null");
+                ret.put("message", "DM内容为空");
+                return Result.OK(ret);
+            }
+
+            // 2. 复用编辑器预览的转换逻辑（DmXsltTransformer）
+            long transformStart = System.currentTimeMillis();
+            String html = DmXmlHelper.renderHtml(dmContent, request.getContextPath());
+
+            Map<String, Object> ret = new HashMap<>();
+            if (html == null || html.isEmpty()) {
+                ret.put("flag", "noxsl");
+                ret.put("message", "无解析引擎");
+            } else {
+                ret.put("flag", "success");
+                ret.put("html", html);
+            }
+            return Result.OK(ret);
+        } catch (Exception e) {
+            Map<String, Object> ret = new HashMap<>();
+            ret.put("flag", "error");
+            ret.put("message", "预览失败: " + e.getMessage());
+            return Result.OK(ret);
+        }
+    }
+
+    // ==================== 构型树节点级DM操作（西区三功能按钮）====================
+
+    /**
+     * 查询节点下的所有DM（供复制节点DM使用）
+     */
+    @AutoLog(value = "数据模块管理-查询节点DM")
+    @ApiOperation(value = "查询节点下所有DM", notes = "根据构型节点ID查询该节点下的所有最新版DM")
+    @GetMapping(value = "/queryByNodeId")
+    public Result<?> queryByNodeId(@ApiParam(value = "构型节点ID", required = true)
+                                   @RequestParam(name = "cmNodeId", required = true) String cmNodeId) {
+        LambdaQueryWrapper<IetmDataModule> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(IetmDataModule::getCmNodeId, cmNodeId)
+                    .eq(IetmDataModule::getIsLatest, "1")
+                    .eq(IetmDataModule::getStatus, "1")
+                    .orderByAsc(IetmDataModule::getInfoCode);
+
+        List<IetmDataModule> dmList = ietmDataModuleService.list(queryWrapper);
+        return Result.OK("查询成功", dmList);
+    }
+
+    /**
+     * 批量复制DM到目标节点（复用copyAndCreateDm逻辑）
+     */
+    @AutoLog(value = "数据模块管理-批量复制DM")
+    @ApiOperation(value = "批量复制DM到目标节点", notes = "将源节点下的所有DM批量复制到目标节点")
+    @GetMapping(value = "/batchCopyToNode")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<?> batchCopyToNode(@ApiParam(value = "源节点ID", required = true)
+                                     @RequestParam(name = "sourceCmNodeId", required = true) String sourceCmNodeId,
+                                     @ApiParam(value = "目标节点ID", required = true)
+                                     @RequestParam(name = "targetCmNodeId", required = true) String targetCmNodeId,
+                                     @ApiParam(value = "目标节点名称", required = true)
+                                     @RequestParam(name = "targetCmNodeName", required = true) String targetCmNodeName) {
+        try {
+            // 1. 查询源节点下的所有DM
+            LambdaQueryWrapper<IetmDataModule> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(IetmDataModule::getCmNodeId, sourceCmNodeId)
+                       .eq(IetmDataModule::getIsLatest, "1")
+                       .eq(IetmDataModule::getStatus, "1");
+
+            List<IetmDataModule> sourceDms = ietmDataModuleService.list(queryWrapper);
+
+            if (sourceDms == null || sourceDms.isEmpty()) {
+                return Result.error("源节点下没有可复制的DM");
+            }
+
+            int successCount = 0;
+            int failCount = 0;
+            StringBuilder errorMsg = new StringBuilder();
+
+            // 2. 逐个复制DM（复用copyAndCreateDm的核心逻辑）
+            for (IetmDataModule sourceDm : sourceDms) {
+                try {
+                    // 构建DmCopyVO（复用现有VO）
+                    DmCopyVO vo = new DmCopyVO();
+                    vo.setSourceDmId(sourceDm.getId());
+                    vo.setTargetCmNodeId(targetCmNodeId);
+                    vo.setTargetCmNodeName(targetCmNodeName);
+
+                    // 调用现有的复制方法（100%复用）
+                    Result<?> copyResult = ietmDataModuleService.copyAndCreateDm(vo);
+
+                    if (copyResult.isSuccess()) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                        errorMsg.append(sourceDm.getDmcCode()).append(": ").append(copyResult.getMessage()).append("; ");
+                    }
+                } catch (Exception e) {
+                    failCount++;
+                    errorMsg.append(sourceDm.getDmcCode()).append(": ").append(e.getMessage()).append("; ");
+                }
+            }
+
+            // 3. 返回结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("total", sourceDms.size());
+            result.put("successCount", successCount);
+            result.put("failCount", failCount);
+            result.put("errors", errorMsg.toString());
+
+            if (failCount == 0) {
+                return Result.OK("批量复制成功，共复制 " + successCount + " 个DM", result);
+            } else if (successCount == 0) {
+                return Result.error("批量复制全部失败：" + errorMsg.toString());
+            } else {
+                return Result.OK("批量复制部分成功：成功 " + successCount + " 个，失败 " + failCount + " 个", result);
+            }
+        } catch (Exception e) {
+            return Result.error("批量复制失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 计算节点下所有DM的引用信息（统计）
+     * BUG修复：list() 不加载 CLOB，需从 ietm_dm_reference 表统计
+     */
+    @AutoLog(value = "数据模块管理-计算引用信息")
+    @ApiOperation(value = "计算节点引用信息", notes = "统计节点下所有DM的引用关系")
+    @GetMapping(value = "/calcNodeRefInfo")
+    public Result<?> calcNodeRefInfo(@ApiParam(value = "构型节点ID", required = true)
+                                     @RequestParam(name = "cmNodeId", required = true) String cmNodeId,
+                                     @ApiParam(value = "是否包含子节点", required = false)
+                                     @RequestParam(name = "includeChildren", required = false, defaultValue = "false") Boolean includeChildren) {
+        try {
+            // 查询节点下的所有DM（只查 ID，不加载 dm_content）
+            LambdaQueryWrapper<IetmDataModule> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.select(IetmDataModule::getId, IetmDataModule::getDmcCode,
+                              IetmDataModule::getRefCount);  // 只查必要字段
+
+            if (includeChildren != null && includeChildren) {
+                // 包含子节点：使用层级查询获取当前节点及所有子孙节点的DM
+                queryWrapper.apply("cm_node_id IN (SELECT id FROM ietm_project_configuration_management " +
+                                 "START WITH id = {0} CONNECT BY PRIOR id = pid)", cmNodeId);
+            } else {
+                // 只查询当前节点
+                queryWrapper.eq(IetmDataModule::getCmNodeId, cmNodeId);
+            }
+
+            queryWrapper.eq(IetmDataModule::getIsLatest, "1")
+                       .eq(IetmDataModule::getStatus, "1");
+
+            List<IetmDataModule> dmList = ietmDataModuleService.list(queryWrapper);
+
+            if (dmList == null || dmList.isEmpty()) {
+                return Result.OK("节点下没有DM", new HashMap<>());
+            }
+
+            // 统计引用信息（基于 ref_count 字段，无需加载 dm_content）
+            int totalDms = dmList.size();
+            int hasRefCount = 0;
+
+            for (IetmDataModule dm : dmList) {
+                Integer refCount = dm.getRefCount();
+                if (refCount != null && refCount > 0) {
+                    hasRefCount++;
+                }
+            }
+
+            // 返回统计结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalDms", totalDms);
+            result.put("hasRefCount", hasRefCount);
+            result.put("noRefCount", totalDms - hasRefCount);
+
+            return Result.OK("计算完成", result);
+        } catch (Exception e) {
+            return Result.error("计算引用信息失败：" + e.getMessage());
+        }
     }
 }

@@ -17,6 +17,8 @@
 		<jeecgboot.version>3.4.4</jeecgboot.version>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!-- 打包默认跳过测试；命令行 -DskipTests=false 可覆盖以运行JUnit -->
+		<skipTests>true</skipTests>
 
 		<!-- 微服务 -->
 		<spring-cloud.version>2021.0.3</spring-cloud.version>
@@ -353,7 +355,7 @@
 		        <groupId>org.apache.maven.plugins</groupId>
 		        <artifactId>maven-surefire-plugin</artifactId>
 		        <configuration>
-		          <skipTests>true</skipTests>
+		          <skipTests>${skipTests}</skipTests>
 		        </configuration>
 	        </plugin>
 	         <!-- 避免font文件的二进制文件格式压缩破坏 -->

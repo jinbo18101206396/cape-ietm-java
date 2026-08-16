@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper">
+
+    <!-- ResultMap -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.workflow.entity.WfInstance">
+        <id     column="id"            property="id"/>
+        <result column="formid_"       property="formid"/>
+        <result column="title_"        property="title"/>
+        <result column="titleparam_"   property="titleparam"/>
+        <result column="url_"          property="url"/>
+        <result column="status_"       property="status"/>
+        <result column="ifurgent_"     property="ifurgent"/>
+        <result column="stagenames_"   property="stagenames"/>
+        <result column="batch_id_"     property="batchId"/>
+        <result column="reason_"       property="reason"/>
+        <result column="create_by"     property="createBy"/>
+        <result column="create_time"   property="createTime"/>
+        <result column="update_by"     property="updateBy"/>
+        <result column="update_time"   property="updateTime"/>
+    </resultMap>
+
+    <!-- 根据formid查询流转中的工作流实例 -->
+    <select id="selectActiveByFormid" resultMap="BaseResultMap">
+        SELECT * FROM "IETM"."wf_instance"
+        WHERE "formid_" = #{formid}
+          AND "status_" = '1'
+        ORDER BY "create_time" DESC
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
+    <!-- 根据批次ID查询工作流实例列表 -->
+    <select id="selectByBatchId" resultMap="BaseResultMap">
+        SELECT * FROM "IETM"."wf_instance"
+        WHERE "batch_id_" = #{batchId}
+        ORDER BY "create_time"
+    </select>
+
+    <!-- 批量终止工作流实例 -->
+    <!-- P0-004修复：添加update_by参数 -->
+    <update id="batchTerminate">
+        UPDATE "IETM"."wf_instance"
+        SET "status_" = '9',
+            "update_time" = SYSDATE,
+            "update_by" = #{updateBy}
+        WHERE "id" IN
+        <foreach collection="instanceIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 签出时迁移工作流实例的formid关联 -->
+    <!-- 将活动的工作流实例从旧版本DM关联到新版本DM，使签出后列表页能继续显示流程信息 -->
+    <update id="migrateFormid">
+        UPDATE "IETM"."wf_instance"
+        SET "formid_" = #{newFormid},
+            "update_time" = SYSDATE,
+            "update_by" = #{updateBy}
+        WHERE "formid_" = #{oldFormid}
+          AND "status_" = '1'
+    </update>
+
+</mapper>

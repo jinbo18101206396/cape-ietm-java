@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper">
+
+    <!-- 检查引用关系是否已存在 -->
+    <select id="checkReferenceExists" resultType="int">
+        SELECT COUNT(1)
+        FROM ietm_icn_reference
+        WHERE source_icn_id = #{sourceIcnId}
+        <choose>
+            <when test="referenceType == 'ICN_TO_ICN'">
+                AND target_icn_id = #{targetIcnId}
+            </when>
+            <when test="referenceType == 'ICN_TO_DM'">
+                AND dm_code = #{targetIcnId}
+            </when>
+        </choose>
+        AND reference_type = #{referenceType}
+    </select>
+
+</mapper>

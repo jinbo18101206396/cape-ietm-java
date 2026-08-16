@@ -24,7 +24,7 @@
 
 	<!-- 查询项目信息（用于构建根节点标题） -->
 	<select id="selectProjectById" parameterType="java.lang.String" resultType="org.jeecg.modules.ietm.projectmanagement.entity.IetmProject">
-		select id, name, equipment_code as equipmentCode
+		select id, name, equipment_code as equipmentCode, code_rule as codeRule
 		from ietm_project
 		where id = #{projectId}
 	</select>

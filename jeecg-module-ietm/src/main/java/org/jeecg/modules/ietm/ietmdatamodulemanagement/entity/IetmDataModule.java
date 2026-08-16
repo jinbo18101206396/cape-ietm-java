@@ -47,9 +47,9 @@ public class IetmDataModule implements Serializable {
     @TableField("project_name")
     private String projectName;
 
-    /** DMC第1段：模式代码（默认J，不落库，仅用于拼接DMC编码）*/
+    /** 模式代码（默认J，不落库）。【方案A】DMC 不再单独含 schema 段，仅作 SNS 首段(modelIdentCode)为空时的兜底值 */
     @Excel(name = "Schema", width = 15)
-    @ApiModelProperty(value = "DMC第1段-模式代码（默认J）")
+    @ApiModelProperty(value = "模式代码（默认J，不落库，SNS首段缺失时的兜底）")
     @TableField(exist = false)
     private String schema;
 
@@ -112,14 +112,14 @@ public class IetmDataModule implements Serializable {
     /** DMC第10段：语言代码（ISO 639-1）*/
     @Excel(name = "语言ISO代码", width = 10, dicCode = "language")
     @Dict(dicCode = "language")
-    @ApiModelProperty(value = "DMC第10段-语言代码（ISO 639-1，如ZH）")
+    @ApiModelProperty(value = "DMC第10段-语言代码（ISO 639标准，2-3位小写字母，如zh）")
     @TableField("language_iso_code")
     private String languageIsoCode;
 
     /** DMC第11段：国家代码（ISO 3166-1）*/
     @Excel(name = "国家ISO代码", width = 10, dicCode = "country")
     @Dict(dicCode = "country")
-    @ApiModelProperty(value = "DMC第11段-国家代码（ISO 3166-1，如CN）")
+    @ApiModelProperty(value = "DMC第11段-国家代码（ISO 3166标准，2-3位大写字母，如CN）")
     @TableField("country_iso_code")
     private String countryIsoCode;
 
@@ -172,6 +172,12 @@ public class IetmDataModule implements Serializable {
     @ApiModelProperty(value = "版本类型（0=草稿 1=已发布）")
     @TableField("version_type")
     private String versionType;
+
+    /** 版本类型(S1000D标准): new/changed/revised/deleted/status/rinstate-changed/rinstate-revised/rinstate-status */
+    @Excel(name = "版本类型(S1000D)", width = 15)
+    @ApiModelProperty(value = "版本类型(S1000D标准): new/changed/revised/deleted/status/rinstate-changed/rinstate-revised/rinstate-status")
+    @TableField("issue_type")
+    private String issueType;
 
     /** 技术名称 */
     @Excel(name = "技术名称", width = 30)
@@ -301,6 +307,11 @@ public class IetmDataModule implements Serializable {
     @ApiModelProperty(value = "DM类型（描述性/过程性/故障性等）")
     @TableField("dm_type")
     private String dmType;
+
+    /** DM类型名称（引用DM弹窗列表展示用，不落库，由 ietm_dm_type.type_name 关联取得） */
+    @ApiModelProperty(value = "DM类型名称（弹窗展示用）")
+    @TableField(exist = false)
+    private String dmTypeName;
 
     /** 密级（0-5）*/
     @Excel(name = "密级", width = 10, dicCode = "security")

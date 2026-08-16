@@ -476,12 +476,31 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
     }
 
     /**
-     * 编码规则
+     * 默认编码规则模板（项目未配置 code_rule 时的兜底）
      * 格式：装备编码-A-00-0-0-00-00-A（共8段）
      * 第1段：项目装备编码
      * 第2-8段：7级节点编码规则
      */
-    private String codeRule = "A-00-0-0-00-00-A";
+    private static final String DEFAULT_CODE_RULE = "A-00-0-0-00-00-A";
+
+    /**
+     * 从已查询的 project 解析 code_rule；空值或非7段格式回退默认模板
+     */
+    private String resolveCodeRule(org.jeecg.modules.ietm.projectmanagement.entity.IetmProject project) {
+        String rule = (project == null) ? null : project.getCodeRule();
+        if (rule != null && rule.trim().split("-").length == 7) {
+            return rule.trim();
+        }
+        return DEFAULT_CODE_RULE;
+    }
+
+    /** 公共接口实现：根据项目ID动态读取 code_rule，空值/非法格式回退默认模板 */
+    @Override
+    public String getCodeRuleByProjectId(String projectId) {
+        org.jeecg.modules.ietm.projectmanagement.entity.IetmProject project =
+            baseMapper.selectProjectById(projectId);
+        return resolveCodeRule(project);
+    }
 
     /**
      * 生成路径
@@ -495,18 +514,21 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
      * 规则：根据实际编码链替换模板中对应位置的占位符，未使用的层级保留模板占位符
      */
     private String generatePath(String pid, String code, String projectId) {
-        // 获取项目的装备编码作为路径第一段
-        String equipmentCode = getEquipmentCodeByProjectId(projectId);
-        log.info(">>> [generatePath] 开始生成路径: pid={}, code={}, projectId={}, equipmentCode={}",
-            pid, code, projectId, equipmentCode);
+        // 一次查询取回项目，复用 equipmentCode + codeRule（避免重复查库）
+        org.jeecg.modules.ietm.projectmanagement.entity.IetmProject project =
+            baseMapper.selectProjectById(projectId);
+        String equipmentCode = (project != null && project.getEquipmentCode() != null)
+            ? project.getEquipmentCode() : "UNKNOWN";
+        String rule = resolveCodeRule(project);
+        log.info(">>> [generatePath] 开始生成路径: pid={}, code={}, projectId={}, equipmentCode={}, codeRule={}",
+            pid, code, projectId, equipmentCode, rule);
 
         // 使用编码规则模板（7段）
-        String[] pathSegments = this.codeRule.split("-");
-        log.info(">>> [generatePath] 编码规则模板: {}", this.codeRule);
+        String[] pathSegments = rule.split("-");
 
         // 如果是根节点（pid='0'），返回完整模板路径
         if ("0".equals(pid)) {
-            String rootPath = equipmentCode + "-" + this.codeRule;
+            String rootPath = equipmentCode + "-" + rule;
             log.info(">>> [generatePath] 根节点路径: {}", rootPath);
             return rootPath;
         }
@@ -1190,10 +1212,6 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int importFromTemplate(String targetProjectId, String standard, String equipType) {
-        System.out.println("============================================================");
-        System.out.println("【从模板导入】开始执行");
-        System.out.println("目标项目ID: " + targetProjectId + ", 标准: " + standard + ", 装备类型: " + equipType);
-        System.out.println("============================================================");
         log.info("============================================================");
         log.info("开始从模板导入构型树");
         log.info("目标项目ID: {}, 标准: {}, 装备类型: {}", targetProjectId, standard, equipType);
@@ -1369,7 +1387,6 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
             .filter(node -> templateParentId.equals(node.getPid()))
             .collect(Collectors.toList());
 
-        System.out.println("【递归导入】templateParentId=" + templateParentId + ", 子节点数=" + children.size());
         log.info("导入层级: templateParentId={}, targetParentId={}, 子节点数={}",
                  templateParentId, targetParentId, children.size());
 
@@ -1395,7 +1412,6 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
             // 它会自动生成path、验证编码长度、更新父节点hasChild等
             log.info("【导入子节点】开始: pid={}, code='{}', title={}, code长度={}, 字符详情: {}",
                 newNode.getPid(), newNode.getCode(), newNode.getTitle(), newNode.getCode().length(), codeDebug.toString());
-            System.out.println("【导入子节点】code='" + newNode.getCode() + "', 长度=" + newNode.getCode().length() + ", 详情: " + codeDebug.toString());
 
             try {
                 this.addIetmProjectConfigurationManagement(newNode);
@@ -1437,15 +1453,18 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
             return dataList;
         }
 
-        // 1. 获取equipment_code
-        String equipmentCode = getEquipmentCodeByProjectId(projectId);
+        // 1. 一次查询取回项目，复用 equipment_code + code_rule
+        org.jeecg.modules.ietm.projectmanagement.entity.IetmProject project =
+            baseMapper.selectProjectById(projectId);
+        String equipmentCode = (project != null && project.getEquipmentCode() != null)
+            ? project.getEquipmentCode() : "UNKNOWN";
         if ("UNKNOWN".equals(equipmentCode)) {
             throw new JeecgBootException("项目未配置equipment_code，请先在项目管理中配置！");
         }
         log.info("装备编码: {}", equipmentCode);
 
-        // 2. 获取编码规则
-        String codeRuleTemplate = this.codeRule; // A-00-0-0-00-00-A
+        // 2. 获取编码规则（动态读项目 code_rule，兜底默认模板）
+        String codeRuleTemplate = resolveCodeRule(project);
         log.info("编码规则: {}", codeRuleTemplate);
 
         // 3. 用于检查path唯一性
@@ -1572,7 +1591,7 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
         QueryWrapper<IetmProjectConfigurationManagement> rootQuery = new QueryWrapper<>();
         rootQuery.eq("project_id", projectId);
         rootQuery.eq("pid", "0");
-        rootQuery.last("LIMIT 1");
+        rootQuery.last("FETCH FIRST 1 ROWS ONLY");
         IetmProjectConfigurationManagement root = this.getOne(rootQuery, false);
         if (root == null) {
             throw new JeecgBootException("项目根节点不存在，请先创建项目！");
@@ -1713,10 +1732,14 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
         }
 
         // 构建父节点的path（只用到parentLevel级的编码）
-        String equipmentCode = getEquipmentCodeByProjectId(projectId);
+        // 一次查询取回项目，复用 equipmentCode + codeRule
+        org.jeecg.modules.ietm.projectmanagement.entity.IetmProject project =
+            baseMapper.selectProjectById(projectId);
+        String equipmentCode = (project != null && project.getEquipmentCode() != null)
+            ? project.getEquipmentCode() : "UNKNOWN";
 
         // 从模板开始，用DTO中的实际编码替换前parentLevel位
-        String[] pathSegments = this.codeRule.split("-"); // ["A", "00", "0", "0", "00", "00", "A"]
+        String[] pathSegments = resolveCodeRule(project).split("-"); // 动态模板，如 ["A","00","0","0","00","00","A"]
 
         // 替换前parentLevel位为实际编码
         for (int i = 1; i <= parentLevel; i++) {
@@ -1732,11 +1755,11 @@ public class IetmProjectConfigurationManagementServiceImpl extends ServiceImpl<I
         String parentPath = equipmentCode + "-" + String.join("-", pathSegments);
         log.debug("查找父节点：parentLevel={}, parentPath={}", parentLevel, parentPath);
 
-        // 查询父节点（使用last("LIMIT 1")避免多条记录异常）
+        // 查询父节点（使用last("FETCH FIRST 1 ROWS ONLY")避免多条记录异常）
         QueryWrapper<IetmProjectConfigurationManagement> query = new QueryWrapper<>();
         query.eq("project_id", projectId);
         query.eq("path", parentPath);
-        query.last("LIMIT 1");
+        query.last("FETCH FIRST 1 ROWS ONLY");
         IetmProjectConfigurationManagement parent = this.getOne(query, false);
 
         if (parent == null) {

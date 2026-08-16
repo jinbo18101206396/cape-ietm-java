@@ -167,4 +167,21 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
      * @param referenceId 引用关系ID
      */
     void deleteReference(String referenceId) throws Exception;
+
+    /**
+     * 图符弹窗-分页查询图符类ICN
+     * @param cmNodeId 构型节点ID
+     * @param includeChildren 是否包含子节点（1：是，0：否）
+     * @param pageNo 页码
+     * @param pageSize 每页大小
+     * @return 分页结果
+     */
+    com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listSymbolsForDialog(
+            String cmNodeId, String includeChildren, Integer pageNo, Integer pageSize);
+
+    /**
+     * 加载ICN的附件信息（用于预览时按需加载）
+     * @param icn ICN实体（会设置其ietmAttachment属性）
+     */
+    void loadAttachment(IetmIcnManage icn);
 }

@@ -43,11 +43,25 @@ public interface IetmDataModuleMapper extends BaseMapper<IetmDataModule> {
                                             @Param("excludeId") String excludeId);
 
     /**
-     * 查询同一DMC（SNS+infoCode+variant）的所有历史版本，按版本号倒序
+     * 查询同一DMC的所有历史版本（轻量列，不含dm_content），按版本号倒序
+     * @param projectId 项目ID（可选）
+     * @param sns SNS编号
+     * @param infoCode 信息代码
+     * @param infoCodeVariant 信息代码变体（可为空）
+     * @param ietmLocationCode 位置代码（可选）
+     * @param onlyPublished true=仅发布版本(version_type='1')；false/null=全部有效版本
      */
-    List<IetmDataModule> selectHistoryVersions(@Param("sns") String sns,
+    List<IetmDataModule> selectHistoryVersions(@Param("projectId") String projectId,
+                                               @Param("sns") String sns,
                                                @Param("infoCode") String infoCode,
-                                               @Param("infoCodeVariant") String infoCodeVariant);
+                                               @Param("infoCodeVariant") String infoCodeVariant,
+                                               @Param("ietmLocationCode") String ietmLocationCode,
+                                               @Param("onlyPublished") Boolean onlyPublished);
+
+    /**
+     * 按ID单取XML内容（对比/查看时按需加载）
+     */
+    IetmDataModule selectContentById(@Param("id") String id);
 
     /**
      * 查询引用关系信息
@@ -70,4 +84,42 @@ public interface IetmDataModuleMapper extends BaseMapper<IetmDataModule> {
                                               @Param("cmNodeId") String cmNodeId,
                                               @Param("cmNodePath") String cmNodePath,
                                               @Param("includeChildren") Boolean includeChildren);
+
+    /**
+     * 查询单条数据模块（JOIN流程视图，获取动态流程步骤 workflowStep / 待办人 workflowHandler）
+     * <p>用于签出等需实时流程节点判断的场景（方案A：workflow_step 不回写基表，从 v_wf_instance 视图动态取）。</p>
+     * @param id 数据模块ID
+     * @return 含视图字段的数据模块实体，不存在返回 null
+     */
+    IetmDataModule selectByIdWithFlow(@Param("id") String id);
+
+    /**
+     * 引用DM弹窗-分页查询DM列表（§14.5）
+     * @param page            分页参数
+     * @param cmNodeId        构型节点ID
+     * @param cmNodePath      构型节点路径（含子节点查询时用于 LIKE 匹配）
+     * @param includeChildren 是否包含子节点
+     * @param onlyIssued      true=仅最新发行版（引用指定版本页签）false=最新版（引用最新版页签）
+     * @param dmc             DMC模糊查询
+     * @param techName        技术名称模糊查询
+     * @param infoName        信息名称模糊查询
+     * @param dmTypeName      DM类型模糊查询
+     */
+    IPage<IetmDataModule> selectPageForDialog(Page<IetmDataModule> page,
+                                              @Param("cmNodeId") String cmNodeId,
+                                              @Param("cmNodePath") String cmNodePath,
+                                              @Param("includeChildren") Boolean includeChildren,
+                                              @Param("onlyIssued") Boolean onlyIssued,
+                                              @Param("dmc") String dmc,
+                                              @Param("techName") String techName,
+                                              @Param("infoName") String infoName,
+                                              @Param("dmTypeName") String dmTypeName);
+
+    /**
+     * 根据ID查询dmcontent字段（列表页预览专用）
+     * 独立查询避免大字段随列表加载，复用编辑器预览的查询模式
+     * @param id DM主键ID
+     * @return XML内容
+     */
+    String getDmcontentById(@Param("id") String id);
 }

@@ -142,7 +142,23 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
      * @param infoCodeVariant 信息代码变体
      * @return 历史版本列表
      */
-    List<IetmDataModule> queryHistoryVersions(String sns, String infoCode, String infoCodeVariant);
+    /**
+     * 查询同一DMC的所有历史版本（轻量列表，不含dm_content），按版本号倒序
+     * @param projectId 项目ID（可选）
+     * @param sns SNS编号
+     * @param infoCode 信息代码
+     * @param infoCodeVariant 信息代码变体（可为空）
+     * @param ietmLocationCode 位置代码（可选）
+     * @param onlyPublished true=仅发布版本(version_type='1')；false/null=全部有效版本
+     */
+    List<IetmDataModule> queryHistoryVersions(String projectId, String sns, String infoCode,
+                                              String infoCodeVariant, String ietmLocationCode, Boolean onlyPublished);
+
+    /**
+     * 版本内容对比：按需取两版本 XML 原文
+     * @return map含 sourceContent/targetContent；两键均不为null（内容为空时为空串）
+     */
+    Map<String, Object> compareVersions(String sourceId, String targetId);
 
     /**
      * 查询引用关系树
@@ -157,6 +173,24 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
      * @param dmId DM主键
      */
     void updateReferenceCount(String dmId);
+
+    /**
+     * 计算指定DM的引用关系：解析 dm_content XML，提取 dmRef/graphic/multimedia，
+     * 更新 ietm_dm_reference 表，并刷新 ref_count / refed_count 统计字段。
+     *
+     * @param dmId DM主键
+     * @return 计算结果 Map，含 dmId / dmcCode / techName / refCount / details
+     * @throws Exception DM不存在、内容为空或 XML 解析失败时抛出
+     */
+    Map<String, Object> calculateDmReferences(String dmId) throws Exception;
+
+    /**
+     * 批量计算所有有效DM的引用关系（管理员功能，分页逐条调用 calculateDmReferences）
+     *
+     * @param batchSize 每批处理数量，建议50-100
+     * @return 统计结果 Map，含 totalCount / successCount / failCount / skipCount / duration
+     */
+    Map<String, Object> calculateAllDmReferences(int batchSize);
 
     /**
      * 导入XML文件

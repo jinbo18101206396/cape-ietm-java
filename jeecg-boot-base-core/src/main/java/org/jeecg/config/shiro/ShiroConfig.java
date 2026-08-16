@@ -94,6 +94,7 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/sys/video/viewVideo/**", "anon");//图片预览 &下载文件不限制token
         filterChainDefinitionMap.put("/sys/common/pdf/**", "anon");//pdf预览
         filterChainDefinitionMap.put("/generic/**", "anon");//pdf预览需要文件
+        filterChainDefinitionMap.put("/icnmanage/ietmIcnManage/view/**", "anon");//ICN图片查看（DM预览中使用）
 
         filterChainDefinitionMap.put("/sys/getLoginQrcode/**", "anon"); //登录二维码
         filterChainDefinitionMap.put("/sys/getQrcodeToken/**", "anon"); //监听扫码

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.workflow.mapper.WfInstanceDtlMapper">
+
+    <!-- ResultMap -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.workflow.entity.WfInstanceDtl">
+        <id     column="id"            property="id"/>
+        <result column="instanceid_"   property="instanceid"/>
+        <result column="seqno_"        property="seqno"/>
+        <result column="nodename_"     property="nodename"/>
+        <result column="nodetype_"     property="nodetype"/>
+        <result column="userid_"       property="userid"/>
+        <result column="useridname_"   property="useridname"/>
+        <result column="stagename_"    property="stagename"/>
+        <result column="ifexec_"       property="ifexec"/>
+        <result column="ifgetback_"    property="ifgetback"/>
+        <result column="create_by"     property="createBy"/>
+        <result column="create_time"   property="createTime"/>
+        <result column="update_by"     property="updateBy"/>
+        <result column="update_time"   property="updateTime"/>
+    </resultMap>
+
+    <!-- 根据实例ID查询所有节点，按seqno排序 -->
+    <select id="selectByInstanceIdOrderBySeqno" resultMap="BaseResultMap">
+        SELECT * FROM "IETM"."wf_instance_dtl"
+        WHERE "instanceid_" = #{instanceId}
+        ORDER BY "seqno_"
+    </select>
+
+    <!-- 查询实例中未执行节点的最小seqno -->
+    <select id="selectMinSeqnoOfUnexecuted" resultType="java.lang.Integer">
+        SELECT MIN("seqno_")
+        FROM "IETM"."wf_instance_dtl"
+        WHERE "instanceid_" = #{instanceId}
+          AND "ifexec_" = 'N'
+    </select>
+
+    <!-- 批量插入节点明细 -->
+    <insert id="batchInsert">
+        INSERT INTO "IETM"."wf_instance_dtl"
+        ("id", "instanceid_", "seqno_", "nodename_", "nodetype_", "userid_", "useridname_", "stagename_", "ifexec_", "ifgetback_", "create_by", "create_time")
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.id}, #{item.instanceid}, #{item.seqno}, #{item.nodename}, #{item.nodetype},
+             #{item.userid}, #{item.useridname}, #{item.stagename}, #{item.ifexec}, #{item.ifgetback},
+             #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
+
+</mapper>

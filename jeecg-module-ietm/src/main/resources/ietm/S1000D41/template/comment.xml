@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE comment []>
+<comment xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://www.purl.org/dc/elements/1.1/" xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-1/xml_schema_flat/comment.xsd"> 
+	<identAndStatusSection>
+		<commentAddress>
+			<commentIdent>
+				<commentCode yearOfDataIssue="" commentType="" senderIdent="" seqNumber="" modelIdentCode=""/>
+				<language countryIsoCode="" languageIsoCode=""/>
+			</commentIdent>
+			<commentAddressItems>
+				<issueDate year="" month="" day=""/>
+				<commentOriginator>
+					<dispatchAddress>
+						<enterprise>
+							<enterpriseName></enterpriseName>
+						</enterprise>
+						<address>
+							<city></city>
+							<country></country>
+						</address>
+					</dispatchAddress>
+				</commentOriginator>
+			</commentAddressItems>
+		</commentAddress>
+		<commentStatus issueType="new">
+			<security securityClassification=""/>
+			<commentPriority commentPriorityCode=""/>
+			<commentResponse responseType=""/>
+			<commentRefs>
+				<noReferences></noReferences>
+			</commentRefs>
+			<brexDmRef>
+				<dmRef>
+					<dmRefIdent>
+						<dmCode systemDiffCode="" subSubSystemCode="" infoCodeVariant="" subSystemCode="" itemLocationCode="" disassyCodeVariant="" modelIdentCode="" assyCode="" disassyCode="" systemCode="" infoCode=""></dmCode>
+					</dmRefIdent>
+				</dmRef>
+			</brexDmRef>
+		</commentStatus>
+	</identAndStatusSection>
+	<commentContent>	
+	</commentContent>
+</comment>

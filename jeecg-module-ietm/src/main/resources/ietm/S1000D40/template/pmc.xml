@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pm []>
+<pm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dc="http://www.purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-0/xml_schema_flat/pm.xsd">
+	<identAndStatusSection>
+		<pmAddress>
+			<pmIdent>
+				<pmCode pmIssuer="" pmNumber="" pmVolume="" modelIdentCode=""/>
+				<language countryIsoCode="" languageIsoCode=""/>
+				<issueInfo inWork="" issueNumber=""/>
+			</pmIdent>
+			<pmAddressItems>
+				<issueDate year="" month="" day=""/>
+				<pmTitle></pmTitle>
+			</pmAddressItems>
+		</pmAddress>
+		<pmStatus issueType="new">
+			<security securityClassification=""/>
+			<dataRestrictions>
+				<restrictionInstructions>
+					<dataDistribution></dataDistribution>
+					<exportControl>
+						<exportRegistrationStmt>
+							<simplePara></simplePara>
+						</exportRegistrationStmt>
+					</exportControl>
+					<dataHandling></dataHandling>
+					<dataDestruction></dataDestruction>
+					<dataDisclosure></dataDisclosure>
+				</restrictionInstructions>
+				<restrictionInfo>
+					<copyright>
+						<copyrightPara>
+						</copyrightPara>
+					</copyright>
+					<policyStatement></policyStatement>
+					<dataConds></dataConds>
+				</restrictionInfo>
+			</dataRestrictions>
+			<responsiblePartnerCompany enterpriseCode="">
+				<enterpriseName></enterpriseName>
+			</responsiblePartnerCompany>
+			<originator enterpriseCode="">
+				<enterpriseName></enterpriseName>
+			</originator>
+			<applic>
+				<displayText>
+				    <simplePara></simplePara>
+				</displayText>
+			</applic>
+			<qualityAssurance>
+				<unverified></unverified>
+			</qualityAssurance>
+			<reasonForUpdate>
+				<simplePara></simplePara>
+			</reasonForUpdate>
+		</pmStatus>
+	</identAndStatusSection>
+	<content>
+	    <pmEntry></pmEntry>
+	</content>
+</pm>

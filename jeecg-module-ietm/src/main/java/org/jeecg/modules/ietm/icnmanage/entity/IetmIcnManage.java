@@ -175,4 +175,12 @@ public class IetmIcnManage implements Serializable {
     /**文件类型（不持久化，用于查询结果映射）*/
     @TableField(exist = false)
     private String fileType;
+
+    /**
+     * 是否需要尺寸参数（不持久化，图符弹窗专用）
+     * 1: 需要（位图类型如bmp/jpg/png，需要读取fileProp）
+     * 0: 不需要（矢量类型如cgm/svg）
+     */
+    @TableField(exist = false)
+    private String needDimension;
 }

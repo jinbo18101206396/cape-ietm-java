@@ -24,6 +24,7 @@
         <result column="issue_no"                property="issueNo"/>
         <result column="in_work"                 property="inWork"/>
         <result column="version_type"            property="versionType"/>
+        <result column="issue_type"              property="issueType"/>
         <result column="tech_name"               property="techName"/>
         <result column="info_name"               property="infoName"/>
         <result column="tech_name_en"            property="techNameEn"/>
@@ -76,6 +77,7 @@
         <result column="issue_no"                property="issueNo"/>
         <result column="in_work"                 property="inWork"/>
         <result column="version_type"            property="versionType"/>
+        <result column="issue_type"              property="issueType"/>
         <result column="tech_name"               property="techName"/>
         <result column="info_name"               property="infoName"/>
         <result column="cm_node_id"              property="cmNodeId"/>
@@ -89,6 +91,8 @@
         <result column="workflow_instance_id"    property="workflowInstanceId"/>
         <result column="workflow_status"         property="workflowStatus"/>
         <result column="dmc_code"                property="dmcCode"/>
+        <result column="issue_date"              property="issueDate"/>
+        <result column="create_by"               property="createBy"/>
         <result column="create_time"             property="createTime"/>
         <result column="update_time"             property="updateTime"/>
     </resultMap>
@@ -98,13 +102,26 @@
         <!-- 从 v_wf_instance 视图映射的字段 -->
         <result column="activityalias_"          property="workflowStep"/>  <!-- 流程当前步骤（动态） -->
         <result column="currenthandler_"         property="workflowHandler"/>  <!-- 当前待办人（动态） -->
+        <!-- 列表/详情展示所需字段（DM类型/密级/签发日期/语言/国家/责任单位）-->
+        <result column="dm_type"                 property="dmType"/>
+        <result column="security"                property="security"/>
+        <result column="issue_date"              property="issueDate"/>
+        <result column="language_iso_code"       property="languageIsoCode"/>
+        <result column="country_iso_code"        property="countryIsoCode"/>
+        <result column="rpc"                     property="rpc"/>
+        <result column="rpc_name"                property="rpcName"/>
+    </resultMap>
+
+    <!-- ResultMap（历史版本专用，包含dm_content用于浏览）-->
+    <resultMap id="HistoryResultMap" type="org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule" extends="ListResultMap">
+        <result column="dm_content"              property="dmContent"/>
     </resultMap>
 
     <!-- 1. 按项目ID查询（使用轻量 ResultMap，不含 dm_content）-->
     <select id="selectByProjectId" parameterType="string" resultMap="ListResultMap">
         SELECT id, project_id, project_name, sns, info_code, info_code_variant,
                ietm_location_code, originator, originator_name, issue_no, in_work,
-               version_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
+               version_type, issue_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
                is_latest, status, checkout_user, checkout_time, checkout_dm_id,
                workflow_instance_id, workflow_status, dmc_code, create_time, update_time
         FROM ietm_data_module
@@ -118,7 +135,7 @@
     <select id="selectByCmNodeId" resultMap="ListResultMap">
         SELECT id, project_id, project_name, sns, info_code, info_code_variant,
                ietm_location_code, originator, originator_name, issue_no, in_work,
-               version_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
+               version_type, issue_type, tech_name, info_name, cm_node_id, cm_node_name, cm_node_path,
                is_latest, status, checkout_user, checkout_time, checkout_dm_id,
                workflow_instance_id, workflow_status, dmc_code, create_time, update_time
         FROM ietm_data_module
@@ -136,38 +153,55 @@
         ORDER BY create_time DESC
     </select>
 
-    <!-- 3. DMC唯一性校验（6维度，DM8使用ROWNUM分页）-->
+    <!-- 3. DMC唯一性校验（6维度，使用 FETCH FIRST 统一 DM8 方言）-->
     <select id="selectByDmcForValidation" resultMap="BaseResultMap">
-        SELECT * FROM (
-            SELECT * FROM ietm_data_module
-            WHERE status = '1'
-              AND is_latest = '1'
-              AND sns = #{sns}
-              AND info_code = #{infoCode}
-              AND (info_code_variant = #{infoCodeVariant}
-                   OR (info_code_variant IS NULL AND #{infoCodeVariant} IS NULL))
-              AND (ietm_location_code = #{ietmLocationCode}
-                   OR (ietm_location_code IS NULL AND #{ietmLocationCode} IS NULL))
-              AND language_iso_code = #{languageIsoCode}
-              AND country_iso_code = #{countryIsoCode}
-              <if test="excludeId != null and excludeId != ''">
-                  AND id != #{excludeId}
-              </if>
-        ) WHERE ROWNUM = 1
+        SELECT * FROM ietm_data_module
+        WHERE status = '1'
+          AND is_latest = '1'
+          AND sns = #{sns}
+          AND info_code = #{infoCode}
+          AND (info_code_variant = #{infoCodeVariant}
+               OR (info_code_variant IS NULL AND #{infoCodeVariant} IS NULL))
+          AND (ietm_location_code = #{ietmLocationCode}
+               OR (ietm_location_code IS NULL AND #{ietmLocationCode} IS NULL))
+          AND language_iso_code = #{languageIsoCode}
+          AND country_iso_code = #{countryIsoCode}
+          <if test="excludeId != null and excludeId != ''">
+              AND id != #{excludeId}
+          </if>
+        FETCH FIRST 1 ROWS ONLY
     </select>
 
-    <!-- 4. 查询历史版本（修复空值处理，使用轻量 ResultMap）-->
-    <select id="selectHistoryVersions" resultMap="ListResultMap">
-        SELECT id, project_id, sns, info_code, info_code_variant,
-               originator, issue_no, in_work, version_type, tech_name, info_name,
-               dmc_code, create_time, update_time
+    <!-- 4. 查询历史版本（包含dm_content用于浏览；使用HistoryResultMap确保XML内容被正确映射）-->
+    <select id="selectHistoryVersions" resultMap="HistoryResultMap">
+        SELECT id, project_id, sns, info_code, info_code_variant, ietm_location_code,
+               dmc_code, issue_no, in_work, version_type, issue_type, is_latest, status,
+               language_iso_code, country_iso_code, dm_content,
+               checkout_user, checkout_time, tech_name, info_name,
+               issue_date, create_by, create_time, update_time
         FROM ietm_data_module
         WHERE status = '1'
           AND sns = #{sns}
           AND info_code = #{infoCode}
           AND (info_code_variant = #{infoCodeVariant}
                OR (info_code_variant IS NULL AND #{infoCodeVariant} IS NULL))
+        <if test="projectId != null and projectId != ''">
+          AND project_id = #{projectId}
+        </if>
+        <if test="ietmLocationCode != null and ietmLocationCode != ''">
+          AND ietm_location_code = #{ietmLocationCode}
+        </if>
+        <if test="onlyPublished != null and onlyPublished == true">
+          AND version_type = '1'
+        </if>
         ORDER BY issue_no DESC, in_work DESC
+    </select>
+
+    <!-- 4b. 按 ID 单取 XML 内容（对比/查看时按需加载，不走列表轻量查询）-->
+    <select id="selectContentById" resultMap="BaseResultMap">
+        SELECT id, issue_no, in_work, dmc_code, dm_content
+        FROM ietm_data_module
+        WHERE id = #{id} AND status IN ('1', '2')
     </select>
 
     <!-- 5. 查询引用关系（out=出引用 / in=入引用，添加参数校验）-->
@@ -215,9 +249,12 @@
         SELECT
             t1.id, t1.project_id, t1.project_name, t1.sns, t1.info_code, t1.info_code_variant,
             t1.ietm_location_code, t1.originator, t1.originator_name, t1.issue_no, t1.in_work,
-            t1.version_type, t1.tech_name, t1.info_name, t1.cm_node_id, t1.cm_node_name, t1.cm_node_path,
+            t1.version_type, t1.issue_type, t1.tech_name, t1.info_name, t1.cm_node_id, t1.cm_node_name, t1.cm_node_path,
             t1.is_latest, t1.status, t1.checkout_user, t1.checkout_time, t1.checkout_dm_id,
             t1.workflow_instance_id, t1.workflow_status, t1.dmc_code, t1.create_time, t1.update_time,
+            -- 列表/详情展示所需字段（DM类型/密级/签发日期/语言/国家/责任单位）
+            t1.dm_type, t1.security, t1.issue_date, t1.language_iso_code, t1.country_iso_code,
+            t1.rpc, t1.rpc_name,
             -- 从流程视图获取动态字段
             v.activityalias_ AS activityalias_,  -- 流程当前步骤（实时计算）
             v.currenthandler_ AS currenthandler_  -- 当前待办人（实时）
@@ -230,9 +267,13 @@
           </if>
           <if test="cmNodeId != null and cmNodeId != ''">
               <choose>
-                  <when test="includeChildren == true and cmNodePath != null and cmNodePath != ''">
-                      AND (t1.cm_node_id = #{cmNodeId}
-                           OR t1.cm_node_path LIKE #{cmNodePath} || '/%')
+                  <when test="includeChildren == true">
+                      <!-- 显示子节点：递归查询构型树，获取当前节点及所有后代节点的DM -->
+                      AND t1.cm_node_id IN (
+                          SELECT id FROM ietm_project_configuration_management
+                          START WITH id = #{cmNodeId}
+                          CONNECT BY PRIOR id = pid
+                      )
                   </when>
                   <otherwise>
                       AND t1.cm_node_id = #{cmNodeId}
@@ -240,6 +281,94 @@
               </choose>
           </if>
         ORDER BY t1.create_time DESC
+    </select>
+
+    <!-- 6b. 查询单条数据模块（JOIN流程视图）- 用于签出等实时流程节点判断 -->
+    <select id="selectByIdWithFlow" resultMap="ListResultMapWithFlow">
+        SELECT
+            t1.id, t1.project_id, t1.project_name, t1.sns, t1.info_code, t1.info_code_variant,
+            t1.ietm_location_code, t1.originator, t1.originator_name, t1.issue_no, t1.in_work,
+            t1.version_type, t1.issue_type, t1.tech_name, t1.info_name, t1.cm_node_id, t1.cm_node_name, t1.cm_node_path,
+            t1.is_latest, t1.status, t1.checkout_user, t1.checkout_time, t1.checkout_dm_id,
+            t1.workflow_instance_id, t1.workflow_status, t1.dmc_code, t1.create_time, t1.update_time,
+            t1.dm_type, t1.security, t1.issue_date, t1.language_iso_code, t1.country_iso_code,
+            t1.rpc, t1.rpc_name,
+            -- 从流程视图获取动态字段
+            v.activityalias_ AS activityalias_,   -- 流程当前步骤（实时计算）
+            v.currenthandler_ AS currenthandler_  -- 当前待办人（实时）
+        FROM ietm_data_module t1
+        LEFT JOIN v_wf_instance v ON t1.id = v.formid_
+        WHERE t1.id = #{id}
+          AND t1.status = '1'
+    </select>
+
+    <!-- 7. 引用DM弹窗-分页查询（§14.5）-->
+    <resultMap id="DialogResultMap"
+               type="org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule"
+               extends="ListResultMap">
+        <result column="dm_type"           property="dmType"/>
+        <result column="issue_date"        property="issueDate"/>
+        <result column="language_iso_code" property="languageIsoCode"/>
+        <result column="country_iso_code"  property="countryIsoCode"/>
+        <result column="dm_type_name"      property="dmTypeName"/>
+    </resultMap>
+
+    <select id="selectPageForDialog" resultMap="DialogResultMap">
+        SELECT
+            t1.id, t1.project_id, t1.project_name, t1.sns, t1.info_code, t1.info_code_variant,
+            t1.ietm_location_code, t1.originator, t1.originator_name, t1.issue_no, t1.in_work,
+            t1.version_type, t1.issue_type, t1.tech_name, t1.info_name, t1.cm_node_id, t1.cm_node_name, t1.cm_node_path,
+            t1.is_latest, t1.status, t1.checkout_user, t1.checkout_time, t1.checkout_dm_id,
+            t1.workflow_instance_id, t1.workflow_status, t1.dmc_code, t1.create_time, t1.update_time,
+            t1.dm_type, t1.issue_date, t1.language_iso_code, t1.country_iso_code,
+            (SELECT MAX(t2.type_name) FROM ietm_dm_type t2
+              WHERE t2.type_code = t1.dm_type AND t2.status = '1') AS dm_type_name
+        FROM ietm_data_module t1
+        WHERE t1.status = '1'
+          AND t1.is_latest = '1'
+          <if test="onlyIssued == true">
+              AND t1.version_type = '1'
+          </if>
+          <if test="cmNodeId != null and cmNodeId != ''">
+              <choose>
+                  <when test="includeChildren == true">
+                      <!-- 显示子节点：递归查询构型树，获取当前节点及所有后代节点的DM -->
+                      AND t1.cm_node_id IN (
+                          SELECT id FROM ietm_project_configuration_management
+                          START WITH id = #{cmNodeId}
+                          CONNECT BY PRIOR id = pid
+                      )
+                  </when>
+                  <otherwise>
+                      AND t1.cm_node_id = #{cmNodeId}
+                  </otherwise>
+              </choose>
+          </if>
+          <if test="dmc != null and dmc != ''">
+              AND t1.dmc_code LIKE '%' || #{dmc} || '%'
+          </if>
+          <if test="techName != null and techName != ''">
+              AND t1.tech_name LIKE '%' || #{techName} || '%'
+          </if>
+          <if test="infoName != null and infoName != ''">
+              AND t1.info_name LIKE '%' || #{infoName} || '%'
+          </if>
+          <if test="dmTypeName != null and dmTypeName != ''">
+              AND EXISTS (
+                  SELECT 1 FROM ietm_dm_type t3
+                  WHERE t3.type_code = t1.dm_type
+                    AND t3.status = '1'
+                    AND t3.type_name LIKE '%' || #{dmTypeName} || '%'
+              )
+          </if>
+        ORDER BY t1.dmc_code
+    </select>
+
+    <!-- 根据ID查询dmcontent字段（列表页预览专用） -->
+    <select id="getDmcontentById" resultType="java.lang.String">
+        SELECT dm_content
+        FROM ietm_data_module
+        WHERE id = #{id}
     </select>
 
 </mapper>
