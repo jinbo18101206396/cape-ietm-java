@@ -169,6 +169,15 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
     List<Map<String, Object>> queryReferenceTree(String dmId, String refType);
 
     /**
+     * 查询引用链路径
+     * @param rootDmId 根DM ID
+     * @param targetDmId 目标DM ID
+     * @param refType 引用类型：out-出引用，in-入引用
+     * @return 从根到目标的引用链路径（有序列表）
+     */
+    List<Map<String, Object>> queryReferenceChain(String rootDmId, String targetDmId, String refType);
+
+    /**
      * 更新引用计数
      * @param dmId DM主键
      */

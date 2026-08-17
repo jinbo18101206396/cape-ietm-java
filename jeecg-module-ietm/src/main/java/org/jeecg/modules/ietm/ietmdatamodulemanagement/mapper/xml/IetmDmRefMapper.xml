@@ -81,4 +81,66 @@
         WHERE source_dm_id = #{sourceDmId}
     </delete>
 
+    <!-- 查询从根DM到目标DM的引用链路径（递归查询，使用达梦数据库语法，支持出引用和入引用两个方向） -->
+    <select id="selectReferenceChain" resultType="java.util.HashMap">
+        <![CDATA[
+        WITH ref_chain(dmId, dmcCode, techName, infoName, refType, refPosition, depth, path) AS (
+            -- 基础查询：根节点（起点）
+            SELECT
+                d.id AS dmId,
+                d.dmc_code AS dmcCode,
+                d.tech_name AS techName,
+                d.info_name AS infoName,
+                CAST(NULL AS VARCHAR(50)) AS refType,
+                CAST(NULL AS VARCHAR(500)) AS refPosition,
+                0 AS depth,
+                CAST(d.id AS VARCHAR(4000)) AS path
+            FROM ietm_data_module d
+            WHERE d.id = #{rootDmId}
+              AND d.status = '1'
+              AND d.is_latest = '1'
+
+            UNION ALL
+
+            -- 递归查询：根据 refType 决定遍历方向
+            SELECT
+                target_d.id AS dmId,
+                target_d.dmc_code AS dmcCode,
+                target_d.tech_name AS techName,
+                target_d.info_name AS infoName,
+                r.ref_type AS refType,
+                r.ref_position AS refPosition,
+                rc.depth + 1 AS depth,
+                rc.path || ',' || CAST(target_d.id AS VARCHAR(4000)) AS path
+            FROM ref_chain rc
+            INNER JOIN ietm_dm_reference r ON (
+                (#{refType} = 'out' AND rc.dmId = r.source_dm_id) OR
+                (#{refType} = 'in' AND rc.dmId = r.target_dm_id)
+            )
+            INNER JOIN ietm_data_module target_d ON (
+                (#{refType} = 'out' AND r.target_dm_id = target_d.id) OR
+                (#{refType} = 'in' AND r.source_dm_id = target_d.id)
+            )
+            WHERE target_d.status = '1'
+              AND target_d.is_latest = '1'
+              AND rc.depth < 10
+              AND INSTR(',' || rc.path || ',', ',' || CAST(target_d.id AS VARCHAR(4000)) || ',') = 0
+        )
+        -- 筛选出包含目标DM的路径，并返回该路径上的所有节点
+        SELECT
+            dmId AS "dmId",
+            dmcCode AS "dmcCode",
+            techName AS "techName",
+            infoName AS "infoName",
+            refType AS "refType",
+            refPosition AS "refPosition",
+            depth AS "depth",
+            path AS "path"
+        FROM ref_chain
+        WHERE path LIKE '%' || #{targetDmId} || '%'
+          OR dmId = #{targetDmId}
+        ORDER BY depth
+        ]]>
+    </select>
+
 </mapper>

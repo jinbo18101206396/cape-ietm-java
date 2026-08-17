@@ -400,6 +400,20 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
+     * 查询引用链路径
+     */
+    @AutoLog(value = "数据模块管理-查询引用链路径")
+    @ApiOperation(value = "数据模块管理-查询引用链路径", notes = "数据模块管理-查询引用链路径")
+    @GetMapping(value = "/referenceChain")
+    public Result<List<Map<String, Object>>> queryReferenceChain(
+            @ApiParam(value = "根DM ID", required = true) @RequestParam String rootDmId,
+            @ApiParam(value = "目标DM ID", required = true) @RequestParam String targetDmId,
+            @ApiParam(value = "引用类型：out-出引用，in-入引用", required = false, defaultValue = "out") @RequestParam(defaultValue = "out") String refType) {
+        List<Map<String, Object>> chain = ietmDataModuleService.queryReferenceChain(rootDmId, targetDmId, refType);
+        return Result.OK(chain);
+    }
+
+    /**
      * 计算指定DM的引用关系
      * <p>
      * 解析 dm_content XML，提取 dmRef/graphic/multimedia 引用，更新 ietm_dm_reference 表，

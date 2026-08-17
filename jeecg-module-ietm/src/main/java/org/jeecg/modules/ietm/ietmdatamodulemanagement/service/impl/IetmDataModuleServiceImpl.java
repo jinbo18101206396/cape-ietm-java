@@ -2457,15 +2457,229 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     public List<Map<String, Object>> queryReferenceTree(String dmId, String refType) {
         log.info("查询引用关系树，DM ID：{}，引用类型：{}", dmId, refType);
 
+        // 使用Set记录已访问的DM，防止循环引用导致无限递归
+        Set<String> visited = new HashSet<>();
+        visited.add(dmId); // 根节点加入已访问集合
+
         if ("out".equals(refType)) {
             // 查询出引用（当前DM引用了哪些DM）
-            return ietmDmRefMapper.selectOutReferences(dmId);
+            return buildReferenceTree(dmId, refType, visited, 1, 10);
         } else if ("in".equals(refType)) {
             // 查询入引用（哪些DM引用了当前DM）
-            return ietmDmRefMapper.selectInReferences(dmId);
+            return buildReferenceTree(dmId, refType, visited, 1, 10);
         } else {
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * 递归构建引用关系树
+     *
+     * @param dmId 当前DM ID
+     * @param refType 引用类型（out/in）
+     * @param visited 已访问的DM ID集合（防止循环引用）
+     * @param currentDepth 当前深度
+     * @param maxDepth 最大深度限制（默认10层）
+     * @return 树形结构的引用关系列表
+     */
+    private List<Map<String, Object>> buildReferenceTree(String dmId, String refType,
+                                                          Set<String> visited, int currentDepth, int maxDepth) {
+        // 深度限制，防止无限递归
+        if (currentDepth > maxDepth) {
+            log.warn("引用关系树深度超过限制 {}，停止递归", maxDepth);
+            return new ArrayList<>();
+        }
+
+        // 查询当前层级的直接引用
+        List<Map<String, Object>> directRefs;
+        if ("out".equals(refType)) {
+            directRefs = ietmDmRefMapper.selectOutReferences(dmId);
+        } else {
+            directRefs = ietmDmRefMapper.selectInReferences(dmId);
+        }
+
+        if (directRefs == null || directRefs.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 构建树形结构
+        List<Map<String, Object>> treeNodes = new ArrayList<>();
+        for (Map<String, Object> ref : directRefs) {
+            // 获取子节点的DM ID
+            String childDmId = "out".equals(refType)
+                ? (String) ref.get("targetDmId")
+                : (String) ref.get("sourceDmId");
+
+            // 检查是否循环引用
+            boolean isCircular = visited.contains(childDmId);
+            ref.put("isCircular", isCircular);
+            ref.put("refDepth", currentDepth);
+
+            // 如果不是循环引用，递归查询子节点
+            if (!isCircular) {
+                visited.add(childDmId);
+                List<Map<String, Object>> children = buildReferenceTree(
+                    childDmId, refType, visited, currentDepth + 1, maxDepth
+                );
+                if (!children.isEmpty()) {
+                    ref.put("children", children);
+                }
+                // 回溯：移除当前节点（允许在不同分支中重复出现）
+                visited.remove(childDmId);
+            }
+
+            treeNodes.add(ref);
+        }
+
+        return treeNodes;
+    }
+
+    @Override
+    public List<Map<String, Object>> queryReferenceChain(String rootDmId, String targetDmId, String refType) {
+        log.info("查询引用链路径，根DM ID：{}，目标DM ID：{}，引用类型：{}", rootDmId, targetDmId, refType);
+
+        // 调用Mapper查询引用链（包含path字段）
+        List<Map<String, Object>> allNodes = ietmDmRefMapper.selectReferenceChain(rootDmId, targetDmId, refType);
+
+        log.info("SQL返回的节点数量：{}", allNodes == null ? 0 : allNodes.size());
+        if (allNodes != null && !allNodes.isEmpty()) {
+            for (Map<String, Object> node : allNodes) {
+                log.info("节点：dmId={}, dmcCode={}, depth={}, path={}",
+                    node.get("dmId"), node.get("dmcCode"), node.get("depth"), node.get("path"));
+            }
+        }
+
+        if (allNodes == null || allNodes.isEmpty()) {
+            log.warn("未找到从 {} 到 {} 的引用链路径", rootDmId, targetDmId);
+            return new ArrayList<>();
+        }
+
+        // 找到包含targetDmId的最短路径（depth最小）
+        Map<String, Object> targetNode = null;
+        int minDepth = Integer.MAX_VALUE;
+
+        for (Map<String, Object> node : allNodes) {
+            String dmId = String.valueOf(node.get("dmId"));
+            if (targetDmId.equals(dmId)) {
+                Object depthObj = node.get("depth");
+                int depth = Integer.MAX_VALUE;
+
+                // 处理多种数字类型
+                if (depthObj instanceof Integer) {
+                    depth = (Integer) depthObj;
+                } else if (depthObj instanceof Long) {
+                    depth = ((Long) depthObj).intValue();
+                } else if (depthObj instanceof java.math.BigDecimal) {
+                    depth = ((java.math.BigDecimal) depthObj).intValue();
+                } else if (depthObj != null) {
+                    try {
+                        depth = Integer.parseInt(String.valueOf(depthObj));
+                    } catch (NumberFormatException e) {
+                        log.warn("depth字段类型转换失败：{}, 类型：{}", depthObj, depthObj.getClass().getName());
+                    }
+                }
+
+                log.info("找到候选路径：dmId={}, depth={} (原始类型: {}), path={}",
+                    dmId, depth, depthObj != null ? depthObj.getClass().getSimpleName() : "null", node.get("path"));
+
+                if (depth < minDepth) {
+                    minDepth = depth;
+                    targetNode = node;
+                }
+            }
+        }
+
+        if (targetNode != null) {
+            log.info("选择最短路径：depth={}, path={}", minDepth, targetNode.get("path"));
+        }
+
+        if (targetNode == null) {
+            log.warn("未找到目标节点 {} 在引用链中", targetDmId);
+            return new ArrayList<>();
+        }
+
+        // 从path字段提取完整路径的所有节点ID
+        String pathStr = String.valueOf(targetNode.get("path"));
+        if (pathStr == null || "null".equals(pathStr) || pathStr.isEmpty()) {
+            log.warn("目标节点的path字段为空");
+            return new ArrayList<>();
+        }
+
+        log.info("解析path字段：{}", pathStr);
+        String[] pathIds = pathStr.split(",");
+        log.info("path拆分后的ID数组：{}", java.util.Arrays.toString(pathIds));
+
+        // 按照path顺序构建完整链路
+        // 需要为路径上的每个节点查询完整信息
+        List<Map<String, Object>> chain = new ArrayList<>();
+
+        for (int i = 0; i < pathIds.length; i++) {
+            String pathId = pathIds[i].trim();
+
+            // 第一个节点是根节点，需要单独查询
+            if (i == 0) {
+                Map<String, Object> rootNode = new HashMap<>();
+                // 查询根节点的完整信息
+                IetmDataModule rootDm = this.getById(pathId);
+                if (rootDm != null) {
+                    rootNode.put("dmId", rootDm.getId());
+                    rootNode.put("dmcCode", rootDm.getDmcCode());
+                    rootNode.put("techName", rootDm.getTechName());
+                    rootNode.put("infoName", rootDm.getInfoName());
+                    rootNode.put("refType", null);
+                    rootNode.put("refPosition", null);
+                    chain.add(rootNode);
+                    log.info("添加根节点到链路：dmId={}, dmcCode={}", rootDm.getId(), rootDm.getDmcCode());
+                }
+            } else {
+                // 中间节点和目标节点，从allNodes中查找或查询数据库
+                boolean found = false;
+                for (Map<String, Object> node : allNodes) {
+                    if (pathId.equals(String.valueOf(node.get("dmId")))) {
+                        chain.add(node);
+                        log.info("添加到链路：dmId={}, dmcCode={}", node.get("dmId"), node.get("dmcCode"));
+                        found = true;
+                        break;
+                    }
+                }
+
+                // 如果在allNodes中没找到，从数据库查询
+                if (!found) {
+                    IetmDataModule dm = this.getById(pathId);
+                    if (dm != null) {
+                        Map<String, Object> node = new HashMap<>();
+                        node.put("dmId", dm.getId());
+                        node.put("dmcCode", dm.getDmcCode());
+                        node.put("techName", dm.getTechName());
+                        node.put("infoName", dm.getInfoName());
+                        // 查询引用关系信息，根据refType决定查询方向
+                        if (i > 0) {
+                            String prevId = pathIds[i - 1].trim();
+                            QueryWrapper<IetmDmRef> qw = new QueryWrapper<>();
+                            if ("out".equals(refType)) {
+                                // 出引用：prevId引用了pathId
+                                qw.eq("source_dm_id", prevId);
+                                qw.eq("target_dm_id", pathId);
+                            } else {
+                                // 入引用：pathId引用了prevId
+                                qw.eq("source_dm_id", pathId);
+                                qw.eq("target_dm_id", prevId);
+                            }
+                            IetmDmRef ref = ietmDmRefMapper.selectOne(qw);
+                            if (ref != null) {
+                                node.put("refType", ref.getRefType());
+                                node.put("refPosition", ref.getRefPosition());
+                            }
+                        }
+                        chain.add(node);
+                        log.info("从数据库查询并添加到链路：dmId={}, dmcCode={}", dm.getId(), dm.getDmcCode());
+                    }
+                }
+            }
+        }
+
+        log.info("最终查询到引用链路径，共 {} 个节点", chain.size());
+        return chain;
     }
 
     // ==================== 私有工具方法 ====================

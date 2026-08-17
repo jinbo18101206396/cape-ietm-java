@@ -70,4 +70,13 @@ public interface IetmDmRefMapper extends BaseMapper<IetmDmRef> {
      * @return 插入数量
      */
     Integer insertOne(IetmDmRef ref);
+
+    /**
+     * 查询从根DM到目标DM的引用链路径
+     * @param rootDmId 根DM ID
+     * @param targetDmId 目标DM ID
+     * @param refType 引用类型：out-出引用（从root引用到target），in-入引用（从target被引用到root）
+     * @return 引用链路径（有序列表，从根到目标）
+     */
+    List<Map<String, Object>> selectReferenceChain(@Param("rootDmId") String rootDmId, @Param("targetDmId") String targetDmId, @Param("refType") String refType);
 }
