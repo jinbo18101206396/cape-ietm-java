@@ -33,7 +33,7 @@ public class WfInstanceDtl implements Serializable {
 
     /** 所属工作流实例ID */
     @ApiModelProperty(value = "所属工作流实例ID", required = true)
-    @TableField("instanceid_")
+    @TableField("instid_")
     private String instanceid;
 
     /** 节点顺序号（0=创建节点，启动时ifexec自动置Y） */
@@ -75,6 +75,16 @@ public class WfInstanceDtl implements Serializable {
     @ApiModelProperty(value = "可跳转节点ID串")
     @TableField("ifgetback_")
     private String ifgetback;
+
+    /** 跳转次数（退回次数累计） */
+    @ApiModelProperty(value = "跳转次数")
+    @TableField("ifjump_")
+    private String ifjump;
+
+    /** 是否可无意见通过：Y=可以,N=不可以 */
+    @ApiModelProperty(value = "是否可无意见通过")
+    @TableField("ifnoopinion_")
+    private String ifnoopinion;
 
     /** 创建人 */
     @ApiModelProperty(value = "创建人")

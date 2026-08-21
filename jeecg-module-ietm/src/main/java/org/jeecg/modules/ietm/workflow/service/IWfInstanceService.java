@@ -44,4 +44,36 @@ public interface IWfInstanceService extends IService<WfInstance> {
      * @return 成功重启的DM数量
      */
     int batchRestartFlow(BatchRestartFlowVO vo);
+
+    /**
+     * 根据formid查询流程实例
+     *
+     * @param formid 业务表单ID
+     * @return 流程实例
+     */
+    WfInstance getByFormid(String formid);
+
+    /**
+     * 根据formid查询当前用户待办任务
+     *
+     * @param formid 业务表单ID
+     * @return 待办节点信息
+     */
+    Object getTodoByFormid(String formid);
+
+    /**
+     * 修改紧急程度
+     *
+     * @param id 流程实例ID
+     * @param ifurgent 紧急程度
+     */
+    void updateUrgent(String id, String ifurgent);
+
+    /**
+     * 终止流程
+     *
+     * @param id 流程实例ID
+     * @param reason 终止原因
+     */
+    void terminate(String id, String reason);
 }

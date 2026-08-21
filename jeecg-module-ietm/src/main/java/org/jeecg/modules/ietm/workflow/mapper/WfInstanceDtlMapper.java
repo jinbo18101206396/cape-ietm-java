@@ -34,4 +34,41 @@ public interface WfInstanceDtlMapper extends BaseMapper<WfInstanceDtl> {
      * @return 影响行数
      */
     int batchInsert(@Param("list") List<WfInstanceDtl> dtlList);
+
+    /**
+     * 根据实例ID查询节点列表
+     * @param instid 实例ID
+     * @return 节点列表
+     */
+    List<WfInstanceDtl> selectByInstId(@Param("instid") String instid);
+
+    /**
+     * 批量更新节点状态
+     * @param ids 节点ID列表
+     * @param status 状态值
+     * @return 影响行数
+     */
+    int batchUpdateStatus(@Param("ids") List<String> ids, @Param("status") String status);
+
+    /**
+     * 查询最大顺序号
+     * @param instid 实例ID
+     * @return 最大顺序号
+     */
+    Integer selectMaxSeqno(@Param("instid") String instid);
+
+    /**
+     * 查询已处理节点的最大顺序号
+     * @param instid 实例ID
+     * @return 最大顺序号
+     */
+    Integer selectExecutedMaxSeqno(@Param("instid") String instid);
+
+    /**
+     * P0-07: 查询指定阶段的最后一个节点
+     * @param instid 实例ID
+     * @param stagename 阶段名称
+     * @return 节点（按seqno降序第一个）
+     */
+    WfInstanceDtl selectLastNodeByStage(@Param("instid") String instid, @Param("stagename") String stagename);
 }

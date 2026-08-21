@@ -86,4 +86,80 @@ public class WfInstanceController {
             return Result.error("批量重启失败：" + e.getMessage());
         }
     }
+
+    /**
+     * 根据formid查询流程实例
+     *
+     * @param formid 业务表单ID
+     * @return 流程实例信息
+     */
+    @AutoLog(value = "工作流-根据formid查询流程实例")
+    @ApiOperation(value = "根据formid查询流程实例", notes = "根据业务表单ID查询对应的流程实例")
+    @GetMapping(value = "/instance/getByFormid")
+    public Result<?> getByFormid(@RequestParam String formid) {
+        try {
+            return Result.OK(wfInstanceService.getByFormid(formid));
+        } catch (Exception e) {
+            log.error("查询流程实例失败", e);
+            return Result.error("查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询当前用户待办任务
+     *
+     * @param formid 业务表单ID
+     * @return 待办节点信息
+     */
+    @AutoLog(value = "工作流-查询待办任务")
+    @ApiOperation(value = "查询待办任务", notes = "查询当前用户在指定流程中的待办任务节点")
+    @GetMapping(value = "/instance/getTodo")
+    public Result<?> getTodo(@RequestParam String formid) {
+        try {
+            return Result.OK(wfInstanceService.getTodoByFormid(formid));
+        } catch (Exception e) {
+            log.error("查询待办任务失败", e);
+            return Result.error("查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 修改紧急程度
+     *
+     * @param id 流程实例ID
+     * @param ifurgent 紧急程度
+     * @return 操作结果
+     */
+    @AutoLog(value = "工作流-修改紧急程度")
+    @ApiOperation(value = "修改紧急程度", notes = "修改流程实例的紧急程度")
+    @PostMapping(value = "/instance/updateUrgent")
+    public Result<?> updateUrgent(@RequestParam String id, @RequestParam String ifurgent) {
+        try {
+            wfInstanceService.updateUrgent(id, ifurgent);
+            return Result.OK("修改成功");
+        } catch (Exception e) {
+            log.error("修改紧急程度失败", e);
+            return Result.error("修改失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 终止流程
+     *
+     * @param id 流程实例ID
+     * @param reason 终止原因
+     * @return 操作结果
+     */
+    @AutoLog(value = "工作流-终止流程")
+    @ApiOperation(value = "终止流程", notes = "终止流程实例")
+    @PostMapping(value = "/instance/terminate")
+    public Result<?> terminate(@RequestParam String id, @RequestParam String reason) {
+        try {
+            wfInstanceService.terminate(id, reason);
+            return Result.OK("终止成功");
+        } catch (Exception e) {
+            log.error("终止流程失败", e);
+            return Result.error("终止失败：" + e.getMessage());
+        }
+    }
 }

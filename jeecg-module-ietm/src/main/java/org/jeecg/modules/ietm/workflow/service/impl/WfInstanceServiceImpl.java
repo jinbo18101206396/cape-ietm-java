@@ -268,7 +268,14 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
                 dtl.setUseridname(nodeConfig.getUseridname());
                 dtl.setStagename(oConvertUtils.getString(nodeConfig.getStagename(), ""));
                 dtl.setIfgetback(oConvertUtils.getString(nodeConfig.getIfgetback(), ""));
-                dtl.setIfexec(WfConstants.EXEC_NO);
+                // 创建节点（nodetype='0'）启动时自动标记为已执行
+                if (WfConstants.NODE_TYPE_CREATE.equals(nodeConfig.getNodetype())) {
+                    dtl.setIfexec(WfConstants.EXEC_YES);  // 'Y' - 已执行
+                } else {
+                    dtl.setIfexec(WfConstants.EXEC_NO);   // 'N' - 未执行
+                }
+                dtl.setIfjump("0");  // P2-1修复：初始跳转次数为0
+                dtl.setIfnoopinion("N");  // P2-1修复：默认不可无意见通过
                 dtl.setCreateBy(currentUsername);  // P0-005修复：设置创建人
                 dtl.setCreateTime(new Date());      // P0-005修复：设置创建时间
                 allDtlList.add(dtl);
@@ -625,8 +632,15 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
                 dtl.setUserid(dtlVO.getUserid());
                 dtl.setUseridname(dtlVO.getUseridname());
                 dtl.setStagename(oConvertUtils.getString(dtlVO.getStagename(), ""));
-                dtl.setIfexec(WfConstants.EXEC_NO);
+                // 创建节点（nodetype='0'）启动时自动标记为已执行
+                if (WfConstants.NODE_TYPE_CREATE.equals(dtlVO.getNodetype())) {
+                    dtl.setIfexec(WfConstants.EXEC_YES);  // 'Y' - 已执行
+                } else {
+                    dtl.setIfexec(WfConstants.EXEC_NO);   // 'N' - 未执行
+                }
                 dtl.setIfgetback(oConvertUtils.getString(dtlVO.getIfgetback(), ""));
+                dtl.setIfjump("0");  // P2-1修复：初始跳转次数为0
+                dtl.setIfnoopinion("N");  // P2-1修复：默认不可无意见通过
                 dtl.setCreateBy(currentUsername);  // P0-005修复：设置创建人
                 dtl.setCreateTime(new Date());      // P0-005修复：设置创建时间
                 allDtls.add(dtl);
@@ -885,7 +899,11 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
         Set<Integer> seqnoSet = new HashSet<>();
         boolean hasCreateNode = false;
         // S-005修复：允许的节点类型
-        Set<String> allowedNodeTypes = new HashSet<>(Arrays.asList("0", "1", "2"));
+        Set<String> allowedNodeTypes = new HashSet<>(Arrays.asList(
+            WfConstants.NODE_TYPE_CREATE,
+            WfConstants.NODE_TYPE_REVIEW,
+            WfConstants.NODE_TYPE_APPROVE
+        ));
 
         for (BatchStartFlowDtlVO node : nodes) {
             // S-003修复：检查seqno范围
@@ -966,5 +984,119 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
         if (!hasCreateNode) {
             throw new JeecgBootException("节点配置中必须包含创建节点（nodetype=0）");
         }
+    }
+
+    @Override
+    public WfInstance getByFormid(String formid) {
+        if (oConvertUtils.isEmpty(formid)) {
+            throw new JeecgBootException("业务表单ID不能为空");
+        }
+
+        LambdaQueryWrapper<WfInstance> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(WfInstance::getFormid, formid);
+        queryWrapper.orderByDesc(WfInstance::getCreateTime);
+        queryWrapper.last("LIMIT 1");
+
+        return this.getOne(queryWrapper);
+    }
+
+    @Override
+    public Object getTodoByFormid(String formid) {
+        if (oConvertUtils.isEmpty(formid)) {
+            throw new JeecgBootException("业务表单ID不能为空");
+        }
+
+        // 获取当前用户
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        if (loginUser == null) {
+            throw new JeecgBootException("未获取到当前用户信息");
+        }
+        // 节点 userid_ 存的是用户ID(UUID)，而非登录名；同时兼容用户名以防历史脏数据
+        String currentUserId = loginUser.getId();
+        String currentUsername = loginUser.getUsername();
+
+        // 查询流程实例
+        WfInstance instance = getByFormid(formid);
+        if (instance == null) {
+            return null;
+        }
+
+        // 查询流程节点
+        LambdaQueryWrapper<WfInstanceDtl> dtlWrapper = new LambdaQueryWrapper<>();
+        dtlWrapper.eq(WfInstanceDtl::getInstanceid, instance.getId());
+        dtlWrapper.in(WfInstanceDtl::getIfexec, WfConstants.EXEC_NO, WfConstants.EXEC_RETURN);
+        dtlWrapper.orderByAsc(WfInstanceDtl::getSeqno);
+
+        List<WfInstanceDtl> nodes = wfInstanceDtlMapper.selectList(dtlWrapper);
+
+        // 查找当前用户的待办节点
+        for (WfInstanceDtl node : nodes) {
+            String userid = node.getUserid();
+            if (oConvertUtils.isEmpty(userid)) {
+                continue;
+            }
+
+            // 判断当前用户是否为该节点的处理人（按用户ID匹配，兼容用户名）
+            String[] userIds = userid.split(",");
+            for (String uid : userIds) {
+                String u = uid.trim();
+                if (u.equals(currentUserId) || u.equals(currentUsername)) {
+                    return node;
+                }
+                // TODO: 支持角色/部门/岗位前缀判断（rol_/dpt_/grp_/pst_）
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateUrgent(String id, String ifurgent) {
+        if (oConvertUtils.isEmpty(id)) {
+            throw new JeecgBootException("流程实例ID不能为空");
+        }
+
+        WfInstance instance = this.getById(id);
+        if (instance == null) {
+            throw new JeecgBootException("流程实例不存在");
+        }
+
+        // 校验紧急程度值
+        if (!oConvertUtils.isEmpty(ifurgent)) {
+            if (!Arrays.asList("", "1", "2", "3").contains(ifurgent)) {
+                throw new JeecgBootException("紧急程度值无效，必须是空/1/2/3");
+            }
+        }
+
+        instance.setIfurgent(ifurgent);
+        this.updateById(instance);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void terminate(String id, String reason) {
+        if (oConvertUtils.isEmpty(id)) {
+            throw new JeecgBootException("流程实例ID不能为空");
+        }
+        if (oConvertUtils.isEmpty(reason)) {
+            throw new JeecgBootException("终止原因不能为空");
+        }
+
+        WfInstance instance = this.getById(id);
+        if (instance == null) {
+            throw new JeecgBootException("流程实例不存在");
+        }
+
+        // 校验流程状态
+        if (WfConstants.STATUS_ENDED.equals(instance.getStatus()) || WfConstants.STATUS_TERMINATED.equals(instance.getStatus())) {
+            throw new JeecgBootException("流程已结束，不能终止");
+        }
+
+        // 更新流程状态为终止
+        instance.setStatus(WfConstants.STATUS_TERMINATED);
+        this.updateById(instance);
+
+        log.info("流程实例{}已终止，原因：{}", id, reason);
     }
 }

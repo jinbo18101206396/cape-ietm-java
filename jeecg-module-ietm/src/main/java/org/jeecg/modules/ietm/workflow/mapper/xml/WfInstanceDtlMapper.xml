@@ -5,7 +5,7 @@
     <!-- ResultMap -->
     <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.workflow.entity.WfInstanceDtl">
         <id     column="id"            property="id"/>
-        <result column="instanceid_"   property="instanceid"/>
+        <result column="instid_"       property="instanceid"/>
         <result column="seqno_"        property="seqno"/>
         <result column="nodename_"     property="nodename"/>
         <result column="nodetype_"     property="nodetype"/>
@@ -14,6 +14,8 @@
         <result column="stagename_"    property="stagename"/>
         <result column="ifexec_"       property="ifexec"/>
         <result column="ifgetback_"    property="ifgetback"/>
+        <result column="ifjump_"       property="ifjump"/>
+        <result column="ifnoopinion_"  property="ifnoopinion"/>
         <result column="create_by"     property="createBy"/>
         <result column="create_time"   property="createTime"/>
         <result column="update_by"     property="updateBy"/>
@@ -23,7 +25,7 @@
     <!-- 根据实例ID查询所有节点，按seqno排序 -->
     <select id="selectByInstanceIdOrderBySeqno" resultMap="BaseResultMap">
         SELECT * FROM "IETM"."wf_instance_dtl"
-        WHERE "instanceid_" = #{instanceId}
+        WHERE "instid_" = #{instanceId}
         ORDER BY "seqno_"
     </select>
 
@@ -31,20 +33,68 @@
     <select id="selectMinSeqnoOfUnexecuted" resultType="java.lang.Integer">
         SELECT MIN("seqno_")
         FROM "IETM"."wf_instance_dtl"
-        WHERE "instanceid_" = #{instanceId}
+        WHERE "instid_" = #{instanceId}
           AND "ifexec_" = 'N'
     </select>
 
     <!-- 批量插入节点明细 -->
     <insert id="batchInsert">
         INSERT INTO "IETM"."wf_instance_dtl"
-        ("id", "instanceid_", "seqno_", "nodename_", "nodetype_", "userid_", "useridname_", "stagename_", "ifexec_", "ifgetback_", "create_by", "create_time")
+        ("id", "instid_", "seqno_", "nodename_", "nodetype_", "userid_", "useridname_",
+         "stagename_", "ifexec_", "ifgetback_", "ifjump_", "ifnoopinion_", "create_by", "create_time")
         VALUES
         <foreach collection="list" item="item" separator=",">
             (#{item.id}, #{item.instanceid}, #{item.seqno}, #{item.nodename}, #{item.nodetype},
              #{item.userid}, #{item.useridname}, #{item.stagename}, #{item.ifexec}, #{item.ifgetback},
-             #{item.createBy}, #{item.createTime})
+             #{item.ifjump}, #{item.ifnoopinion}, #{item.createBy}, #{item.createTime})
         </foreach>
     </insert>
+
+    <!-- 根据实例ID查询节点列表 -->
+    <select id="selectByInstId" resultMap="BaseResultMap">
+        SELECT * FROM wf_instance_dtl
+        WHERE instid_ = #{instid}
+          AND del_flag = '0'
+        ORDER BY seqno_
+    </select>
+
+    <!-- 批量更新节点状态 -->
+    <update id="batchUpdateStatus">
+        UPDATE wf_instance_dtl
+        SET ifexec_ = #{status},
+            update_time = SYSDATE
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+          AND del_flag = '0'
+    </update>
+
+    <!-- 查询最大顺序号 -->
+    <select id="selectMaxSeqno" resultType="java.lang.Integer">
+        SELECT MAX(seqno_)
+        FROM wf_instance_dtl
+        WHERE instid_ = #{instid}
+          AND del_flag = '0'
+    </select>
+
+    <!-- 查询已处理节点的最大顺序号 -->
+    <select id="selectExecutedMaxSeqno" resultType="java.lang.Integer">
+        SELECT MAX(seqno_)
+        FROM wf_instance_dtl
+        WHERE instid_ = #{instid}
+          AND ifexec_ = 'Y'
+          AND del_flag = '0'
+    </select>
+
+    <!-- P0-07: 查询指定阶段的最后一个节点 -->
+    <select id="selectLastNodeByStage" resultMap="BaseResultMap">
+        SELECT * FROM wf_instance_dtl
+        WHERE instid_ = #{instid}
+          AND stagename_ = #{stagename}
+          AND del_flag = '0'
+        ORDER BY seqno_ DESC
+        FETCH FIRST 1 ROW ONLY
+    </select>
 
 </mapper>

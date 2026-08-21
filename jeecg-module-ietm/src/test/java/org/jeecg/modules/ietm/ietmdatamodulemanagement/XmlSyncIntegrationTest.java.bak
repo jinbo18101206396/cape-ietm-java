@@ -22,7 +22,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  * 4. 验证 XML 是否已更新
  */
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, classes = org.jeecg.JeecgSystemApplication.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 public class XmlSyncIntegrationTest {
 
     @Autowired

@@ -12,7 +12,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  * 查询DM记录并诊断编辑按钮状态
  */
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = org.jeecg.JeecgSystemApplication.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class DiagnoseButtonStateTest {
 
     @Autowired

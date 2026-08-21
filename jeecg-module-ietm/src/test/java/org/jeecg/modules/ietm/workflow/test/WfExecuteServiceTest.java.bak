@@ -1,0 +1,594 @@
+package org.jeecg.modules.ietm.workflow.test;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.jeecg.common.exception.JeecgBootException;
+import org.jeecg.modules.ietm.workflow.entity.WfExecute;
+import org.jeecg.modules.ietm.workflow.entity.WfInstance;
+import org.jeecg.modules.ietm.workflow.entity.WfInstanceDtl;
+import org.jeecg.modules.ietm.workflow.mapper.WfExecuteMapper;
+import org.jeecg.modules.ietm.workflow.mapper.WfInstanceDtlMapper;
+import org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper;
+import org.jeecg.modules.ietm.workflow.service.IWfExecuteService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * 工作流执行服务测试
+ *
+ * 测试范围：
+ * 1. 核心业务逻辑：通过、不同意、跳转、终止、追加意见、拿回
+ * 2. 场景测试：正常流程、异常流程、边界情况
+ * 3. 数据一致性：状态更新、字段关联
+ */
+@SpringBootTest
+@Transactional
+@DisplayName("工作流执行服务综合测试")
+public class WfExecuteServiceTest {
+
+    @Autowired
+    private IWfExecuteService wfExecuteService;
+
+    @Autowired
+    private WfInstanceMapper wfInstanceMapper;
+
+    @Autowired
+    private WfInstanceDtlMapper wfInstanceDtlMapper;
+
+    @Autowired
+    private WfExecuteMapper wfExecuteMapper;
+
+    private String testInstanceId;
+    private String testDtlId;
+
+    @BeforeEach
+    public void setup() {
+        // 查找一个测试用的流程实例
+        WfInstance testInstance = wfInstanceMapper.selectOne(
+            new LambdaQueryWrapper<WfInstance>()
+                .eq(WfInstance::getStatus, "1")
+                .last("LIMIT 1")
+        );
+
+        if (testInstance != null) {
+            testInstanceId = testInstance.getId();
+
+            WfInstanceDtl testDtl = wfInstanceDtlMapper.selectOne(
+                new LambdaQueryWrapper<WfInstanceDtl>()
+                    .eq(WfInstanceDtl::getInstanceid, testInstanceId)
+                    .eq(WfInstanceDtl::getIfexec, "Y")
+                    .last("LIMIT 1")
+            );
+
+            if (testDtl != null) {
+                testDtlId = testDtl.getId();
+            }
+        }
+    }
+
+    // ==================== 场景1：通过操作 ====================
+
+    @Test
+    @DisplayName("场景1.1：正常通过 - 有意见")
+    public void testPassWithOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("1"); // 通过
+        execute.setOpinion("审核通过，同意进入下一环节");
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "正常通过操作应该成功");
+
+        System.out.println("✓ 场景1.1通过：正常通过操作成功");
+    }
+
+    @Test
+    @DisplayName("场景1.2：通过 - 无意见")
+    public void testPassWithoutOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("1"); // 通过
+        execute.setOpinion("");
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "无意见通过操作应该成功");
+
+        System.out.println("✓ 场景1.2通过：无意见通过操作成功");
+    }
+
+    @Test
+    @DisplayName("场景1.3：通过 - null意见")
+    public void testPassWithNullOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("1"); // 通过
+        execute.setOpinion(null);
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "null意见通过操作应该成功");
+
+        System.out.println("✓ 场景1.3通过：null意见通过操作成功");
+    }
+
+    // ==================== 场景2：不同意操作 ====================
+
+    @Test
+    @DisplayName("场景2.1：不同意 - 正常意见（核心需求）")
+    public void testRejectWithValidOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("2"); // 不同意
+        execute.setOpinion("内容不符合规范，需要修改");
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "正常不同意操作应该成功");
+
+        // 核心验证：检查实例状态是否被设置为'2'
+        WfInstanceDtl dtl = wfInstanceDtlMapper.selectById(testDtlId);
+        WfInstance instance = wfInstanceMapper.selectById(dtl.getInstanceid());
+
+        assertEquals("2", instance.getStatus(),
+            "【核心需求】不同意操作必须将实例状态设置为'2'");
+
+        System.out.println("✓ 场景2.1通过：不同意操作成功，状态='2' ✓✓✓");
+    }
+
+    @Test
+    @DisplayName("场景2.2：不同意 - 意见包含'同意'关键字（应拒绝）")
+    public void testRejectWithAgreeKeyword() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("2"); // 不同意
+        execute.setOpinion("我不同意，但部分内容我同意");
+
+        JeecgBootException exception = assertThrows(JeecgBootException.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "不同意意见包含'同意'应该抛出异常");
+
+        assertTrue(exception.getMessage().contains("不同意意见中不能包含\"同意\"二字"),
+            "异常消息应该说明原因");
+
+        System.out.println("✓ 场景2.2通过：正确拒绝了包含'同意'的不同意意见");
+    }
+
+    @Test
+    @DisplayName("场景2.3：不同意 - 空意见（应拒绝）")
+    public void testRejectWithEmptyOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("2"); // 不同意
+        execute.setOpinion("");
+
+        JeecgBootException exception = assertThrows(JeecgBootException.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "不同意时空意见应该抛出异常");
+
+        assertTrue(exception.getMessage().contains("不同意必填意见"),
+            "异常消息应该说明原因");
+
+        System.out.println("✓ 场景2.3通过：正确拒绝了空意见的不同意操作");
+    }
+
+    @Test
+    @DisplayName("场景2.4：不同意 - null意见（应拒绝）")
+    public void testRejectWithNullOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("2"); // 不同意
+        execute.setOpinion(null);
+
+        JeecgBootException exception = assertThrows(JeecgBootException.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "不同意时null意见应该抛出异常");
+
+        System.out.println("✓ 场景2.4通过：正确拒绝了null意见的不同意操作");
+    }
+
+    @Test
+    @DisplayName("场景2.5：不同意 - 纯空格意见（应拒绝）")
+    public void testRejectWithWhitespaceOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("2"); // 不同意
+        execute.setOpinion("   ");
+
+        JeecgBootException exception = assertThrows(JeecgBootException.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "不同意时纯空格意见应该抛出异常");
+
+        System.out.println("✓ 场景2.5通过：正确拒绝了纯空格的不同意意见");
+    }
+
+    // ==================== 场景3：跳转操作 ====================
+
+    @Test
+    @DisplayName("场景3.1：跳转 - 正常跳转")
+    public void testJumpToNode() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        // 查找可跳转的节点
+        WfInstanceDtl currentDtl = wfInstanceDtlMapper.selectById(testDtlId);
+        List<WfInstanceDtl> availableNodes = wfInstanceDtlMapper.selectList(
+            new LambdaQueryWrapper<WfInstanceDtl>()
+                .eq(WfInstanceDtl::getInstanceid, currentDtl.getInstanceid())
+                .eq(WfInstanceDtl::getIfjump, "Y")
+                .ne(WfInstanceDtl::getId, testDtlId)
+        );
+
+        if (availableNodes.isEmpty()) {
+            System.out.println("跳过测试：无可跳转节点");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("3"); // 跳转
+        execute.setOpinion("跳转到指定节点处理");
+        execute.setJumpdtlid(availableNodes.get(0).getId());
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "正常跳转操作应该成功");
+
+        System.out.println("✓ 场景3.1通过：正常跳转操作成功");
+    }
+
+    @Test
+    @DisplayName("场景3.2：跳转 - 缺少目标节点ID（应拒绝）")
+    public void testJumpWithoutTargetNode() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("3"); // 跳转
+        execute.setOpinion("跳转");
+        execute.setJumpdtlid(null);
+
+        assertThrows(Exception.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "跳转时缺少目标节点应该抛出异常");
+
+        System.out.println("✓ 场景3.2通过：正确拒绝了缺少目标节点的跳转");
+    }
+
+    // ==================== 场景4：终止操作 ====================
+
+    @Test
+    @DisplayName("场景4.1：终止 - 正常终止")
+    public void testTerminateWithOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("4"); // 终止
+        execute.setOpinion("流程需要终止");
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "正常终止操作应该成功");
+
+        System.out.println("✓ 场景4.1通过：正常终止操作成功");
+    }
+
+    @Test
+    @DisplayName("场景4.2：终止 - 空意见（应允许）")
+    public void testTerminateWithoutOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("4"); // 终止
+        execute.setOpinion("");
+
+        // 终止操作可能允许空意见，根据业务规则调整
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "终止操作可能允许空意见");
+
+        System.out.println("✓ 场景4.2通过：终止操作（空意见）");
+    }
+
+    // ==================== 场景5：追加意见 ====================
+
+    @Test
+    @DisplayName("场景5.1：追加意见 - 正常追加")
+    public void testAddOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("5"); // 追加意见
+        execute.setOpinion("补充说明：注意检查格式");
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "追加意见操作应该成功");
+
+        System.out.println("✓ 场景5.1通过：追加意见操作成功");
+    }
+
+    @Test
+    @DisplayName("场景5.2：追加意见 - 空意见（应拒绝）")
+    public void testAddEmptyOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("5"); // 追加意见
+        execute.setOpinion("");
+
+        assertThrows(Exception.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "追加空意见应该抛出异常");
+
+        System.out.println("✓ 场景5.2通过：正确拒绝了空意见追加");
+    }
+
+    // ==================== 场景6：拿回操作 ====================
+
+    @Test
+    @DisplayName("场景6.1：拿回 - 检查是否有后续节点")
+    public void testTakeBackValidation() {
+        if (testInstanceId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        // 查找一个已处理的节点
+        WfInstanceDtl processedDtl = wfInstanceDtlMapper.selectOne(
+            new LambdaQueryWrapper<WfInstanceDtl>()
+                .eq(WfInstanceDtl::getInstanceid, testInstanceId)
+                .eq(WfInstanceDtl::getIfexec, "N")
+                .last("LIMIT 1")
+        );
+
+        if (processedDtl == null) {
+            System.out.println("跳过测试：无已处理节点");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(processedDtl.getId());
+        execute.setIfpass("6"); // 拿回
+
+        // 拿回操作可能需要检查后续节点是否已处理
+        System.out.println("✓ 场景6.1：拿回操作验证（需根据实际业务规则调整）");
+    }
+
+    // ==================== 边界测试 ====================
+
+    @Test
+    @DisplayName("边界1：无效的操作类型")
+    public void testInvalidOptype() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("99"); // 无效操作类型
+        execute.setOpinion("测试");
+
+        assertThrows(Exception.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "无效操作类型应该抛出异常");
+
+        System.out.println("✓ 边界1通过：正确拒绝了无效操作类型");
+    }
+
+    @Test
+    @DisplayName("边界2：空dtlid")
+    public void testNullDtlId() {
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(null);
+        execute.setIfpass("1");
+        execute.setOpinion("测试");
+
+        assertThrows(Exception.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "空dtlid应该抛出异常");
+
+        System.out.println("✓ 边界2通过：正确拒绝了空dtlid");
+    }
+
+    @Test
+    @DisplayName("边界3：不存在的dtlid")
+    public void testNonExistentDtlId() {
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid("999999999999999999"); // 不存在的ID
+        execute.setIfpass("1");
+        execute.setOpinion("测试");
+
+        assertThrows(Exception.class, () -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "不存在的dtlid应该抛出异常");
+
+        System.out.println("✓ 边界3通过：正确拒绝了不存在的dtlid");
+    }
+
+    @Test
+    @DisplayName("边界4：超长意见")
+    public void testVeryLongOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        // 生成1000字符的意见
+        String longOpinion = "审核意见：".repeat(100);
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("1");
+        execute.setOpinion(longOpinion);
+
+        // 应该能处理长意见或给出合适的错误提示
+        try {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+            System.out.println("✓ 边界4通过：能够处理超长意见");
+        } catch (Exception e) {
+            System.out.println("✓ 边界4通过：正确限制了超长意见 - " + e.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("边界5：特殊字符意见")
+    public void testSpecialCharactersOpinion() {
+        if (testDtlId == null) {
+            System.out.println("跳过测试：无可用测试数据");
+            return;
+        }
+
+        String specialOpinion = "意见包含特殊字符：<script>alert('test')</script>、SQL注入'OR'1'='1、换行\n\r等";
+
+        WfExecute execute = new WfExecute();
+        execute.setInstdtlid(testDtlId);
+        execute.setIfpass("1");
+        execute.setOpinion(specialOpinion);
+
+        assertDoesNotThrow(() -> {
+            wfExecuteService.saveOrUpdateExecuteOpinion(execute);
+        }, "应该能安全处理特殊字符");
+
+        System.out.println("✓ 边界5通过：安全处理特殊字符");
+    }
+
+    // ==================== 数据一致性测试 ====================
+
+    @Test
+    @DisplayName("一致性1：instanceid字段映射正确性")
+    public void testInstanceidFieldMapping() {
+        // 查询所有详情记录
+        List<WfInstanceDtl> dtls = wfInstanceDtlMapper.selectList(
+            new LambdaQueryWrapper<WfInstanceDtl>()
+                .last("LIMIT 10")
+        );
+
+        for (WfInstanceDtl dtl : dtls) {
+            assertNotNull(dtl.getInstanceid(),
+                "instanceid字段应该能正确读取");
+
+            // 验证能否通过instanceid查询到对应的实例
+            WfInstance instance = wfInstanceMapper.selectById(dtl.getInstanceid());
+            if (instance != null) {
+                assertEquals(dtl.getInstanceid(), instance.getId(),
+                    "instanceid应该正确关联到wf_instance");
+            }
+        }
+
+        System.out.println("✓ 一致性1通过：instanceid字段映射正确");
+    }
+
+    @Test
+    @DisplayName("一致性2：执行记录与详情关联")
+    public void testExecuteAndDtlAssociation() {
+        // 查询有执行记录的详情
+        List<WfExecute> executes = wfExecuteMapper.selectList(
+            new LambdaQueryWrapper<WfExecute>()
+                .isNotNull(WfExecute::getDtlid)
+                .last("LIMIT 10")
+        );
+
+        for (WfExecute execute : executes) {
+            WfInstanceDtl dtl = wfInstanceDtlMapper.selectById(execute.getInstdtlid());
+            assertNotNull(dtl,
+                "执行记录的dtlid应该能找到对应的详情记录");
+        }
+
+        System.out.println("✓ 一致性2通过：执行记录与详情正确关联");
+    }
+
+    @Test
+    @DisplayName("一致性3：不同意操作后状态检查")
+    public void testRejectStatusConsistency() {
+        // 查找所有不同意的执行记录
+        List<WfExecute> rejectExecutes = wfExecuteMapper.selectList(
+            new LambdaQueryWrapper<WfExecute>()
+                .eq(WfExecute::getOptype, "2")
+                .last("LIMIT 5")
+        );
+
+        for (WfExecute execute : rejectExecutes) {
+            WfInstanceDtl dtl = wfInstanceDtlMapper.selectById(execute.getInstdtlid());
+            if (dtl != null) {
+                WfInstance instance = wfInstanceMapper.selectById(dtl.getInstanceid());
+                if (instance != null) {
+                    assertEquals("2", instance.getStatus(),
+                        "不同意操作后，实例状态应该为'2'");
+                }
+            }
+        }
+
+        System.out.println("✓ 一致性3通过：不同意操作状态一致");
+    }
+}

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.workflow.mapper.WfExecuteMapper">
+
+    <!-- ResultMap (P1-1: 添加createName字段映射) -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.workflow.entity.WfExecute">
+        <id     column="id"            property="id"/>
+        <result column="instdtlid_"    property="instdtlid"/>
+        <result column="ifpass_"       property="ifpass"/>
+        <result column="ifjump_"       property="ifjump"/>
+        <result column="opinion_"      property="opinion"/>
+        <result column="filename_"     property="filename"/>
+        <result column="filecontent_"  property="filecontent"/>
+        <result column="create_by"     property="createBy"/>
+        <result column="create_time"   property="createTime"/>
+        <result column="update_by"     property="updateBy"/>
+        <result column="update_time"   property="updateTime"/>
+        <result column="version_"      property="version"/>
+        <result column="del_flag"      property="delFlag"/>
+        <result column="create_name"   property="createName"/>
+    </resultMap>
+
+    <!-- 根据明细ID查询执行记录列表 (P1-1: 关联用户表获取真实姓名) -->
+    <select id="selectByDtlId" resultMap="BaseResultMap">
+        SELECT e.*, u.realname AS create_name
+        FROM wf_execute e
+        LEFT JOIN sys_user u ON e.create_by = u.username
+        WHERE e.instdtlid_ = #{instdtlid}
+          AND e.del_flag = '0'
+        ORDER BY e.create_time ASC
+    </select>
+
+    <!-- 根据实例ID查询所有执行记录 (P1-1: 关联用户表获取真实姓名) -->
+    <select id="selectByInstId" resultMap="BaseResultMap">
+        SELECT e.*, u.realname AS create_name
+        FROM wf_execute e
+        INNER JOIN wf_instance_dtl d ON e.instdtlid_ = d.id
+        LEFT JOIN sys_user u ON e.create_by = u.username
+        WHERE d.instid_ = #{instid}
+          AND e.del_flag = '0'
+          AND d.del_flag = '0'
+        ORDER BY d.seqno_, e.create_time ASC
+    </select>
+
+    <!-- 查询节点的最新执行记录 (P1-1: 关联用户表获取真实姓名) -->
+    <select id="selectLatestByDtlId" resultMap="BaseResultMap">
+        SELECT e.*, u.realname AS create_name
+        FROM wf_execute e
+        LEFT JOIN sys_user u ON e.create_by = u.username
+        WHERE e.instdtlid_ = #{instdtlid}
+          AND e.del_flag = '0'
+        ORDER BY e.create_time DESC
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
+    <!-- 批量逻辑删除执行记录 -->
+    <update id="logicDeleteByDtlIds">
+        UPDATE wf_execute
+        SET del_flag = '1',
+            update_time = SYSDATE
+        WHERE instdtlid_ IN
+        <foreach collection="dtlIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+          AND del_flag = '0'
+    </update>
+
+</mapper>

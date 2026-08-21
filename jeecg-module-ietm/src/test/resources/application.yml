@@ -1,0 +1,71 @@
+spring:
+  mail:
+    host: smtp.163.com
+    username: test@test.com
+    password: test
+    port: 465
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      driverClassName: dm.jdbc.driver.DmDriver
+      url: jdbc:dm://127.0.0.1:5236/?IETM&zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
+      username: IETM
+      password: AvicCape301
+      initialSize: 2
+      minIdle: 1
+      maxActive: 5
+
+# 集成测试用文件路径占位（IetmAttachmentServiceImpl等依赖，测试不实际读写）
+accessFile:
+  resourceHandler: /showStaticDir/**
+  location: ${java.io.tmpdir}/ietm-test/file
+  decryptLocation: ${java.io.tmpdir}/ietm-test/file/decrypt
+  icnLocation: ${java.io.tmpdir}/ietm-test/file/icn
+
+# jeecg框架必需占位（附件/ICN/ES等Bean的@Value依赖，测试不实际使用这些功能）
+jeecg:
+  safeMode: false
+  signatureSecret: dd05f1c54d63749eda95f9fa6d49v442a
+  uploadType: local
+  path:
+    upload: ${accessFile.location}
+    webapp: ${accessFile.location}/webapp
+  # ES关闭健康检查，避免测试环境无ES导致启动失败
+  elasticsearch:
+    cluster-name: jeecg-ES
+    cluster-nodes: 127.0.0.1:9200
+    check-enabled: false
+  oss:
+    accessKey: test
+    secretKey: test
+    endpoint: oss-cn-beijing.aliyuncs.com
+    bucketName: test
+  minio:
+    minio_url: http://minio.jeecg.com
+    minio_name: test
+    minio_pass: test
+    bucketName: test
+  jmreport:
+    mode: dev
+    is_verify_token: false
+  xxljob:
+    enabled: false
+  shiro:
+    excludeUrls: ""
+
+mybatis-plus:
+  mapper-locations: classpath*:org/jeecg/modules/**/xml/*Mapper.xml
+  global-config:
+    banner: false
+
+logging:
+  level:
+    root: WARN
+    org.jeecg.modules.ietm: INFO
+    org.springframework: WARN
