@@ -5,15 +5,15 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.base.controller.JeecgController;
+import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.modules.ietm.workflow.entity.WfInstance;
 import org.jeecg.modules.ietm.workflow.entity.WfInstanceDtl;
 import org.jeecg.modules.ietm.workflow.mapper.WfInstanceDtlMapper;
 import org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper;
-import org.jeecg.modules.system.entity.SysUser;
-import org.jeecg.modules.system.service.ISysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -40,9 +40,6 @@ public class WfInstanceDtlController {
 
     @Autowired
     private WfInstanceMapper wfInstanceMapper;
-
-    @Autowired
-    private ISysUserService sysUserService;
 
     /**
      * 查询节点列表
@@ -263,16 +260,32 @@ public class WfInstanceDtlController {
             String useridname = (String) nodeData.get("useridname");
 
             if (id == null || id.trim().isEmpty() || id.startsWith("new_")) {
+                // 🔧 新需求：新增节点时，处理人必须是当前用户
+                try {
+                    LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+                    if (loginUser != null) {
+                        String currentUserId = loginUser.getId();
+                        String currentUsername = loginUser.getUsername();
+
+                        // 校验处理人是否为当前用户
+                        if (!userid.equals(currentUserId) && !userid.equals(currentUsername)) {
+                            return Result.error("新增节点的处理人必须是当前用户");
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("[saveNode] 获取当前用户失败，跳过新增节点处理人校验", e);
+                }
+
                 // 新增：ifexec 置 N
                 WfInstanceDtl node = new WfInstanceDtl();
                 node.setInstanceid(instid);
                 node.setNodename(nodename);
                 node.setUserid(userid);
 
-                // P1修复：如果前端未传 useridname 或为空，后端自动查询填充
+                // P1修复简化版：如果前端未传 useridname，使用 userid（前端已在新增节点时自动填充）
                 if (useridname == null || useridname.trim().isEmpty()) {
-                    log.info("[saveNode] 前端未传useridname，后端自动查询填充，userid={}", userid);
-                    useridname = queryUseridnameByUserid(userid);
+                    log.info("[saveNode] 前端未传useridname，使用userid作为兜底，userid={}", userid);
+                    useridname = userid;
                 }
                 node.setUseridname(useridname);
 
@@ -295,10 +308,10 @@ public class WfInstanceDtlController {
                 existing.setNodename(nodename);
                 existing.setUserid(userid);
 
-                // P1修复：如果前端未传 useridname 或为空，后端自动查询填充
+                // P1修复简化版：如果前端未传 useridname，使用 userid（前端已自动填充）
                 if (useridname == null || useridname.trim().isEmpty()) {
-                    log.info("[saveNode] 更新节点时前端未传useridname，后端自动查询填充，userid={}", userid);
-                    useridname = queryUseridnameByUserid(userid);
+                    log.info("[saveNode] 更新节点时前端未传useridname，使用userid作为兜底，userid={}", userid);
+                    useridname = userid;
                 }
                 existing.setUseridname(useridname);
 
@@ -377,63 +390,5 @@ public class WfInstanceDtlController {
             log.error("查询已处理节点的最大顺序号失败", e);
             return Result.error("查询失败：" + e.getMessage());
         }
-    }
-
-    /**
-     * P1修复辅助方法：根据 userid 查询并返回 useridname（用户真实姓名串）
-     * 支持多用户逗号分隔，支持角色/部门/群组/岗位前缀
-     *
-     * @param userid 用户ID串，格式：逗号分隔，支持 rol_/dpt_/grp_/pst_ 前缀
-     * @return 用户名称串（逗号分隔）
-     */
-    private String queryUseridnameByUserid(String userid) {
-        if (userid == null || userid.trim().isEmpty()) {
-            return "";
-        }
-
-        String[] userIds = userid.split(",");
-        List<String> userNames = new ArrayList<>();
-
-        for (String uid : userIds) {
-            String trimmedUid = uid.trim();
-            if (trimmedUid.isEmpty()) {
-                continue;
-            }
-
-            try {
-                // 处理角色/部门/群组/岗位前缀（暂时保留ID，实际项目中应查询对应表）
-                if (trimmedUid.startsWith("rol_") ||
-                    trimmedUid.startsWith("dpt_") ||
-                    trimmedUid.startsWith("grp_") ||
-                    trimmedUid.startsWith("pst_")) {
-                    // TODO: 根据实际需求查询角色/部门/群组/岗位名称
-                    // 暂时保留原ID
-                    userNames.add(trimmedUid);
-                    log.warn("[queryUseridnameByUserid] 暂不支持角色/部门/群组/岗位前缀查询: {}", trimmedUid);
-                    continue;
-                }
-
-                // 查询普通用户
-                SysUser user = sysUserService.getById(trimmedUid);
-                if (user != null) {
-                    // 优先使用真实姓名，fallback到用户名
-                    String displayName = user.getRealname();
-                    if (displayName == null || displayName.trim().isEmpty()) {
-                        displayName = user.getUsername();
-                    }
-                    userNames.add(displayName != null ? displayName : trimmedUid);
-                } else {
-                    // 用户不存在，保留原ID
-                    userNames.add(trimmedUid);
-                    log.warn("[queryUseridnameByUserid] 用户不存在: {}", trimmedUid);
-                }
-            } catch (Exception e) {
-                log.error("[queryUseridnameByUserid] 查询用户失败: {}", trimmedUid, e);
-                // 出错时保留原ID
-                userNames.add(trimmedUid);
-            }
-        }
-
-        return String.join(",", userNames);
     }
 }
