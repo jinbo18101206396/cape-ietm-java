@@ -311,8 +311,12 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     @ApiOperation(value = "数据模块管理-发布", notes = "数据模块管理-发布")
     @PostMapping(value = "/publish")
     public Result<String> publish(
-            @ApiParam(value = "DM ID", required = true) @RequestParam String id,
+            @RequestBody Map<String, String> params,
             HttpServletRequest req) {
+        String id = params.get("id");
+        if (id == null || id.isEmpty()) {
+            return Result.error("DM ID不能为空");
+        }
         String username = getUsername(req);
         boolean success = ietmDataModuleService.publishDm(id, username);
         if (success) {
@@ -429,26 +433,19 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     public Result<Map<String, Object>> calculateDmReferences(
             @ApiParam(value = "DM主键ID，或 'all' 批量计算所有DM", required = true)
             @PathVariable("id") String id) {
-        System.out.println("===============================================");
-        System.out.println("【Controller强制输出】/calcref/" + id + " 被访问！");
-        System.out.println("【Controller强制输出】时间 = " + new java.util.Date());
-        System.out.println("===============================================");
+        log.debug("calcref接口被访问，id={}, 时间={}", id, new java.util.Date());
         try {
             if ("all".equalsIgnoreCase(id)) {
-                log.warn("【Controller】calcref/all 批量计算触发");
-                System.out.println("【Controller强制输出】进入批量计算分支");
+                log.warn("calcref/all 批量计算触发");
                 Map<String, Object> result = ietmDataModuleService.calculateAllDmReferences(100);
-                System.out.println("【Controller强制输出】批量计算完成，result=" + result);
+                log.info("批量计算完成，result={}", result);
                 return Result.OK("批量计算完成", result);
             }
-            log.warn("【Controller】calcref/{} 单个计算触发", id);
-            System.out.println("【Controller强制输出】进入单个计算分支 id=" + id);
+            log.warn("calcref/{} 单个计算触发", id);
             Map<String, Object> result = ietmDataModuleService.calculateDmReferences(id);
             return Result.OK("计算引用关系成功", result);
         } catch (Exception e) {
-            log.error("calcref 失败 id={} error={}", id, e.getMessage(), e);
-            System.err.println("【Controller错误输出】calcref失败：" + e.getMessage());
-            e.printStackTrace();
+            log.error("calcref失败，id={}", id, e);
             return Result.error("计算引用关系失败：" + e.getMessage());
         }
     }
@@ -558,14 +555,24 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
 
     /**
      * 启动工作流
+     *
+     * 🔧 修复：前端使用postAction发送JSON Body，后端需要用@RequestBody接收
+     * 问题：原来用@RequestParam无法接收JSON参数，导致"Required request parameter 'id' is not present"错误
      */
     @AutoLog(value = "数据模块管理-启动工作流")
     @ApiOperation(value = "数据模块管理-启动工作流", notes = "数据模块管理-启动工作流")
     @PostMapping(value = "/startWorkflow")
-    public Result<String> startWorkflow(
-            @ApiParam(value = "DM ID", required = true) @RequestParam String id,
-            @ApiParam(value = "流程定义Key", required = true) @RequestParam String processKey,
-            HttpServletRequest req) {
+    public Result<String> startWorkflow(@RequestBody Map<String, String> params, HttpServletRequest req) {
+        String id = params.get("id");
+        String processKey = params.get("processKey");
+
+        if (id == null || id.isEmpty()) {
+            return Result.error("DM ID不能为空");
+        }
+        if (processKey == null || processKey.isEmpty()) {
+            return Result.error("流程定义Key不能为空");
+        }
+
         String username = getUsername(req);
         String workflowInstanceId = ietmDataModuleService.startWorkflow(id, processKey, username);
         return Result.OK("工作流启动成功，实例ID：" + workflowInstanceId);
@@ -573,17 +580,42 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
 
     /**
      * 重启工作流（发布后）
+     *
+     * 🔧 修复记录：
+     * <ul>
+     *   <li>2026-08-22：修复参数绑定问题，前端使用postAction发送JSON Body，后端需要用@RequestBody接收</li>
+     *   <li>2026-08-23：标记为废弃，前端改用批量启动流程对话框（让用户选择处理人，对标旧系统）</li>
+     * </ul>
+     *
+     * @deprecated 前端已改为使用 {@link org.jeecg.modules.ietm.workflow.controller.WfInstanceController#batchStartFlow}
+     *             统一通过批量启动流程接口，让用户选择处理人（对标旧系统业务逻辑）。
+     *             本接口保留用于向后兼容，但不推荐直接调用。
+     *
+     * 问题：原来用@RequestParam无法接收JSON参数，导致"Required request parameter 'id' is not present"错误
      */
+    @Deprecated
     @AutoLog(value = "数据模块管理-重启工作流")
-    @ApiOperation(value = "数据模块管理-重启工作流", notes = "发布后重新启动工作流")
+    @ApiOperation(value = "数据模块管理-重启工作流", notes = "发布后重新启动工作流（已废弃，请使用批量启动流程接口）")
     @PostMapping(value = "/restartWorkflow")
-    public Result<String> restartWorkflow(
-            @ApiParam(value = "DM ID", required = true) @RequestParam String id,
-            @ApiParam(value = "流程定义Key", required = true) @RequestParam String processKey,
-            HttpServletRequest req) {
+    public Result<String> restartWorkflow(@RequestBody Map<String, String> params, HttpServletRequest req) {
+        String id = params.get("id");
+        String processKey = params.get("processKey");
+
+        if (id == null || id.isEmpty()) {
+            return Result.error("DM ID不能为空");
+        }
+        if (processKey == null || processKey.isEmpty()) {
+            return Result.error("流程定义Key不能为空");
+        }
+
         String username = getUsername(req);
-        String workflowInstanceId = ietmDataModuleService.startWorkflow(id, processKey, username);
-        return Result.OK("工作流重启成功，实例ID：" + workflowInstanceId);
+        try {
+            String workflowInstanceId = ietmDataModuleService.startWorkflow(id, processKey, username);
+            return Result.OK("工作流重启成功，实例ID：" + workflowInstanceId);
+        } catch (Exception e) {
+            log.error("重启工作流失败，DM ID：{}", id, e);
+            return Result.error("启动工作流失败：" + e.getMessage());
+        }
     }
 
     /**

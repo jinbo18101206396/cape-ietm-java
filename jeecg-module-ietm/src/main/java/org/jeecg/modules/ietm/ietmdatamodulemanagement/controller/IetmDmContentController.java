@@ -155,7 +155,9 @@ public class IetmDmContentController {
                 String name = u.getUsername();
                 return name.length() > 50 ? name.substring(0, 50) : name;
             }
-        } catch (Exception ignore) {}
+        } catch (Exception e) {
+            log.warn("获取当前用户失败，使用默认用户system", e);
+        }
         return "system";
     }
 }

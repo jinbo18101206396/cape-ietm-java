@@ -358,11 +358,14 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
         // R-006修复：添加关键注释说明批量更新逻辑
         // S-007修复：添加乐观锁，防止并发冲突
         // 方案A修改：不再回写 workflow_step 字段，改为从 v_wf_instance 视图动态查询
+        // 🔧 IETM-CHECKOUT-BTN-001修复：必须更新 workflow_instance_id，前端签出按钮依赖此字段判断流程是否启动
         if (!dmToTodoJsonMap.isEmpty()) {
             // 由于attribute_05每条DM的值不同，无法使用单一UPDATE语句
             // 采用批量收集+循环更新的方式（已是当前场景下的最优方案）
-            for (Map.Entry<String, String> entry : dmToTodoJsonMap.entrySet()) {
-                String dmId = entry.getKey();
+            for (int i = 0; i < dmIds.size(); i++) {
+                String dmId = dmIds.get(i);
+                WfInstance instance = instanceList.get(i);
+                String instanceId = instance.getId();
                 IetmDataModule dm = dmMap.get(dmId);
                 String dmcCode = oConvertUtils.getString(dm.getDmcCode(), dmId);
 
@@ -372,10 +375,14 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
                 String currentWorkflowStatus = dm.getWorkflowStatus();
 
                 // ===== 诊断：获取要更新的用户名 =====
-                String usernameValue = entry.getValue();
+                String usernameValue = dmToTodoJsonMap.get(dmId);
+                if (usernameValue == null) {
+                    usernameValue = "";
+                }
                 log.info("========== 准备更新数据库 ==========");
                 log.info("DM ID: {}", dmId);
                 log.info("DMC编码: {}", dmcCode);
+                log.info("流程实例ID: {}", instanceId);
                 log.info("attribute_05值（待办用户名）: {}", usernameValue);
                 log.info("attribute_05长度: {} 字符", usernameValue.length());
                 log.info("attribute_05字节数: {} 字节", usernameValue.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
@@ -389,9 +396,9 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
                     .eq(IetmDataModule::getId, dmId)
                     .eq(IetmDataModule::getStatus, "1")  // status='1'表示草稿/编辑中状态
                     .set(IetmDataModule::getAttribute05, usernameValue)  // 存储用户名（纯文本）
-                    .set(IetmDataModule::getWorkflowStatus, "1");  // 更新workflowStatus为"1"（流转中）
-                    // 方案A：不回写 workflow_instance_id、workflow_step、workflow_handler
-                    // 这些字段从 v_wf_instance 视图动态查询，通过 wf_instance.formid_ 关联
+                    .set(IetmDataModule::getWorkflowStatus, "1")  // 更新workflowStatus为"1"（流转中）
+                    .set(IetmDataModule::getWorkflowInstanceId, instanceId);  // 🔧 修复：更新workflow_instance_id
+                    // workflow_step、workflow_handler 仍从 v_wf_instance 视图动态查询
 
                 // 添加workflowStatus条件：必须为null、空或0
                 if (currentWorkflowStatus == null || "".equals(currentWorkflowStatus)) {
@@ -510,17 +517,23 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
                 throw new JeecgBootException("DM不存在，ID：" + restartData.getDmId());
             }
 
+            String dmcCode = oConvertUtils.getString(dm.getDmcCode(), restartData.getDmId());
+
+            // ⚠️ P0-1修复：权限校验 - 只能重启自己创建的流程
+            if (!oConvertUtils.isEmpty(dm.getCreateBy()) &&
+                !dm.getCreateBy().equals(currentUsername)) {
+                throw new JeecgBootException("只能重新启动自己创建的流程，DMC：" + dmcCode + "，创建人：" + dm.getCreateBy());
+            }
+
             // 校验DM状态是否为已发布
             if (!WfConstants.STATUS_ENDED.equals(dm.getStatus())) {
-                String dmcCode = oConvertUtils.getString(dm.getDmcCode(), restartData.getDmId());
                 throw new JeecgBootException("DM未发布，无法重启流程，DMC：" + dmcCode);
             }
 
-            // 校验旧实例是否已结束
+            // ⚠️ P1-1修复：强化校验 - 旧实例ID必须提供
             String oldInstanceId = restartData.getOldInstanceId();
             if (oConvertUtils.isEmpty(oldInstanceId)) {
-                log.warn("DM[{}]未提供旧实例ID，跳过校验", restartData.getDmId());
-                continue;
+                throw new JeecgBootException("未提供旧流程实例ID，无法重启流程，DMC：" + dmcCode);
             }
 
             WfInstance oldInstance = wfInstanceMapper.selectById(oldInstanceId);
@@ -528,7 +541,6 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
                 throw new JeecgBootException("旧流程实例不存在，ID：" + oldInstanceId);
             }
             if (!WfConstants.STATUS_ENDED.equals(oldInstance.getStatus())) {
-                String dmcCode = oConvertUtils.getString(dm.getDmcCode(), restartData.getDmId());
                 throw new JeecgBootException("旧流程未结束，无法重启，DMC：" + dmcCode);
             }
 
@@ -598,7 +610,14 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
         // ===== 批量执行：终止旧实例 =====
         long terminateStartTime = System.currentTimeMillis();
         if (!allTerminateIds.isEmpty()) {
-            wfInstanceMapper.batchTerminate(allTerminateIds, currentUsername);  // P0-004修复：传递update_by
+            int terminatedCount = wfInstanceMapper.batchTerminate(allTerminateIds, currentUsername);  // P0-004修复：传递update_by
+            // ⚠️ P1-2修复：校验影响行数
+            if (terminatedCount != allTerminateIds.size()) {
+                throw new JeecgBootException(
+                    String.format("终止旧流程实例失败，预期终止%d条，实际终止%d条",
+                        allTerminateIds.size(), terminatedCount)
+                );
+            }
         }
         long terminateTime = System.currentTimeMillis() - terminateStartTime;
         log.debug("批量终止旧实例完成，数量：{}，耗时：{}ms", allTerminateIds.size(), terminateTime);

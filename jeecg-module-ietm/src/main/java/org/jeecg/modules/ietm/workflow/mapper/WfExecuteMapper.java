@@ -41,4 +41,11 @@ public interface WfExecuteMapper extends BaseMapper<WfExecute> {
      * @return 影响行数
      */
     int logicDeleteByDtlIds(@Param("dtlIds") List<String> dtlIds);
+
+    /**
+     * 根据明细ID删除该节点的所有执行记录（逻辑删除）
+     * @param instdtlid 明细ID
+     * @return 影响行数
+     */
+    int deleteByDtlId(@Param("instdtlid") String instdtlid);
 }

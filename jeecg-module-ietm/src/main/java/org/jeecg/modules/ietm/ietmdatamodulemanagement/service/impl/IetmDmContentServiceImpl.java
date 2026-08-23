@@ -89,6 +89,7 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
 
         vo.setDesignerSett(defaultDesignerSett());
         vo.setVersion(dm.getVersion());   // 随加载返回，保存时原样回传（避免前端二次 queryById 竞态）
+        vo.setCheckoutUser(dm.getCheckoutUser()); // 🔧 修复：返回签出用户，用于流程提交前校验（对齐旧系统）
         vo.setFlag("success");
         return vo;
     }

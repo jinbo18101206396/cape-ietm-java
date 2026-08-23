@@ -44,6 +44,9 @@ public class DmEditorLoadVO implements Serializable {
     @ApiModelProperty("乐观锁版本号(保存时原样回传，避免前端二次查询竞态)")
     private Integer version;
 
+    @ApiModelProperty("签出用户(用于流程提交前校验，对齐旧系统)")
+    private String checkoutUser;
+
     @ApiModelProperty("提示信息(加载失败时)")
     private String message;
 }

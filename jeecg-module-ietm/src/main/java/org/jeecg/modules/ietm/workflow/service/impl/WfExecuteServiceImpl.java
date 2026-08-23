@@ -1,9 +1,12 @@
 package org.jeecg.modules.ietm.workflow.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.util.SpringContextUtils;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper;
 import org.jeecg.modules.ietm.workflow.constants.WfConstants;
 import org.jeecg.modules.ietm.workflow.entity.WfExecute;
 import org.jeecg.modules.ietm.workflow.entity.WfInstance;
@@ -37,6 +40,9 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
     @Autowired
     private WfInstanceDtlMapper wfInstanceDtlMapper;
+
+    @Autowired
+    private IetmDataModuleMapper ietmDataModuleMapper;
 
     @Override
     public List<WfExecute> listByDtlId(String instdtlid) {
@@ -173,12 +179,30 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("流程状态更新失败，请重试");
         }
 
+        // 🔴 P0-17修复：流程结束时同步更新 ietm_data_module.workflow_status 字段
+        // 对齐旧系统 - 流程结束后，列表页面的"流程状态"应显示为"已结束"
+        if (isLastNode) {
+            String businessId = instance.getFormid();
+            if (businessId != null && !businessId.trim().isEmpty()) {
+                int dmRows = ietmDataModuleMapper.update(null,
+                    new LambdaUpdateWrapper<IetmDataModule>()
+                        .eq(IetmDataModule::getId, businessId)
+                        .set(IetmDataModule::getWorkflowStatus, "0")  // 0=已结束
+                );
+                if (dmRows == 0) {
+                    log.warn("更新DM的workflow_status失败，DM可能不存在，businessId: {}", businessId);
+                } else {
+                    log.info("流程结束，已更新DM的workflow_status=0，businessId: {}", businessId);
+                }
+            }
+        }
+
         // 4. 保存执行记录
         saveExecuteRecord(currentNode.getId(), "1", null, opinion, filename, filecontent, userId);
     }
 
     /**
-     * 处理：不同意
+     * 处理：不同意（记录异议，流程继续）
      */
     private void handleReject(WfInstanceDtl currentNode, WfInstance instance,
                               String opinion, String filename, byte[] filecontent, String userId) {
@@ -186,9 +210,6 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
         // 校验意见
         if (opinion == null || opinion.trim().isEmpty()) {
             throw new JeecgBootException("不同意操作必须填写意见");
-        }
-        if (opinion.contains("同意")) {
-            throw new JeecgBootException("不同意意见中不能包含\"同意\"二字");
         }
 
         // 1. 标记当前节点为已处理
@@ -199,15 +220,49 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("节点状态更新失败，请重试");
         }
 
-        // 2. 流程状态改为"2"（完成，但结果为不通过）
-        instance.setStatus(WfConstants.STATUS_ENDED);
+        // 🔴 修复：对齐旧系统业务逻辑 - "发表不同意见"记录异议但流程继续，不是一票否决
+        // 2. 判断是否为最后一个节点
+        List<WfInstanceDtl> allNodes = wfInstanceDtlMapper.selectByInstId(instance.getId());
+        boolean isLastNode = true;
+        for (WfInstanceDtl node : allNodes) {
+            if (node.getSeqno() > currentNode.getSeqno() &&
+                !WfConstants.EXEC_SKIP.equals(node.getIfexec())) {
+                isLastNode = false;
+                break;
+            }
+        }
+
+        // 3. 更新流程状态（与"通过"逻辑一致：最后节点则结束，否则继续审批）
+        if (isLastNode) {
+            instance.setStatus(WfConstants.STATUS_ENDED); // 完成
+        } else {
+            instance.setStatus(WfConstants.STATUS_RUNNING); // 审批中
+        }
         int instRows = wfInstanceMapper.updateById(instance);
         if (instRows != 1) {
-            log.error("流程状态更新失败，流程ID: {}, status: 2", instance.getId());
+            log.error("流程状态更新失败，流程ID: {}, status: {}", instance.getId(), instance.getStatus());
             throw new JeecgBootException("流程状态更新失败，请重试");
         }
 
-        // 3. 保存执行记录
+        // 🔴 P0-17修复：流程结束时同步更新 ietm_data_module.workflow_status 字段
+        // "发表不同意见"如果是最后一个节点，流程也结束
+        if (isLastNode) {
+            String businessId = instance.getFormid();
+            if (businessId != null && !businessId.trim().isEmpty()) {
+                int dmRows = ietmDataModuleMapper.update(null,
+                    new LambdaUpdateWrapper<IetmDataModule>()
+                        .eq(IetmDataModule::getId, businessId)
+                        .set(IetmDataModule::getWorkflowStatus, "0")  // 0=已结束
+                );
+                if (dmRows == 0) {
+                    log.warn("更新DM的workflow_status失败，DM可能不存在，businessId: {}", businessId);
+                } else {
+                    log.info("流程结束（发表不同意见），已更新DM的workflow_status=0，businessId: {}", businessId);
+                }
+            }
+        }
+
+        // 4. 保存执行记录
         saveExecuteRecord(currentNode.getId(), "2", null, opinion, filename, filecontent, userId);
     }
 
@@ -381,6 +436,23 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("流程状态更新失败，请重试");
         }
 
+        // 🔴 P0-17修复：同步更新 ietm_data_module.workflow_status 字段
+        // 对齐旧系统 - 流程终止后，列表页面的"流程状态"应显示为"已终止"
+        // wf_instance.status='9' 对应 ietm_data_module.workflow_status='9'
+        String businessId = instance.getFormid();
+        if (businessId != null && !businessId.trim().isEmpty()) {
+            int dmRows = ietmDataModuleMapper.update(null,
+                new LambdaUpdateWrapper<IetmDataModule>()
+                    .eq(IetmDataModule::getId, businessId)
+                    .set(IetmDataModule::getWorkflowStatus, "9")  // 9=已终止
+            );
+            if (dmRows == 0) {
+                log.warn("更新DM的workflow_status失败，DM可能不存在，businessId: {}", businessId);
+            } else {
+                log.info("流程终止，已更新DM的workflow_status=9，businessId: {}", businessId);
+            }
+        }
+
         // 3. 保存执行记录
         saveExecuteRecord(currentNode.getId(), "9", null, opinion, filename, filecontent, userId);
     }
@@ -466,16 +538,23 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
         }
 
         // 3. 校验用户权限（必须是该节点的实际处理人）
+        // 🔴 P0-16修复：对齐旧系统 - 只允许"通过"(1)和"发表不同意见"(2)的处理人拿回
+        // 旧系统行为：
+        //   ✅ 可拿回："通过"(1)、"发表不同意见"(2)
+        //   ❌ 不可拿回："跳转"(3)、"流程终止"(9)
+        // 修改前：只允许 ifpass='1'，导致"发表不同意见"(2)的处理人被误拦截
         List<WfExecute> executes = wfExecuteMapper.selectByDtlId(instdtlid);
         boolean isHandler = false;
         for (WfExecute exec : executes) {
-            if (userId.equals(exec.getCreateBy()) && "1".equals(exec.getIfpass())) {
+            // 允许"通过"或"发表不同意见"的处理人拿回
+            if (userId.equals(exec.getCreateBy()) &&
+                ("1".equals(exec.getIfpass()) || "2".equals(exec.getIfpass()))) {
                 isHandler = true;
                 break;
             }
         }
         if (!isHandler) {
-            throw new JeecgBootException("只有该节点的通过处理人才能拿回");
+            throw new JeecgBootException("只有该节点的通过或发表不同意见的处理人才能拿回");
         }
 
         // 4. 校验后续节点状态（后续节点不能已处理）
@@ -503,7 +582,13 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("流程状态更新失败，请重试");
         }
 
-        // 7. 保存拿回记录
-        saveExecuteRecord(instdtlid, "5", null, "拿回操作", null, null, userId);
+        // 7. P0-4修复：删除该节点的所有执行记录（对齐旧系统 wfnodeDefExt.jsp Line 1455-1464）
+        // 使用逻辑删除保留审计轨迹，而非物理删除
+        int deletedCount = wfExecuteMapper.deleteByDtlId(instdtlid);
+        log.info("拿回节点执行记录，节点ID: {}, 删除记录数: {}", instdtlid, deletedCount);
+
+        // 🔴 修复：对齐旧系统 - 拿回后不保存拿回记录，处理情况列应完全清空
+        // 注释掉原有的保存拿回记录逻辑
+        // saveExecuteRecord(instdtlid, "5", null, "拿回操作", null, null, userId);
     }
 }

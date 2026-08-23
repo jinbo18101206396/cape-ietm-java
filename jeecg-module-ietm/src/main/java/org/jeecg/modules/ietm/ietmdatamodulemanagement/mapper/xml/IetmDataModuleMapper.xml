@@ -112,6 +112,48 @@
         <result column="rpc_name"                property="rpcName"/>
     </resultMap>
 
+    <!-- 🔧 IETM-CHECKOUT-NODE-001 修复：selectByIdWithFlow 专用 ResultMap，不依赖继承 -->
+    <resultMap id="SelectByIdWithFlowResultMap" type="org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule">
+        <id     column="id"                      property="id"/>
+        <result column="project_id"              property="projectId"/>
+        <result column="project_name"            property="projectName"/>
+        <result column="sns"                     property="sns"/>
+        <result column="info_code"               property="infoCode"/>
+        <result column="info_code_variant"       property="infoCodeVariant"/>
+        <result column="ietm_location_code"      property="ietmLocationCode"/>
+        <result column="originator"              property="originator"/>
+        <result column="originator_name"         property="originatorName"/>
+        <result column="issue_no"                property="issueNo"/>
+        <result column="in_work"                 property="inWork"/>
+        <result column="version_type"            property="versionType"/>
+        <result column="issue_type"              property="issueType"/>
+        <result column="tech_name"               property="techName"/>
+        <result column="info_name"               property="infoName"/>
+        <result column="cm_node_id"              property="cmNodeId"/>
+        <result column="cm_node_name"            property="cmNodeName"/>
+        <result column="cm_node_path"            property="cmNodePath"/>
+        <result column="is_latest"               property="isLatest"/>
+        <result column="status"                  property="status"/>
+        <result column="checkout_user"           property="checkoutUser"/>
+        <result column="checkout_time"           property="checkoutTime"/>
+        <result column="checkout_dm_id"          property="checkoutDmId"/>
+        <result column="workflow_instance_id"    property="workflowInstanceId"/>
+        <result column="workflow_status"         property="workflowStatus"/>
+        <result column="dmc_code"                property="dmcCode"/>
+        <result column="create_time"             property="createTime"/>
+        <result column="update_time"             property="updateTime"/>
+        <!-- 视图字段：直接映射，不依赖继承 -->
+        <result column="activityalias_"          property="workflowStep"/>
+        <result column="currenthandler_"         property="workflowHandler"/>
+        <result column="dm_type"                 property="dmType"/>
+        <result column="security"                property="security"/>
+        <result column="issue_date"              property="issueDate"/>
+        <result column="language_iso_code"       property="languageIsoCode"/>
+        <result column="country_iso_code"        property="countryIsoCode"/>
+        <result column="rpc"                     property="rpc"/>
+        <result column="rpc_name"                property="rpcName"/>
+    </resultMap>
+
     <!-- ResultMap（历史版本专用，包含dm_content用于浏览）-->
     <resultMap id="HistoryResultMap" type="org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule" extends="ListResultMap">
         <result column="dm_content"              property="dmContent"/>
@@ -259,7 +301,21 @@
             v.activityalias_ AS activityalias_,  -- 流程当前步骤（实时计算）
             v.currenthandler_ AS currenthandler_  -- 当前待办人（实时）
         FROM ietm_data_module t1
-        LEFT JOIN v_wf_instance v ON t1.id = v.formid_
+        LEFT JOIN (
+            -- 🔧 修复BUG-2026-08-23-001：只JOIN每个formid的最新流程实例
+            -- 原因：同一个DM可能有多个流程实例（旧的已结束+新的进行中），导致LEFT JOIN产生重复行
+            -- 方案：按formid_分组，取createtime_最大的那条（最新流程实例）
+            SELECT
+                v1.formid_,
+                v1.activityalias_,
+                v1.currenthandler_
+            FROM v_wf_instance v1
+            INNER JOIN (
+                SELECT formid_, MAX(createtime_) AS max_createtime
+                FROM v_wf_instance
+                GROUP BY formid_
+            ) v2 ON v1.formid_ = v2.formid_ AND v1.createtime_ = v2.max_createtime
+        ) v ON t1.id = v.formid_
         WHERE t1.status = '1'
           AND t1.is_latest = '1'
           <if test="projectId != null and projectId != ''">
@@ -284,7 +340,8 @@
     </select>
 
     <!-- 6b. 查询单条数据模块（JOIN流程视图）- 用于签出等实时流程节点判断 -->
-    <select id="selectByIdWithFlow" resultMap="ListResultMapWithFlow">
+    <!-- 🔧 IETM-CHECKOUT-NODE-001 修复：使用独立的 ResultMap，不依赖继承机制 -->
+    <select id="selectByIdWithFlow" resultMap="SelectByIdWithFlowResultMap">
         SELECT
             t1.id, t1.project_id, t1.project_name, t1.sns, t1.info_code, t1.info_code_variant,
             t1.ietm_location_code, t1.originator, t1.originator_name, t1.issue_no, t1.in_work,
@@ -297,7 +354,19 @@
             v.activityalias_ AS activityalias_,   -- 流程当前步骤（实时计算）
             v.currenthandler_ AS currenthandler_  -- 当前待办人（实时）
         FROM ietm_data_module t1
-        LEFT JOIN v_wf_instance v ON t1.id = v.formid_
+        LEFT JOIN (
+            -- 🔧 修复BUG-2026-08-23-001：只JOIN最新的流程实例
+            SELECT
+                v1.formid_,
+                v1.activityalias_,
+                v1.currenthandler_
+            FROM v_wf_instance v1
+            INNER JOIN (
+                SELECT formid_, MAX(createtime_) AS max_createtime
+                FROM v_wf_instance
+                GROUP BY formid_
+            ) v2 ON v1.formid_ = v2.formid_ AND v1.createtime_ = v2.max_createtime
+        ) v ON t1.id = v.formid_
         WHERE t1.id = #{id}
           AND t1.status = '1'
     </select>

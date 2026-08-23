@@ -38,6 +38,8 @@ import org.jeecg.modules.ietm.projectmanagement.entity.IetmProject;
 import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectService;
 import org.jeecg.modules.ietm.common.service.ISnsCalculateService;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.constant.DmConstants;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.WorkflowPermissionChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +63,27 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     private static final String INITIAL_ISSUE_NO       = "001";
     private static final String INITIAL_IN_WORK        = "00";
-    private static final String WF_STATUS_ENDED        = "ended";
+
+    /**
+     * DM工作流状态常量（ietm_data_module.workflow_status字段）
+     *
+     * 重要说明：这些值与wf_instance.status字段的值定义不同！
+     * - wf_instance.status使用WfConstants类定义（0=草稿, 1=流转中, 2=已结束, 9=终止）
+     * - ietm_data_module.workflow_status定义如下：
+     *   null或空 = 未启动
+     *   "1"     = 进行中/流转中
+     *   "0"     = 已结束
+     *   "9"     = 已终止
+     *   "2"     = 已撤销
+     *
+     * 请勿混用！使用DM的workflowStatus时，请使用以下常量。
+     */
+    private static final String WF_STATUS_IN_PROGRESS  = "1";  // 流程进行中
+    private static final String WF_STATUS_ENDED        = "0";  // 流程已结束
+    private static final String WF_STATUS_TERMINATED   = "9";  // 流程已终止
+    private static final String WF_STATUS_REVOKED      = "2";  // 流程已撤销
+
+
     private static final String STATUS_DELETED         = "0";
     private static final String STATUS_PUBLISHED       = "2";
 
@@ -116,6 +138,15 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Autowired
     private IetmDmTypeMapper dmTypeMapper;
+
+    @Autowired
+    private org.jeecg.modules.ietm.workflow.service.IWfInstanceService wfInstanceService;
+
+    @Autowired
+    private org.jeecg.modules.ietm.workflow.service.IWfTemplateService wfTemplateService;
+
+    @Autowired
+    private WorkflowPermissionChecker permissionChecker;
 
     /**
      * 获取项目信息（包含SNS编码）
@@ -174,10 +205,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("DMC编码已存在：" + dmc);
         }
         if (oConvertUtils.isEmpty(dataModule.getInWork())) {
-            dataModule.setInWork("00");
+            dataModule.setInWork(INITIAL_IN_WORK);
         }
         if (oConvertUtils.isEmpty(dataModule.getIssueNo())) {
-            dataModule.setIssueNo("001");
+            dataModule.setIssueNo(INITIAL_ISSUE_NO);
         }
         dataModule.setIsLatest("1");
         dataModule.setStatus("1");
@@ -299,11 +330,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("该DM只能由创建者【" + existDm.getCreateBy() + "】删除");
         }
 
-        // 3. 工作流状态检查：流程进行中（非草稿/编制阶段）不允许删除
-        if (oConvertUtils.isNotEmpty(existDm.getWorkflowInstanceId())
-                && oConvertUtils.isNotEmpty(existDm.getWorkflowStatus())
-                && !WF_STATUS_ENDED.equals(existDm.getWorkflowStatus())) {
-            throw new JeecgBootException("DM正在流程中（当前状态：" + existDm.getWorkflowStatus() + "），不允许删除");
+        // 3. 工作流状态检查：只有进行中('1')不允许删除
+        // 对齐对照表：未启动/已结束/已终止/已撤销都可以删除
+        if (WF_STATUS_IN_PROGRESS.equals(existDm.getWorkflowStatus())) {
+            throw new JeecgBootException("DM正在流程中（当前状态：进行中），不允许删除");
         }
 
         // 4. 引用检查：查询是否被其他DM引用
@@ -351,7 +381,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Override
     public IetmDataModule queryById(String id) {
-        return this.getById(id);
+        // 🔧 修复：使用带流程信息的查询，确保返回 workflowStep 等流程字段
+        // 前端签出时依赖这些字段进行前置校验
+        return ietmDataModuleMapper.selectByIdWithFlow(id);
     }
 
     @Override
@@ -382,85 +414,44 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 校验5：工作流是否已启动（方案A：workflow_instance_id 列不再回写，
         // 以 workflow_status 判定：null/空/'0'=未启动或已结束，'1'=流转中，'2'=已撤销）
         String wfStatus = originalDm.getWorkflowStatus();
-        if (oConvertUtils.isEmpty(wfStatus) || "0".equals(wfStatus)) {
+        if (oConvertUtils.isEmpty(wfStatus) || DmConstants.WF_STATUS_ENDED.equals(wfStatus)) {
             throw new JeecgBootException("数据模块未启动工作流，不能签出");
         }
-        if ("2".equals(wfStatus)) {
+        if (DmConstants.WF_STATUS_REVOKED.equals(wfStatus)) {
             throw new JeecgBootException("工作流已撤销，不能签出");
         }
 
         // 校验6：当前节点是否为DM编写（方案A：workflow_step 不回写基表，从 v_wf_instance 视图动态查询）
         IetmDataModule dmWithFlow = ietmDataModuleMapper.selectByIdWithFlow(id);
+
         String currentStep = dmWithFlow != null ? dmWithFlow.getWorkflowStep() : null;
-        if (!"DM编写".equals(currentStep)) {
+        if (!DmConstants.WF_NODE_DM_WRITE.equals(currentStep)) {
+            log.warn("签出失败：DM={}, 当前节点={}, 要求节点={}", id, currentStep, DmConstants.WF_NODE_DM_WRITE);
             throw new JeecgBootException("当前流程节点不是'DM编写'，不能签出（当前节点："
                 + (currentStep != null ? currentStep : "无") + "）");
         }
 
         // 校验7：流程权限检查（对标旧系统attribute05权限验证）
-        // 检查当前用户是否在流程节点的执行人列表中
+        // 使用统一的权限校验工具类
         String workflowHandler = dmWithFlow != null ? dmWithFlow.getWorkflowHandler() : null;
-        if (oConvertUtils.isNotEmpty(workflowHandler)) {
-            // workflowHandler格式：userid1,userid2,userid3 或包含角色前缀如 rol_xxx,dpt_xxx
-            // 也可能是用户真实姓名，如："管理员,张三,李四"
-            boolean hasPermission = false;
-            String[] handlers = workflowHandler.split(",");
-
-            // 获取当前用户信息（用于匹配用户名称）
-            LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
-            String realname = loginUser != null ? loginUser.getRealname() : null;
-
-            log.debug("[签出-权限检查] 当前用户：username={}, realname={}, 执行人列表：{}",
-                     username, realname, workflowHandler);
-
-            for (String handler : handlers) {
-                handler = handler.trim();
-
-                // 基础验证1：直接匹配用户ID（username）
-                if (username.equals(handler)) {
-                    hasPermission = true;
-                    log.debug("[签出-权限检查] 匹配成功：用户ID匹配");
-                    break;
-                }
-
-                // 基础验证2：匹配用户真实姓名（realname）
-                if (oConvertUtils.isNotEmpty(realname) && realname.equals(handler)) {
-                    hasPermission = true;
-                    log.debug("[签出-权限检查] 匹配成功：用户名称匹配");
-                    break;
-                }
-
-                // TODO: 扩展验证角色/部门/岗位/工作组（如果handler包含前缀rol_/dpt_/pst_/grp_）
-                // 当前为保守实现，只验证直接用户ID和真实姓名匹配，避免影响现有功能
-                // 如需支持角色等复杂权限，需要：
-                // 1. 获取当前用户的角色/部门/岗位/工作组信息
-                // 2. 解析handler前缀并匹配
-            }
-
-            if (!hasPermission) {
-                log.warn("[签出-权限检查] 权限验证失败：username={}, realname={}, handlers={}",
-                         username, realname, workflowHandler);
-                throw new JeecgBootException("您没有权限签出此DM，只能由流程指定的DM编写者才能签出（执行人："
-                    + workflowHandler + "）");
-            }
-        }
+        permissionChecker.checkPermissionOrThrow(workflowHandler, username, "签出");
 
         // 校验2：是否已发布
-        if ("1".equals(originalDm.getVersionType())) {
+        if (DmConstants.VERSION_TYPE_PUBLISHED.equals(originalDm.getVersionType())) {
             throw new JeecgBootException("已发布的数据模块不能签出");
         }
 
         // 校验3：是否最新版本
-        if (!"1".equals(originalDm.getIsLatest())) {
+        if (!DmConstants.IS_LATEST_YES.equals(originalDm.getIsLatest())) {
             throw new JeecgBootException("只能签出最新版本，历史版本不可签出");
         }
 
         // 校验4：inwork版本号边界检查
-        String currentInwork = originalDm.getInWork() != null ? originalDm.getInWork() : "00";
-        String currentIssueno = originalDm.getIssueNo() != null ? originalDm.getIssueNo() : "001";
+        String currentInwork = originalDm.getInWork() != null ? originalDm.getInWork() : INITIAL_IN_WORK;
+        String currentIssueno = originalDm.getIssueNo() != null ? originalDm.getIssueNo() : INITIAL_ISSUE_NO;
         int inwork = Integer.parseInt(currentInwork);
-        if (inwork >= 99) {
-            throw new JeecgBootException("在编版本已达上限99，请先发布后再签出");
+        if (inwork >= DmConstants.MAX_INWORK) {
+            throw new JeecgBootException("在编版本已达上限" + DmConstants.MAX_INWORK + "，请先发布后再签出");
         }
 
         // ==================== 第2步：克隆生成新版本 ====================
@@ -492,7 +483,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         newDm.setCheckoutDmId(originalDm.getId()); // 关键：记录原版本ID
 
         // 2.5 标记为最新版本
-        newDm.setIsLatest("1");
+        newDm.setIsLatest(DmConstants.IS_LATEST_YES);
 
         // 2.6 重新生成DMC（因为inwork变化了）
         String newDmc = generateDmc(newDm);
@@ -535,8 +526,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 正常流程签出前 is_latest 必为'1'（第286行校验保证），故此条件对正常路径无影响。
         boolean updateSuccess = this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, originalDm.getId())
-                .eq(IetmDataModule::getIsLatest, "1")
-                .set(IetmDataModule::getIsLatest, "0")
+                .eq(IetmDataModule::getIsLatest, DmConstants.IS_LATEST_YES)
+                .set(IetmDataModule::getIsLatest, DmConstants.IS_LATEST_NO)
                 .set(IetmDataModule::getUpdateTime, new Date())
                 .set(IetmDataModule::getUpdateBy, username)
         );
@@ -743,15 +734,18 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("请先签入后再发布");
         }
 
-        // 2. 工作流状态校验（如果有工作流）
+        // 2. 工作流状态校验（对齐对照表：只有已结束('0')才能发布，终止('9')不能发布）
         if (oConvertUtils.isNotEmpty(dm.getWorkflowInstanceId())) {
             if (!WF_STATUS_ENDED.equals(dm.getWorkflowStatus())) {
-                throw new JeecgBootException("工作流未结束，不可发布");
+                String statusText = WF_STATUS_IN_PROGRESS.equals(dm.getWorkflowStatus()) ? "进行中" :
+                                   WF_STATUS_TERMINATED.equals(dm.getWorkflowStatus()) ? "已终止" :
+                                   WF_STATUS_REVOKED.equals(dm.getWorkflowStatus()) ? "已撤销" : dm.getWorkflowStatus();
+                throw new JeecgBootException("工作流未结束，不可发布（当前状态：" + statusText + "）");
             }
         }
 
         // 3. 版本号上限校验
-        String currentIssueno = dm.getIssueNo() != null ? dm.getIssueNo() : "001";
+        String currentIssueno = dm.getIssueNo() != null ? dm.getIssueNo() : INITIAL_ISSUE_NO;
         int issueNo = Integer.parseInt(currentIssueno);
         if (issueNo >= 999) {
             throw new JeecgBootException("发行编号已达上限999，无法继续发布");
@@ -759,7 +753,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         // 4. 升级版本号
         Map<String, String> newVersion = calculateVersion(dm.getInWork(), currentIssueno, "issue");
-        dm.setInWork("00");
+        dm.setInWork(INITIAL_IN_WORK);  // 发布后重置inWork为00
         dm.setIssueNo(newVersion.get("newIssueno"));
 
         // 5. 设置发布信息
@@ -785,12 +779,13 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         }
 
         // 9. 计算 issueType（S1000D 标准）
-        String issueType = "001".equals(dm.getIssueNo()) ? "new" : "revised";
+        // 判断issueType：001-00为"new"，其他为"revised"
+        String issueType = INITIAL_ISSUE_NO.equals(dm.getIssueNo()) ? "new" : "revised";
 
         // 10. 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
         boolean success = this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, dm.getId())
-                .set(IetmDataModule::getInWork, "00")
+                .set(IetmDataModule::getInWork, INITIAL_IN_WORK)
                 .set(IetmDataModule::getIssueNo, dm.getIssueNo())
                 .set(IetmDataModule::getDmcCode, dm.getDmcCode())
                 .set(IetmDataModule::getPublishDate, dm.getPublishDate())
@@ -961,8 +956,6 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> calculateDmReferences(String dmId) throws Exception {
-        System.out.println("【强制输出】calculateDmReferences 被调用！dmId=" + dmId);
-        log.warn("【WARN级别】calculateDmReferences START dmId={}", dmId);
         log.info("calculateDmReferences START dmId={}", dmId);
 
         // ① 查询DM（含 dm_content）
@@ -1138,13 +1131,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Override
     public Map<String, Object> calculateAllDmReferences(int batchSize) {
-        System.out.println("======================================");
-        System.out.println("【强制输出】calculateAllDmReferences 被调用！");
-        System.out.println("【强制输出】batchSize = " + batchSize);
-        System.out.println("【强制输出】时间 = " + new java.util.Date());
-        System.out.println("======================================");
-        log.warn("【WARN级别】calculateAllDmReferences START batchSize={}", batchSize);
-        log.info("calculateAllDmReferences START batchSize={}", batchSize);
+        log.info("calculateAllDmReferences START batchSize={}, 时间={}", batchSize, new java.util.Date());
         int total = 0, success = 0, fail = 0, skip = 0;
         long start = System.currentTimeMillis();
         int page = 1;
@@ -1572,7 +1559,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         String content = dm.getDmContent();
         String dbIssueNo = dm.getIssueNo();
-        String dbInWork = StringUtils.isNotEmpty(dm.getInWork()) ? dm.getInWork() : "00";
+        String dbInWork = StringUtils.isNotEmpty(dm.getInWork()) ? dm.getInWork() : INITIAL_IN_WORK;
 
         if (StringUtils.isEmpty(dbIssueNo)) {
             return;
@@ -1616,7 +1603,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             }
         } catch (Exception e) {
             log.error("[版本号同步失败] DM: {}, 错误: {}", dmId, e.getMessage(), e);
-            // 同步失败不影响签出，只记录日志
+            // ⚠️ 重要：版本号同步失败会导致XML与数据库不一致，应引起重视
+            // 同步失败不影响签出操作本身，但需要记录告警，便于后续人工修复
+            log.warn("[版本号同步告警] DM ID={} 的XML内容与数据库版本号可能不一致，请人工检查修复", dmId);
+            // TODO: 集成告警系统后，发送告警通知（邮件/钉钉/企业微信）
+            // alertService.sendAlert("DM版本号同步失败",
+            //     String.format("DM ID: %s, 错误: %s", dmId, e.getMessage()));
         }
     }
 
@@ -1850,53 +1842,39 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 生成DMC编码：逐字符对标老系统 IetmEditorUtils.js getDmc()（纯S1000D缩略标识+文件名后缀）：
         // DMC-{sns}-{infoCode}{infoCodeVariant}-{itemLocationCode}_{issueNo}-{inWork}_{lang}-{country}
         // 注：yearOfChange/seqNo/originator/learnCode 不进 DMC 字符串（老系统 getDmc 亦不含），仅存实体列与 <dmCode> XML 属性。
-        StringBuilder dmc = new StringBuilder("DMC-");
 
-        // SNS（系统编号，含 equipname 首段=modelIdentCode）
-        dmc.append(oConvertUtils.getString(dataModule.getSns(), "")).append("-");
+        // 提取各个字段（使用常量作为默认值）
+        String sns = oConvertUtils.getString(dataModule.getSns(), "");
+        String infoCode = oConvertUtils.getString(dataModule.getInfoCode(), "");
+        String variant = oConvertUtils.getString(dataModule.getInfoCodeVariant(), "");
+        String location = oConvertUtils.getString(dataModule.getIetmLocationCode(), "A");
+        String issueNo = oConvertUtils.getString(dataModule.getIssueNo(), INITIAL_ISSUE_NO);
+        String inWork = oConvertUtils.getString(dataModule.getInWork(), INITIAL_IN_WORK);
+        String lang = oConvertUtils.getString(dataModule.getLanguageIsoCode(), "zh");
+        String country = oConvertUtils.getString(dataModule.getCountryIsoCode(), "CN");
 
-        // InfoCode + InfoCodeVariant（信息码+变体，无分隔符）
-        dmc.append(oConvertUtils.getString(dataModule.getInfoCode(), ""));
-        if (oConvertUtils.isNotEmpty(dataModule.getInfoCodeVariant())) {
-            dmc.append(dataModule.getInfoCodeVariant());
-        }
-        dmc.append("-");
-
-        // ItemLocationCode（位置码，默认A；老系统 getDmc 此段仅 itemLocationCode）
-        dmc.append(oConvertUtils.getString(dataModule.getIetmLocationCode(), "A"));
-
-        // 文件名后缀：_{issueNo}-{inWork}（发行块，下划线起始，连字符分隔）
-        dmc.append("_").append(oConvertUtils.getString(dataModule.getIssueNo(), "001"));
-        dmc.append("-").append(oConvertUtils.getString(dataModule.getInWork(), "00"));
-
-        // 文件名后缀：_{lang}-{country}（语言块，下划线起始，连字符分隔）
-        dmc.append("_").append(oConvertUtils.getString(dataModule.getLanguageIsoCode(), "zh"));
-        dmc.append("-").append(oConvertUtils.getString(dataModule.getCountryIsoCode(), "CN"));
-
-        return dmc.toString();
+        // 使用String.format提高可读性和可维护性
+        return String.format("DMC-%s-%s%s-%s_%s-%s_%s-%s",
+            sns, infoCode, variant, location, issueNo, inWork, lang, country);
     }
 
     @Override
     public Map<String, String> calculateVersion(String currentInwork, String currentIssueno, String versionType) {
-        Map<String, String> result = new HashMap<>();
-        int inwork = Integer.parseInt(oConvertUtils.getString(currentInwork, "0"));
-        int issueno = Integer.parseInt(oConvertUtils.getString(currentIssueno, "1"));
-        
-        if ("inwork".equals(versionType)) {
-            if (inwork >= 99) {
-                issueno++;
-                inwork = 0;
+        try {
+            if ("inwork".equals(versionType)) {
+                // 委托给VersionCalculator工具类，享受完整的校验和边界检查
+                return VersionCalculator.upgradeInwork(currentInwork, currentIssueno);
+            } else if ("issue".equals(versionType)) {
+                // 委托给VersionCalculator工具类
+                return VersionCalculator.upgradeIssueno(currentIssueno);
             } else {
-                inwork++;
+                throw new IllegalArgumentException("不支持的版本类型: " + versionType + "，仅支持 'inwork' 或 'issue'");
             }
-        } else if ("issue".equals(versionType)) {
-            issueno++;
-            inwork = 0;
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.error("版本号升级失败: inwork={}, issueno={}, type={}, 错误: {}",
+                currentInwork, currentIssueno, versionType, e.getMessage());
+            throw new JeecgBootException("版本号升级失败: " + e.getMessage());
         }
-        
-        result.put("newInwork", String.format("%02d", inwork));
-        result.put("newIssueno", String.format("%03d", issueno));
-        return result;
     }
 
     @Override
@@ -1952,7 +1930,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             // newDm.setVersionPath(sourceDm.getVersionPath() + "," + sourceDm.getId());  // 字段不存在
 
             // 继承版本号并升级inwork
-            String currentInwork = sourceDm.getInWork() != null ? sourceDm.getInWork() : "00";
+            String currentInwork = sourceDm.getInWork() != null ? sourceDm.getInWork() : INITIAL_IN_WORK;
             Map<String, String> newVersion = calculateVersion(currentInwork, sourceDm.getIssueNo(), "inwork");
             newDm.setInWork(newVersion.get("newInwork"));
             newDm.setIssueNo(sourceDm.getIssueNo());
@@ -1965,8 +1943,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             // newDm.setMainId(null); // 字段不存在，已注释
             // newDm.setIsOriginal("1");  // 字段不存在
             // newDm.setVersionPath(null); // 字段不存在，已注释
-            newDm.setInWork("00");
-            newDm.setIssueNo("001");
+            newDm.setInWork(INITIAL_IN_WORK);
+            newDm.setIssueNo(INITIAL_ISSUE_NO);
         }
 
         newDm.setIsLatest("1");
@@ -1999,30 +1977,87 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         }
 
         try {
-            // TODO: 集成工作流引擎（Flowable/Activiti）
-            // 1. 创建流程实例
-            // ProcessInstance instance = runtimeService.startProcessInstanceByKey(
-            //     processKey,
-            //     id,
-            //     createProcessVariables(dm, username)
-            // );
+            // 1. 获取已发布的流程模板（默认取第一个DM类型的模板）
+            List<org.jeecg.modules.ietm.workflow.entity.WfTemplate> templates =
+                wfTemplateService.getPublishedTemplates("DM");
 
-            // 暂时返回模拟的实例ID，等待集成工作流引擎
-            String mockInstanceId = "workflow-" + id + "-" + System.currentTimeMillis();
+            if (templates == null || templates.isEmpty()) {
+                throw new RuntimeException("未找到已发布的工作流模板，请先在系统中配置流程模板");
+            }
 
-            // TODO: 集成工作流引擎后，用专属常量替换此状态值
-            // 注意：STATUS_PUBLISHED="2" 含义为"已发布"，此处"审批中"需区分
-            dm.setStatus("2"); // 占位：待工作流集成后改为审批中专属状态
-            dm.setWorkflowStatus("1"); // 1=流转中（方案A：只回写 workflowStatus，不回写 workflowInstanceId）
+            // 默认使用第一个模板（对标旧系统：dm_review流程使用DM模板）
+            org.jeecg.modules.ietm.workflow.entity.WfTemplate template = templates.get(0);
+
+            // 2. 获取模板的节点配置
+            List<org.jeecg.modules.ietm.workflow.entity.WfTemplateDtl> templateNodes =
+                wfTemplateService.getTemplateNodes(template.getId());
+
+            if (templateNodes == null || templateNodes.isEmpty()) {
+                throw new RuntimeException("流程模板无节点配置，模板ID：" + template.getId());
+            }
+
+            // 3. 构建批量启动参数（单个DM）
+            org.jeecg.modules.ietm.workflow.vo.BatchStartFlowVO vo =
+                new org.jeecg.modules.ietm.workflow.vo.BatchStartFlowVO();
+
+            vo.setDmIds(java.util.Collections.singletonList(id));
+            vo.setBatchId("single-" + id + "-" + System.currentTimeMillis());
+            vo.setIfurgent("1"); // 默认紧急级别：1=一般
+            vo.setStagenames(template.getStagenames() != null ? template.getStagenames() : "");
+
+            // 4. 转换模板节点为批量启动节点VO
+            List<org.jeecg.modules.ietm.workflow.vo.BatchStartFlowDtlVO> nodes =
+                new java.util.ArrayList<>();
+
+            for (org.jeecg.modules.ietm.workflow.entity.WfTemplateDtl templateNode : templateNodes) {
+                org.jeecg.modules.ietm.workflow.vo.BatchStartFlowDtlVO nodeVo =
+                    new org.jeecg.modules.ietm.workflow.vo.BatchStartFlowDtlVO();
+
+                nodeVo.setSeqno(templateNode.getSeqno());
+                nodeVo.setNodename(templateNode.getNodename());
+                nodeVo.setNodetype(templateNode.getNodetype());
+                nodeVo.setStagename(templateNode.getStagename() != null ? templateNode.getStagename() : "");
+                nodeVo.setIfgetback(templateNode.getIfgetback() != null ? templateNode.getIfgetback() : "");
+
+                // 从模板中获取用户信息（如果有的话）
+                nodeVo.setUserid(templateNode.getUserid() != null ? templateNode.getUserid() : "");
+                nodeVo.setUseridname(templateNode.getUseridname() != null ? templateNode.getUseridname() : "");
+
+                nodes.add(nodeVo);
+            }
+
+            vo.setNodes(nodes);
+
+            // 5. 调用批量启动工作流（实际只启动一条）
+            int result = wfInstanceService.batchStartFlow(vo);
+
+            if (result != 1) {
+                throw new RuntimeException("启动工作流失败，预期启动1条，实际启动" + result + "条");
+            }
+
+            // 6. 查询生成的流程实例ID
+            org.jeecg.modules.ietm.workflow.entity.WfInstance instance =
+                wfInstanceService.getByFormid(id);
+
+            String instanceId = instance != null ? instance.getId() : null;
+
+            if (instanceId == null) {
+                throw new RuntimeException("流程启动成功但无法获取实例ID，DM ID：" + id);
+            }
+
+            // 7. 更新DM记录的流程字段
+            dm.setWorkflowInstanceId(instanceId);
+            dm.setWorkflowStatus("1");  // 1=流转中
             this.updateById(dm);
 
-            log.info("启动工作流成功，DM ID：{}，流程Key：{}，用户：{}，Mock实例ID：{}", id, processKey, username, mockInstanceId);
+            log.info("启动工作流成功，DM ID：{}，流程Key：{}，用户：{}，模板：{}，实例ID：{}",
+                     id, processKey, username, template.getTmplname(), instanceId);
 
-            return mockInstanceId;
+            return instanceId;
 
         } catch (Exception e) {
-            log.error("启动工作流失败", e);
-            throw new RuntimeException("启动工作流失败：" + e.getMessage());
+            log.error("启动工作流失败，DM ID：{}，流程Key：{}", id, processKey, e);
+            throw new RuntimeException("启动工作流失败：" + e.getMessage(), e);
         }
     }
 
@@ -2042,13 +2077,14 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             // variables.put("comment", comment);
             // taskService.complete(taskId, variables);
 
-            // 2. 更新DM状态和工作流状态
+            // 2. 更新工作流状态
+            // 注意：status字段是逻辑删除标志(0=删除,1=正常)，不要修改
+            // 只修改 workflowStatus 表示工作流结果
+            // workflow_status 字典: 0=已结束, 1=流转中, 2=已撤销, 3=已拒绝, 9=已终止
             if (approved) {
-                dm.setStatus("3"); // 假设3表示已批准
-                dm.setWorkflowStatus("0"); // 0=已结束（方案A：只回写 workflowStatus）
+                dm.setWorkflowStatus("0"); // 0=已结束（审批通过，正常结束）
             } else {
-                dm.setStatus("4"); // 假设4表示已拒绝
-                dm.setWorkflowStatus("0"); // 0=已结束
+                dm.setWorkflowStatus("3"); // 3=已拒绝
             }
             // 注意：不设置 workflowStep 和 workflowHandler，这些字段从 v_wf_instance 视图动态获取
             this.updateById(dm);
@@ -2863,13 +2899,13 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             // 直接更新属性，inWork 不升级
             // 防御性处理：确保 issueNo 不为 0 或空
             if (StringUtils.isBlank(dm.getIssueNo()) || "0".equals(dm.getIssueNo())) {
-                dm.setIssueNo("001");
-                log.warn("DM issueNo 值异常({}), 已重置为 001, id={}", dm.getIssueNo(), id);
+                dm.setIssueNo(INITIAL_ISSUE_NO);
+                log.warn("DM issueNo 值异常({}), 已重置为 {}, id={}", dm.getIssueNo(), INITIAL_ISSUE_NO, id);
             }
             // 防御性处理：确保 inWork 不为空
             if (StringUtils.isBlank(dm.getInWork())) {
-                dm.setInWork("00");
-                log.warn("DM inWork 值为空, 已重置为 00, id={}", id);
+                dm.setInWork(INITIAL_IN_WORK);
+                log.warn("DM inWork 值为空, 已重置为 {}, id={}", INITIAL_IN_WORK, id);
             }
 
             dm.setTechName(vo.getTechName());
@@ -2895,13 +2931,13 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         } else {
             // 4b. 未签出：自动签出 + inWork+1 + 更新属性
             // 防御：inWork/issueNo 为空或异常值时给默认值，避免 parseInt 异常
-            String safeInWork = StringUtils.isBlank(dm.getInWork()) ? "00" : dm.getInWork();
+            String safeInWork = StringUtils.isBlank(dm.getInWork()) ? INITIAL_IN_WORK : dm.getInWork();
             String safeIssueNo = dm.getIssueNo();
 
-            // 额外防御：如果 issueNo 为 null, 空, "0" 或其他无效值，设为 "001"
+            // 额外防御：如果 issueNo 为 null, 空, "0" 或其他无效值，设为默认值
             if (StringUtils.isBlank(safeIssueNo) || "0".equals(safeIssueNo)) {
-                safeIssueNo = "001";
-                log.warn("DM issueNo 值异常({}), 已重置为 001, id={}", dm.getIssueNo(), id);
+                safeIssueNo = INITIAL_ISSUE_NO;
+                log.warn("DM issueNo 值异常({}), 已重置为 {}, id={}", dm.getIssueNo(), INITIAL_ISSUE_NO, id);
             }
 
             Map<String, String> versionMap = VersionCalculator.upgradeInwork(safeInWork, safeIssueNo);
@@ -3055,7 +3091,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     private void setVersionAndStatus(IetmDataModule newDm, DmCopyVO vo) {
         newDm.setIssueNo(getValueOrDefault(vo.getIssueNo(), INITIAL_ISSUE_NO));
-        newDm.setInWork(getValueOrDefault(vo.getInWork(), "00"));
+        newDm.setInWork(getValueOrDefault(vo.getInWork(), INITIAL_IN_WORK));
         // 对齐旧系统：复制新建DM时设置版本日期
         newDm.setIssueDate(new Date());
         newDm.setIsLatest("1");
