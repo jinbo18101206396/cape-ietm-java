@@ -122,4 +122,27 @@ public interface IetmDataModuleMapper extends BaseMapper<IetmDataModule> {
      * @return XML内容
      */
     String getDmcontentById(@Param("id") String id);
+
+    /**
+     * 批量标记历史版本为非最新（发布新版本时调用）
+     * 将同DMC的旧版本的 is_latest 字段从 '1' 改为 '0'
+     *
+     * @param projectId         项目ID
+     * @param sns               SNS编号
+     * @param infoCode          信息代码
+     * @param infoCodeVariant   信息代码变体
+     * @param ietmLocationCode  位置代码
+     * @param languageIsoCode   语言ISO代码
+     * @param countryIsoCode    国家ISO代码
+     * @param excludeId         排除的记录ID（当前发布的DM不应被标记）
+     * @return 更新行数
+     */
+    int markHistoryVersionsAsOld(@Param("projectId") String projectId,
+                                  @Param("sns") String sns,
+                                  @Param("infoCode") String infoCode,
+                                  @Param("infoCodeVariant") String infoCodeVariant,
+                                  @Param("ietmLocationCode") String ietmLocationCode,
+                                  @Param("languageIsoCode") String languageIsoCode,
+                                  @Param("countryIsoCode") String countryIsoCode,
+                                  @Param("excludeId") String excludeId);
 }

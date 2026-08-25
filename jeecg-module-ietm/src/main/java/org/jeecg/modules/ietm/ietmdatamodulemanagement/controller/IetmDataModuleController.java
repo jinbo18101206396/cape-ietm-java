@@ -20,6 +20,7 @@ import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmProjectInfoVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmCopyVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmcUniqueCheckVO;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.exception.DmValidationException;
 import org.jeecg.common.system.vo.LoginUser;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -259,9 +260,11 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
             @ApiParam(value = "DM ID", required = true) @RequestParam String id,
             HttpServletRequest req) {
         String username = getUsername(req);
-        boolean success = ietmDataModuleService.checkOut(id, username);
-        if (success) {
-            return Result.OK("签出成功！");
+        // ✅ 修复：Service返回新记录的ID
+        String newId = ietmDataModuleService.checkOut(id, username);
+        if (newId != null) {
+            // ✅ 修复：返回新记录的ID给前端，前端需要用新ID重新选中
+            return Result.OK("签出成功！", newId);
         } else {
             return Result.error("签出失败！");
         }
@@ -277,9 +280,9 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
             @ApiParam(value = "DM ID", required = true) @RequestParam String id,
             HttpServletRequest req) {
         String username = getUsername(req);
-        boolean success = ietmDataModuleService.cancelCheckOut(id, username);
-        if (success) {
-            return Result.OK("取消签出成功！");
+        String originalId = ietmDataModuleService.cancelCheckOut(id, username);
+        if (originalId != null) {
+            return Result.OK("取消签出成功！", originalId);
         } else {
             return Result.error("取消签出失败！");
         }
@@ -310,7 +313,7 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     @AutoLog(value = "数据模块管理-发布")
     @ApiOperation(value = "数据模块管理-发布", notes = "数据模块管理-发布")
     @PostMapping(value = "/publish")
-    public Result<String> publish(
+    public Result<Map<String, Object>> publish(
             @RequestBody Map<String, String> params,
             HttpServletRequest req) {
         String id = params.get("id");
@@ -318,11 +321,24 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
             return Result.error("DM ID不能为空");
         }
         String username = getUsername(req);
-        boolean success = ietmDataModuleService.publishDm(id, username);
-        if (success) {
-            return Result.OK("发布成功！");
-        } else {
-            return Result.error("发布失败！");
+
+        try {
+            boolean success = ietmDataModuleService.publishDm(id, username);
+            if (success) {
+                return Result.OK("发布成功！");
+            } else {
+                return Result.error("发布失败！");
+            }
+        } catch (DmValidationException e) {
+            // 捕获校验异常，返回结构化错误信息
+            log.warn("发布失败：XSD校验不通过，错误数：{}", e.getErrors() != null ? e.getErrors().size() : 0);
+            Map<String, Object> errorData = new HashMap<>();
+            errorData.put("errors", e.getErrors());
+            errorData.put("message", e.getMessage());
+            // 使用 error(String msg, T data) 并手动设置 code
+            Result<Map<String, Object>> result = Result.error(e.getMessage(), errorData);
+            result.setCode(40001);  // 设置自定义错误码，前端根据此code展示详细错误弹窗
+            return result;
         }
     }
 

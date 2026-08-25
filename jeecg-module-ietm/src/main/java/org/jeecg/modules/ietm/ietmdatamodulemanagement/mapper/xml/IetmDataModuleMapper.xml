@@ -440,4 +440,40 @@
         WHERE id = #{id}
     </select>
 
+    <!-- 批量标记历史版本为非最新（发布新版本时调用）
+         说明：发布时，将同一DMC的旧版本标记为非最新（is_latest='0'）
+         匹配条件：项目ID + DMC的6个维度（sns/infoCode/infoCodeVariant/ietmLocationCode/languageIsoCode/countryIsoCode）
+    -->
+    <update id="markHistoryVersionsAsOld">
+        UPDATE ietm_data_module
+        SET is_latest = '0',
+            update_time = SYSDATE
+        WHERE status = '1'
+          AND is_latest = '1'
+          AND id != #{excludeId}
+          <if test="projectId != null and projectId != ''">
+              AND project_id = #{projectId}
+          </if>
+          AND sns = #{sns}
+          AND info_code = #{infoCode}
+          <choose>
+              <when test="infoCodeVariant != null and infoCodeVariant != ''">
+                  AND info_code_variant = #{infoCodeVariant}
+              </when>
+              <otherwise>
+                  AND (info_code_variant IS NULL OR info_code_variant = '')
+              </otherwise>
+          </choose>
+          <choose>
+              <when test="ietmLocationCode != null and ietmLocationCode != ''">
+                  AND ietm_location_code = #{ietmLocationCode}
+              </when>
+              <otherwise>
+                  AND (ietm_location_code IS NULL OR ietm_location_code = '')
+              </otherwise>
+          </choose>
+          AND language_iso_code = #{languageIsoCode}
+          AND country_iso_code = #{countryIsoCode}
+    </update>
+
 </mapper>

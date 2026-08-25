@@ -67,17 +67,17 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
      * 签出DM
      * @param id DM主键
      * @param username 签出用户
-     * @return 签出结果
+     * @return 新记录的ID（签出会生成新记录）
      */
-    boolean checkOut(String id, String username);
+    String checkOut(String id, String username);
 
     /**
      * 取消签出DM
-     * @param id DM主键
+     * @param id DM主键（工作版本）
      * @param username 当前用户
-     * @return 取消签出结果
+     * @return 恢复的原版本ID（用于前端重新选中）
      */
-    boolean cancelCheckOut(String id, String username);
+    String cancelCheckOut(String id, String username);
 
     /**
      * 签入DM

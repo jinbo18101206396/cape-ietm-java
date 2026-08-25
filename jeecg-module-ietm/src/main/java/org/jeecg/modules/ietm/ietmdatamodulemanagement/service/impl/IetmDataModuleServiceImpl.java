@@ -40,6 +40,9 @@ import org.jeecg.modules.ietm.common.service.ISnsCalculateService;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.constant.DmConstants;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.WorkflowPermissionChecker;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.exception.DmValidationException;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmValidateItemVO;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDmContentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,14 +87,36 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     private static final String WF_STATUS_REVOKED      = "2";  // 流程已撤销
 
 
-    private static final String STATUS_DELETED         = "0";
-    private static final String STATUS_PUBLISHED       = "2";
+    /**
+     * DM状态常量（status字段）
+     * 重要说明：status字段是逻辑删除标志，不是业务状态！
+     * - "1" = 正常（有效记录）
+     * - "0" = 已删除（逻辑删除）
+     * 业务状态（草稿/在编/已发布）由 version_type 字段标识：
+     * - version_type=null或'0' = 在编
+     * - version_type='1' = 已发布
+     */
+    private static final String STATUS_DELETED         = "0";  // 已删除（逻辑删除）
+    private static final String DM_STATUS_NORMAL       = "1";  // 正常（有效记录）
+
+    /**
+     * 版本类型常量（version_type字段）
+     * - "0" 或 null = 在编状态（草稿）
+     * - "1" = 已发布状态
+     */
+    private static final String VERSION_TYPE_DRAFT     = "0";  // 在编
+    private static final String VERSION_TYPE_PUBLISHED = "1";  // 已发布
+
+    /**
+     * 最新版本标志（is_latest字段）
+     * - "1" = 最新版本
+     * - "0" = 历史版本
+     */
+    private static final String IS_LATEST_YES          = "1";  // 最新版本
+    private static final String IS_LATEST_NO           = "0";  // 历史版本
 
     /** 工作流节点：DM编写 */
     private static final String WORKFLOW_STEP_DM_WRITE = "DM编写";
-
-    /** DM状态：正常 */
-    private static final String DM_STATUS_NORMAL = "1";
 
     /** DMC 输入白名单正则（防止 SQL 注入和路径遍历） */
     private static final Pattern DMC_SAFE_ALPHANUMERIC = Pattern.compile("^[A-Z0-9-]*$");
@@ -147,6 +172,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Autowired
     private WorkflowPermissionChecker permissionChecker;
+
+    @Autowired
+    private IIetmDmContentService dmContentService;
 
     /**
      * 获取项目信息（包含SNS编码）
@@ -388,7 +416,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean checkOut(String id, String username) {
+    public String checkOut(String id, String username) {
         log.info("签出数据模块，ID：{}，用户：{}", id, username);
 
         // ==================== 第1步：查询并校验原记录 ====================
@@ -574,13 +602,14 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                  currentIssueno, currentInwork,
                  newDm.getIssueNo(), newDm.getInWork());
 
-        return true;
+        // ✅ 修复：返回新记录的ID，前端需要用新ID重新选中
+        return newDm.getId();
     }
 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean cancelCheckOut(String id, String username) {
+    public String cancelCheckOut(String id, String username) {
         log.info("取消签出数据模块，ID：{}，用户：{}", id, username);
 
         // ==================== 第1步：查询并校验工作版本 ====================
@@ -660,7 +689,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                  id, originalDm.getId(),
                  originalDm.getIssueNo(), originalDm.getInWork());
 
-        return true;
+        return originalDm.getId();
     }
 
     @Override
@@ -724,9 +753,18 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean publishDm(String id, String username) {
         log.info("发布数据模块，ID：{}，用户：{}", id, username);
-        IetmDataModule dm = this.getById(id);
+
+        // 使用 JOIN 流程视图查询，获取 workflow_handler
+        IetmDataModule dm = ietmDataModuleMapper.selectByIdWithFlow(id);
         if (dm == null) {
             throw new JeecgBootException("数据模块不存在");
+        }
+
+        // ========== 新增：发布者权限校验 ==========
+        // REQ-PUB-003：只有流程处理人可以发布
+        if (oConvertUtils.isNotEmpty(dm.getWorkflowInstanceId())
+            && oConvertUtils.isNotEmpty(dm.getWorkflowHandler())) {
+            permissionChecker.checkPermissionOrThrow(dm.getWorkflowHandler(), username, "发布");
         }
 
         // 1. 签出状态校验
@@ -744,12 +782,57 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             }
         }
 
+        // ========== 新增：XSD Schema 校验 ==========
+        // REQ-PUB-004：发布前必须通过XSD校验
+        IetmDataModule fullDm = this.getById(id);
+        if (fullDm != null && StringUtils.isNotBlank(fullDm.getDmContent())) {
+            // 获取项目标准和schema
+            IetmProject project = projectService.getById(dm.getProjectId());
+            String standard = project != null ? project.getIetmStandard() : null;
+
+            // 获取DM类型对应的XSD文件
+            String schema = null;
+            if (StringUtils.isNotBlank(dm.getDmType())) {
+                IetmDmType dmType = dmTypeMapper.selectOne(
+                    new LambdaQueryWrapper<IetmDmType>()
+                        .eq(IetmDmType::getTypeCode, dm.getDmType())
+                        .eq(IetmDmType::getStatus, "1")
+                        .last("LIMIT 1")
+                );
+                schema = dmType != null ? dmType.getXsdFile() : null;
+            }
+
+            // 执行XSD校验
+            List<DmValidateItemVO> errors = dmContentService.validateXsd(
+                fullDm.getDmContent(), standard, schema, id
+            );
+
+            if (!errors.isEmpty()) {
+                // 记录详细错误到日志（审计和问题排查）
+                log.warn("发布失败：XSD校验不通过，DM ID={}，DMC={}，错误数={}",
+                         id, dm.getDmcCode(), errors.size());
+                for (DmValidateItemVO err : errors) {
+                    log.warn("  XSD校验错误 - 第{}行：{}", err.getLineno(), err.getInfo());
+                }
+
+                // 抛出自定义校验异常，包含详细错误列表
+                throw new DmValidationException(
+                    "发布失败：DM内容不符合XSD规范，请修正后重试（共" + errors.size() + "个错误）",
+                    errors
+                );
+            }
+            log.info("XSD校验通过，DM ID={}，DMC={}", id, dm.getDmcCode());
+        }
+
         // 3. 版本号上限校验
         String currentIssueno = dm.getIssueNo() != null ? dm.getIssueNo() : INITIAL_ISSUE_NO;
         int issueNo = Integer.parseInt(currentIssueno);
         if (issueNo >= 999) {
             throw new JeecgBootException("发行编号已达上限999，无法继续发布");
         }
+
+        // ✅ 保存原始版本号（用于乐观锁）
+        String originalInWork = dm.getInWork() != null ? dm.getInWork() : INITIAL_IN_WORK;
 
         // 4. 升级版本号
         Map<String, String> newVersion = calculateVersion(dm.getInWork(), currentIssueno, "issue");
@@ -758,8 +841,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         // 5. 设置发布信息
         dm.setPublishDate(new Date());
-        dm.setVersionType("1"); // 已发布
-        dm.setStatus("2"); // 已发布状态
+        dm.setVersionType(VERSION_TYPE_PUBLISHED); // 已发布
+        // ✅ 修复：status字段是逻辑删除标志(0=删除,1=正常)，发布时保持正常状态
+        // 发布状态由 version_type='1' 标识，不使用status字段
+        dm.setStatus(DM_STATUS_NORMAL); // 正常状态（修复CHECK约束违反问题）
 
         // 6. 更新签发日期
         dm.setIssueDate(new Date());
@@ -778,44 +863,63 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("发布失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
         }
 
-        // 9. 计算 issueType（S1000D 标准）
-        // 判断issueType：001-00为"new"，其他为"revised"
-        String issueType = INITIAL_ISSUE_NO.equals(dm.getIssueNo()) ? "new" : "revised";
+        // 9. issueType 保持不变
+        // ✅ 修复：issueType 在创建DM时设置为"new"，之后不应该在发布时修改
+        // 根因：发布操作只是"公开发行"，不改变DM的性质（新建/修订）
+        // issueType 应该在签入时根据修改内容手动设置，而不是在发布时根据版本号计算
+        // 旧系统行为：issueType 由创建时设置并保持不变，除非手动修改
+        // 注意：line 848 的旧逻辑"001为new，其他为revised"是错误的：
+        //       - 首次发布：001-00 → 002-00，issueType应保持"new"
+        //       - 再次发布：002-00 → 003-00，issueType才可能是"revised"
+        // 因此，此处不修改 issueType，保持原值
 
         // 10. 使用 LambdaUpdateWrapper 只更新需要的字段，避免触发唯一约束
+        // ✅ P2修复：添加乐观锁防止并发发布
+        // 通过WHERE条件检查版本号和inWork未被其他事务修改
         boolean success = this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, dm.getId())
+                .eq(IetmDataModule::getIssueNo, currentIssueno)  // ✅ 乐观锁：版本号未变
+                .eq(IetmDataModule::getInWork, originalInWork)   // ✅ 乐观锁：使用原始inWork值
                 .set(IetmDataModule::getInWork, INITIAL_IN_WORK)
                 .set(IetmDataModule::getIssueNo, dm.getIssueNo())
                 .set(IetmDataModule::getDmcCode, dm.getDmcCode())
                 .set(IetmDataModule::getPublishDate, dm.getPublishDate())
-                .set(IetmDataModule::getVersionType, "1")
-                .set(IetmDataModule::getStatus, "2")
+                .set(IetmDataModule::getVersionType, VERSION_TYPE_PUBLISHED)  // ✅ 使用常量
+                .set(IetmDataModule::getStatus, DM_STATUS_NORMAL)  // ✅ 修复：使用常量，保持正常状态
                 .set(IetmDataModule::getIssueDate, dm.getIssueDate())
-                .set(IetmDataModule::getIssueType, issueType)
-                .set(IetmDataModule::getWorkflowStatus, "0")  // 流程结束（方案A：只回写 workflowStatus）
+                // ✅ 修复：不再设置 issueType，保持原值（对齐旧系统）
+                .set(IetmDataModule::getIsLatest, IS_LATEST_YES)  // ✅ 使用常量：标记为最新版本
+                .set(IetmDataModule::getWorkflowStatus, WF_STATUS_ENDED)  // ✅ 使用常量：流程结束
                 // 注意：不设置 workflowStep 和 workflowHandler，视图会自动返回空
                 .set(IetmDataModule::getUpdateBy, username)
                 .set(IetmDataModule::getUpdateTime, new Date())
         );
         if (!success) {
-            throw new JeecgBootException("发布失败：数据已被其他用户修改，请刷新后重试");
+            throw new JeecgBootException("发布失败：版本号已被修改（可能被其他用户同时发布），请刷新后重试");
         }
+
+        // ========== 新增：标记历史版本为非最新 ==========
+        // REQ-PUB-006：发布时自动将同DMC的旧版本标记为非最新
+        // 重要：在主记录更新成功后执行，避免UPDATE失败时旧版本已被标记导致的事务一致性问题
+        int markedCount = ietmDataModuleMapper.markHistoryVersionsAsOld(
+            dm.getProjectId(), dm.getSns(), dm.getInfoCode(), dm.getInfoCodeVariant(),
+            dm.getIetmLocationCode(), dm.getLanguageIsoCode(), dm.getCountryIsoCode(),
+            dm.getId()
+        );
+        log.info("已标记 {} 个历史版本为非最新", markedCount);
 
         // ✅ 同步版本号变更到 XML 内部的 issueInfo
         // 注意：发布时版本号已变化（issueNo+1, inWork=00），需要同步到 XML
-        if (StringUtils.isNotBlank(dm.getDmContent())) {
-            // 重新加载完整实体（包含 dm_content 大字段）
-            IetmDataModule fullDm = this.getById(dm.getId());
-            if (fullDm != null && StringUtils.isNotBlank(fullDm.getDmContent())) {
-                String syncedXml = DmXmlHelper.syncDmIdentToXml(fullDm.getDmContent(), dm);
-                // 单独更新 dm_content 字段
-                this.update(new LambdaUpdateWrapper<IetmDataModule>()
-                    .eq(IetmDataModule::getId, dm.getId())
-                    .set(IetmDataModule::getDmContent, syncedXml)
-                );
-                log.info("发布成功，已同步版本号到XML: ID={}, DMC={}", dm.getId(), dm.getDmcCode());
-            }
+        // ✅ P1修复：直接使用line 770查询的XML（fullDm），不再重复查询
+        // 避免在UPDATE之后再次查询可能获取到其他事务修改后的XML
+        if (StringUtils.isNotBlank(fullDm.getDmContent())) {
+            String syncedXml = DmXmlHelper.syncDmIdentToXml(fullDm.getDmContent(), dm);
+            // 单独更新 dm_content 字段
+            this.update(new LambdaUpdateWrapper<IetmDataModule>()
+                .eq(IetmDataModule::getId, dm.getId())
+                .set(IetmDataModule::getDmContent, syncedXml)
+            );
+            log.info("发布成功，已同步版本号到XML: ID={}, DMC={}", dm.getId(), dm.getDmcCode());
         }
 
         return true;
