@@ -20,11 +20,18 @@
         <result column="create_name"   property="createName"/>
     </resultMap>
 
+    <!-- ResultMap with seqno (历史记录修复：用于按seqno排序和nodename匹配) -->
+    <resultMap id="BaseResultMapWithSeqno" type="org.jeecg.modules.ietm.workflow.entity.WfExecute" extends="BaseResultMap">
+        <result column="seqno"         property="seqno"/>
+        <result column="nodename"      property="nodename"/>
+        <result column="nodetype"      property="nodetype"/>
+    </resultMap>
+
     <!-- 根据明细ID查询执行记录列表 (P1-1: 关联用户表获取真实姓名) -->
     <select id="selectByDtlId" resultMap="BaseResultMap">
         SELECT e.*, u.realname AS create_name
         FROM wf_execute e
-        LEFT JOIN sys_user u ON e.create_by = u.username
+        LEFT JOIN sys_user u ON e.create_by = u.id
         WHERE e.instdtlid_ = #{instdtlid}
           AND e.del_flag = '0'
         ORDER BY e.create_time ASC
@@ -35,7 +42,19 @@
         SELECT e.*, u.realname AS create_name
         FROM wf_execute e
         INNER JOIN wf_instance_dtl d ON e.instdtlid_ = d.id
-        LEFT JOIN sys_user u ON e.create_by = u.username
+        LEFT JOIN sys_user u ON e.create_by = u.id
+        WHERE d.instid_ = #{instid}
+          AND e.del_flag = '0'
+          AND d.del_flag = '0'
+        ORDER BY d.seqno_, e.create_time ASC
+    </select>
+
+    <!-- 根据实例ID查询所有执行记录（包含seqno/nodename/nodetype，用于历史记录匹配） -->
+    <select id="selectByInstIdWithSeqno" resultMap="BaseResultMapWithSeqno">
+        SELECT e.*, u.realname AS create_name, d.seqno_ AS seqno, d.nodename_ AS nodename, d.nodetype_ AS nodetype
+        FROM wf_execute e
+        INNER JOIN wf_instance_dtl d ON e.instdtlid_ = d.id
+        LEFT JOIN sys_user u ON e.create_by = u.id
         WHERE d.instid_ = #{instid}
           AND e.del_flag = '0'
           AND d.del_flag = '0'
@@ -46,7 +65,7 @@
     <select id="selectLatestByDtlId" resultMap="BaseResultMap">
         SELECT e.*, u.realname AS create_name
         FROM wf_execute e
-        LEFT JOIN sys_user u ON e.create_by = u.username
+        LEFT JOIN sys_user u ON e.create_by = u.id
         WHERE e.instdtlid_ = #{instdtlid}
           AND e.del_flag = '0'
         ORDER BY e.create_time DESC

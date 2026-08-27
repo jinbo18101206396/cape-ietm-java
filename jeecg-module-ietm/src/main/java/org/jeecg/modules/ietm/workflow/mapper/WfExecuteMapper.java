@@ -29,6 +29,13 @@ public interface WfExecuteMapper extends BaseMapper<WfExecute> {
     List<WfExecute> selectByInstId(@Param("instid") String instid);
 
     /**
+     * 根据实例ID查询所有执行记录（包含seqno，用于历史记录匹配）
+     * @param instid 实例ID
+     * @return 执行记录列表（包含seqno字段）
+     */
+    List<WfExecute> selectByInstIdWithSeqno(@Param("instid") String instid);
+
+    /**
      * 查询节点的最新执行记录
      * @param instdtlid 明细ID
      * @return 最新执行记录

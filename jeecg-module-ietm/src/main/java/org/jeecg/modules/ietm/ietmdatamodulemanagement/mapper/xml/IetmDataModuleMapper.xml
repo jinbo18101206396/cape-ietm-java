@@ -500,7 +500,10 @@
             status = '1',
             workflow_status = '1',
             version_type = '0',
-            issue_type = 'revised',
+            <!-- ✅ 删除：issue_type = 'revised' -->
+            <!-- 理由：issueType 应由用户手动设置，不应在重启流程时自动改变（对齐S1000D标准） -->
+            <!-- 对齐发布功能：IetmDataModuleServiceImpl.java Line 903 明确注释"不再设置 issueType，保持原值" -->
+            <!-- 旧系统错误：IetmDmManage.jsp Line 1081 在发布时自动设置 issueType="revised"，违反标准 -->
             checkout_user = NULL,
             checkout_time = NULL,
             checkout_dm_id = NULL,

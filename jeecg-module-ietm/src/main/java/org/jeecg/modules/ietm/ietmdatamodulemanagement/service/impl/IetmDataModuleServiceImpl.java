@@ -229,10 +229,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("SNS 编码不能为空，请检查构型节点路径是否完整（至少2层）");
         }
 
-        String dmc = generateDmc(dataModule);
-        dataModule.setDmcCode(dmc);
+        regenerateAndSetDmc(dataModule); // ✅ P2-12修复：使用封装方法
         if (validateDmc(dataModule)) {
-            throw new JeecgBootException("DMC编码已存在：" + dmc);
+            throw new JeecgBootException("DMC编码已存在：" + dataModule.getDmcCode());
         }
         if (oConvertUtils.isEmpty(dataModule.getInWork())) {
             dataModule.setInWork(INITIAL_IN_WORK);
@@ -284,17 +283,16 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // UI 编辑态已将这些字段全部禁用，正常路径下不会触发；此处为 API 层兜底防止旁路调用导致脏数据
         boolean dmcFieldChanged = isDmcFieldChanged(existDm, dataModule);
         if (dmcFieldChanged) {
-            String newDmc = generateDmc(dataModule);
-            dataModule.setDmcCode(newDmc);
+            regenerateAndSetDmc(dataModule); // ✅ P2-12修复：使用封装方法
             IetmDataModule conflict = ietmDataModuleMapper.selectByDmcForValidation(
                 dataModule.getSns(), dataModule.getInfoCode(), dataModule.getInfoCodeVariant(),
                 dataModule.getIetmLocationCode(), dataModule.getLanguageIsoCode(), dataModule.getCountryIsoCode(),
                 dataModule.getId()
             );
             if (conflict != null) {
-                throw new JeecgBootException("编辑失败：DMC冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
+                throw new JeecgBootException("编辑失败：DMC冲突，" + dataModule.getDmcCode() + " 已存在（ID=" + conflict.getId() + "）");
             }
-            log.info("updateDm: DMC字段变更，已重算 dmc_code={}", newDmc);
+            log.info("updateDm: DMC字段变更，已重算 dmc_code={}", dataModule.getDmcCode());
 
             // ✅ 同步 DMC 字段变更到 XML 内部的 dmIdent（dmCode/language/issueInfo）
             if (StringUtils.isNotBlank(dataModule.getDmContent())) {
@@ -520,8 +518,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         newDm.setIsLatest(DmConstants.IS_LATEST_YES);
 
         // 2.6 重新生成DMC（因为inwork变化了）
-        String newDmc = generateDmc(newDm);
-        newDm.setDmcCode(newDmc);
+        regenerateAndSetDmc(newDm); // ✅ P2-12修复：使用封装方法
 
         // ✅ 同步版本号变更到 XML 内部的 issueInfo
         // 签出时 inWork+1，需要同步到 XML
@@ -550,7 +547,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             originalDm.getId() // 排除原版本（签出时原版本尚未更新为 is_latest=0）
         );
         if (conflict != null) {
-            throw new JeecgBootException("签出失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
+            throw new JeecgBootException("签出失败：版本升级后 DMC 冲突，" + newDm.getDmcCode() + " 已存在（ID=" + conflict.getId() + "）");
         }
 
         // ==================== 第4步：将当前版本标为历史版本（UPDATE）====================
@@ -863,17 +860,19 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         dm.setIssueDate(new Date());
 
         // 7. 重新生成 DMC（因为 issueNo 变化了）
-        String newDmc = generateDmc(dm);
-        dm.setDmcCode(newDmc);
+        regenerateAndSetDmc(dm); // ✅ P2-12修复：使用封装方法
+
 
         // 8. 校验 DMC 唯一性
+        // P1-6注意：此处应用层校验在并发场景下可能失效（两个事务同时通过校验）
+        // 建议：在数据库层添加唯一索引作为最终防护（见DDL脚本：p1-6-dmc-unique-index.sql）
         IetmDataModule conflict = ietmDataModuleMapper.selectByDmcForValidation(
             dm.getSns(), dm.getInfoCode(), dm.getInfoCodeVariant(),
             dm.getIetmLocationCode(), dm.getLanguageIsoCode(), dm.getCountryIsoCode(),
             dm.getId()
         );
         if (conflict != null) {
-            throw new JeecgBootException("发布失败：版本升级后 DMC 冲突，" + newDmc + " 已存在（ID=" + conflict.getId() + "）");
+            throw new JeecgBootException("发布失败：版本升级后 DMC 冲突，" + dm.getDmcCode() + " 已存在（ID=" + conflict.getId() + "）");
         }
 
         // 9. issueType 保持不变
@@ -1435,11 +1434,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             }
 
             // 7. 生成并校验 DMC 编码（importXml 之前绕过了 saveDm，需在此补全）
-            String dmc = generateDmc(dataModule);
-            dataModule.setDmcCode(dmc);
+            regenerateAndSetDmc(dataModule); // ✅ P2-12修复：使用封装方法
             if (validateDmc(dataModule)) {
                 result.put("success", false);
-                result.put("message", "DMC编码已存在：" + dmc);
+                result.put("message", "DMC编码已存在：" + dataModule.getDmcCode());
                 return result;
             }
             if (oConvertUtils.isEmpty(dataModule.getInWork())) {
@@ -1648,6 +1646,17 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         return generateDmc(dm);
     }
 
+    /**
+     * ✅ P2-12修复：重新生成DMC并设置到实体
+     * 封装"生成+设置"的常见模式，避免代码重复
+     *
+     * @param dm 数据模块实体
+     */
+    private void regenerateAndSetDmc(IetmDataModule dm) {
+        String newDmc = generateDmc(dm);
+        dm.setDmcCode(newDmc);
+    }
+
     // 辅助方法
     private String nvl(String value, String defaultValue) {
         return oConvertUtils.isEmpty(value) ? defaultValue : value;
@@ -1721,12 +1730,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             }
         } catch (Exception e) {
             log.error("[版本号同步失败] DM: {}, 错误: {}", dmId, e.getMessage(), e);
-            // ⚠️ 重要：版本号同步失败会导致XML与数据库不一致，应引起重视
-            // 同步失败不影响签出操作本身，但需要记录告警，便于后续人工修复
-            log.warn("[版本号同步告警] DM ID={} 的XML内容与数据库版本号可能不一致，请人工检查修复", dmId);
-            // TODO: 集成告警系统后，发送告警通知（邮件/钉钉/企业微信）
-            // alertService.sendAlert("DM版本号同步失败",
-            //     String.format("DM ID: %s, 错误: %s", dmId, e.getMessage()));
+            // ✅ P2-13修复：版本号同步失败会导致XML与数据库不一致，必须阻断操作
+            // 改为抛出异常，不允许继续执行签出/发布等关键操作
+            throw new JeecgBootException("版本号同步失败，XML版本与数据库版本不一致：" + e.getMessage());
         }
     }
 
@@ -3018,6 +3024,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
             dm.setTechName(vo.getTechName());
             dm.setInfoName(vo.getInfoName());
+            // ✅ 修复：支持手动修改 issueType（对齐 S1000D 标准）
+            if (StringUtils.isNotBlank(vo.getIssueType())) {
+                dm.setIssueType(vo.getIssueType());
+            }
             // 对齐旧系统：编辑DM属性时更新版本日期
             dm.setIssueDate(new Date());
             dm.setUpdateBy(currentUser);
@@ -3060,6 +3070,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             dm.setCheckoutTime(new Date());
             dm.setTechName(vo.getTechName());
             dm.setInfoName(vo.getInfoName());
+            // ✅ 修复：支持手动修改 issueType（对齐 S1000D 标准）
+            if (StringUtils.isNotBlank(vo.getIssueType())) {
+                dm.setIssueType(vo.getIssueType());
+            }
             // 对齐旧系统：编辑DM属性（自动签出）时更新版本日期
             dm.setIssueDate(new Date());
             dm.setUpdateBy(currentUser);

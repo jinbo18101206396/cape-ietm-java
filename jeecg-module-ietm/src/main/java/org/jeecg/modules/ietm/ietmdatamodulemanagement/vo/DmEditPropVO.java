@@ -28,4 +28,7 @@ public class DmEditPropVO implements Serializable {
     @Size(max = 500, message = "信息名称最大500字符")
     @ApiModelProperty(value = "信息名称", required = true)
     private String infoName;
+
+    @ApiModelProperty(value = "版本类型（S1000D标准：new/changed/revised/status/deleted）", required = false)
+    private String issueType;
 }

@@ -42,18 +42,137 @@ public class WfInstanceDtlController {
     private WfInstanceMapper wfInstanceMapper;
 
     /**
-     * 查询节点列表
+     * 查询节点列表（仅当前实例节点）
+     * 用于：重启流程时回填节点配置
+     * 注意：只返回当前实例的节点，不包含历史实例节点
      */
-    @ApiOperation(value = "查询节点列表", notes = "根据实例ID查询节点列表")
+    @ApiOperation(value = "查询节点列表", notes = "根据实例ID查询当前实例的节点列表")
     @GetMapping("/list")
     public Result<?> list(@ApiParam("实例ID") @RequestParam String instid) {
         try {
             List<WfInstanceDtl> nodes = wfInstanceDtlMapper.selectByInstId(instid);
+
+            // 按seqno升序排序
+            nodes.sort((a, b) -> {
+                Integer seqnoA = a.getSeqno();
+                Integer seqnoB = b.getSeqno();
+                if (seqnoA == null && seqnoB == null) return 0;
+                if (seqnoA == null) return 1;
+                if (seqnoB == null) return -1;
+                return seqnoA.compareTo(seqnoB);
+            });
+
+            log.debug("[查询节点列表] 实例: {}, 节点数: {}", instid, nodes.size());
             return Result.OK(nodes);
+        } catch (JeecgBootException bizEx) {
+            // ✅ P2-18修复：区分业务异常（用户输入错误、权限不足等）
+            log.warn("查询节点列表业务校验失败: {}", bizEx.getMessage());
+            return Result.error(bizEx.getMessage());
         } catch (Exception e) {
-            log.error("查询节点列表失败", e);
-            return Result.error("查询失败：" + e.getMessage());
+            // 系统异常（数据库连接失败、NPE等）
+            log.error("查询节点列表系统异常", e);
+            return Result.error("系统异常，请联系管理员");
         }
+    }
+
+    /**
+     * 查询节点列表（包含历史节点）
+     * 用于：流程信息面板显示完整的审批历史
+     * 重启流程后，返回：历史实例的所有节点 + 当前实例的所有节点
+     */
+    @ApiOperation(value = "查询节点列表（含历史）", notes = "根据实例ID查询节点列表，包含历史实例节点")
+    @GetMapping("/listWithHistory")
+    public Result<?> listWithHistory(@ApiParam("实例ID") @RequestParam String instid) {
+        try {
+            List<WfInstanceDtl> result = new ArrayList<>();
+
+            // 1. 递归查询历史实例的节点，并标记为历史节点
+            List<WfInstanceDtl> historyNodes = listHistoryNodes(instid);
+            historyNodes.forEach(node -> node.setIsHistory(true));
+            result.addAll(historyNodes);
+
+            // 2. 查询当前实例的节点，标记为非历史节点
+            List<WfInstanceDtl> currentNodes = wfInstanceDtlMapper.selectByInstId(instid);
+            currentNodes.forEach(node -> node.setIsHistory(false));
+            result.addAll(currentNodes);
+
+            // 3. 按seqno升序排序
+            result.sort((a, b) -> {
+                Integer seqnoA = a.getSeqno();
+                Integer seqnoB = b.getSeqno();
+                if (seqnoA == null && seqnoB == null) return 0;
+                if (seqnoA == null) return 1;
+                if (seqnoB == null) return -1;
+                return seqnoA.compareTo(seqnoB);
+            });
+
+            log.debug("[查询节点列表(含历史)] 实例: {}, 历史节点: {}, 当前节点: {}, 总计: {}",
+                    instid, historyNodes.size(), currentNodes.size(), result.size());
+
+            return Result.OK(result);
+        } catch (JeecgBootException bizEx) {
+            // ✅ P2-18修复：区分业务异常
+            log.warn("查询节点列表（含历史）业务校验失败: {}", bizEx.getMessage());
+            return Result.error(bizEx.getMessage());
+        } catch (Exception e) {
+            // 系统异常
+            log.error("查询节点列表（含历史）系统异常", e);
+            return Result.error("系统异常，请联系管理员");
+        }
+    }
+
+    /**
+     * 递归查询历史实例的节点（最多50层深度）
+     */
+    private List<WfInstanceDtl> listHistoryNodes(String instid) {
+        return listHistoryNodesWithDepth(instid, 0, new java.util.HashSet<>());
+    }
+
+    /**
+     * 递归查询历史实例的节点（带深度限制和环路检测）
+     *
+     * @param instid 实例ID
+     * @param depth 当前递归深度
+     * @param visited 已访问的实例ID集合（环路检测）
+     * @return 历史节点列表
+     */
+    private List<WfInstanceDtl> listHistoryNodesWithDepth(String instid, int depth, java.util.Set<String> visited) {
+        List<WfInstanceDtl> result = new ArrayList<>();
+
+        // 递归深度保护：最多重启50次（正常业务不会超过此值）
+        if (depth >= 50) {
+            log.warn("[查询历史节点] 超过最大递归深度50，停止查询，当前实例: {}, 深度: {}", instid, depth);
+            return result;
+        }
+
+        // 环路检测：防止数据异常导致死循环
+        if (visited.contains(instid)) {
+            log.error("[查询历史节点] 检测到环路: instid={} 已在访问路径中，停止查询", instid);
+            return result;
+        }
+        visited.add(instid);
+
+        // 查询当前实例
+        WfInstance currentInstance = wfInstanceMapper.selectById(instid);
+        if (currentInstance == null) {
+            return result;
+        }
+
+        // 如果有旧实例ID，递归查询
+        String oldInstid = currentInstance.getOldInstid();
+        if (oldInstid != null && !oldInstid.trim().isEmpty()) {
+            // 先递归查询更早的历史节点（深度+1）
+            result.addAll(listHistoryNodesWithDepth(oldInstid, depth + 1, visited));
+
+            // 再添加这个旧实例的节点
+            List<WfInstanceDtl> oldNodes = wfInstanceDtlMapper.selectByInstId(oldInstid);
+            result.addAll(oldNodes);
+
+            log.debug("[查询历史节点] 当前实例: {}, 旧实例: {}, 深度: {}, 历史节点总数: {}",
+                    instid, oldInstid, depth, result.size());
+        }
+
+        return result;
     }
 
     /**
@@ -199,9 +318,14 @@ public class WfInstanceDtlController {
             }
 
             return Result.OK("保存成功");
+        } catch (JeecgBootException bizEx) {
+            // ✅ P2-18修复：区分业务异常
+            log.warn("批量保存节点业务校验失败: {}", bizEx.getMessage());
+            return Result.error(bizEx.getMessage());
         } catch (Exception e) {
-            log.error("批量保存节点失败", e);
-            return Result.error("保存失败：" + e.getMessage());
+            // 系统异常
+            log.error("批量保存节点系统异常", e);
+            return Result.error("系统异常，请联系管理员");
         }
     }
 
@@ -322,9 +446,14 @@ public class WfInstanceDtlController {
             }
 
             return Result.OK("保存成功");
+        } catch (JeecgBootException bizEx) {
+            // ✅ P2-18修复：区分业务异常
+            log.warn("单节点保存业务校验失败: {}", bizEx.getMessage());
+            return Result.error(bizEx.getMessage());
         } catch (Exception e) {
-            log.error("单节点保存失败", e);
-            return Result.error("保存失败：" + e.getMessage());
+            // 系统异常
+            log.error("单节点保存系统异常", e);
+            return Result.error("系统异常，请联系管理员");
         }
     }
 
@@ -350,9 +479,14 @@ public class WfInstanceDtlController {
             wfInstanceDtlMapper.deleteById(id);
 
             return Result.OK("删除成功");
+        } catch (JeecgBootException bizEx) {
+            // ✅ P2-18修复：区分业务异常
+            log.warn("删除节点业务校验失败: {}", bizEx.getMessage());
+            return Result.error(bizEx.getMessage());
         } catch (Exception e) {
-            log.error("删除节点失败", e);
-            return Result.error("删除失败：" + e.getMessage());
+            // 系统异常
+            log.error("删除节点系统异常", e);
+            return Result.error("系统异常，请联系管理员");
         }
     }
 
@@ -368,9 +502,14 @@ public class WfInstanceDtlController {
                 return Result.error("节点不存在");
             }
             return Result.OK(node);
+        } catch (JeecgBootException bizEx) {
+            // ✅ P2-18修复：区分业务异常
+            log.warn("查询节点详情业务校验失败: {}", bizEx.getMessage());
+            return Result.error(bizEx.getMessage());
         } catch (Exception e) {
-            log.error("查询节点详情失败", e);
-            return Result.error("查询失败：" + e.getMessage());
+            // 系统异常
+            log.error("查询节点详情系统异常", e);
+            return Result.error("系统异常，请联系管理员");
         }
     }
 

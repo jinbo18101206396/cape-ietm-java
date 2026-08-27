@@ -75,6 +75,21 @@ public class WfExecute implements Serializable {
     @TableField(exist = false)
     private String createName;
 
+    /** 节点顺序号（用于排序，transient） */
+    @ApiModelProperty(value = "节点顺序号")
+    @TableField(exist = false)
+    private Integer seqno;
+
+    /** 节点名称（用于历史记录匹配，transient） */
+    @ApiModelProperty(value = "节点名称")
+    @TableField(exist = false)
+    private String nodename;
+
+    /** 节点类型（用于历史记录匹配，transient） */
+    @ApiModelProperty(value = "节点类型")
+    @TableField(exist = false)
+    private String nodetype;
+
     /** 创建时间（处理时间） */
     @ApiModelProperty(value = "处理时间")
     @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")

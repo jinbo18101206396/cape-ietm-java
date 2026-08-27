@@ -60,29 +60,72 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
     @Override
     public List<WfExecute> listByInstIdWithHistory(String instid) {
-        // 1. 查询当前实例的执行记录
-        List<WfExecute> result = wfExecuteMapper.selectByInstId(instid);
+        return listByInstIdWithHistoryDepth(instid, 0, new java.util.HashSet<>());
+    }
+
+    /**
+     * 递归查询执行记录（带深度限制和环路检测）
+     *
+     * @param instid 实例ID
+     * @param depth 当前递归深度
+     * @param visited 已访问的实例ID集合（环路检测）
+     * @return 执行记录列表
+     */
+    private List<WfExecute> listByInstIdWithHistoryDepth(String instid, int depth, java.util.Set<String> visited) {
+        // 1. 查询当前实例的执行记录（包含seqno，用于历史记录匹配）
+        List<WfExecute> result = wfExecuteMapper.selectByInstIdWithSeqno(instid);
+
+        // 递归深度保护：最多重启50次（正常业务不会超过此值）
+        if (depth >= 50) {
+            log.warn("[查询历史审批] 超过最大递归深度50，停止查询，当前实例: {}, 深度: {}", instid, depth);
+            return result;
+        }
+
+        // 环路检测：防止数据异常导致死循环
+        if (visited.contains(instid)) {
+            log.error("[查询历史审批] 检测到环路: instid={} 已在访问路径中，停止查询", instid);
+            return result;
+        }
+        visited.add(instid);
 
         // 2. 查询是否有旧实例ID
         WfInstance currentInstance = wfInstanceMapper.selectById(instid);
         if (currentInstance != null && currentInstance.getOldInstid() != null
                 && !currentInstance.getOldInstid().trim().isEmpty()) {
 
-            // 3. 递归查询旧实例的执行记录（支持多次重启）
-            List<WfExecute> oldRecords = listByInstIdWithHistory(currentInstance.getOldInstid());
+            // 3. 递归查询旧实例的执行记录（支持多次重启，深度+1）
+            List<WfExecute> oldRecords = listByInstIdWithHistoryDepth(
+                    currentInstance.getOldInstid(), depth + 1, visited);
 
             // 4. 合并新旧记录
             result.addAll(oldRecords);
 
-            // 5. 按创建时间排序
+            // 5. 按节点顺序号+创建时间排序（历史记录顺序修复：先按seqno，再按时间）
             result.sort((a, b) -> {
+                // 首先按 seqno 升序（对齐SQL的 ORDER BY d.seqno_）
+                Integer seqnoA = a.getSeqno();
+                Integer seqnoB = b.getSeqno();
+                if (seqnoA == null && seqnoB == null) {
+                    // 两者seqno都为空，按时间排序
+                } else if (seqnoA == null) {
+                    return 1;  // A的seqno为空，排在后面
+                } else if (seqnoB == null) {
+                    return -1;  // B的seqno为空，排在后面
+                } else {
+                    int seqnoCompare = seqnoA.compareTo(seqnoB);
+                    if (seqnoCompare != 0) {
+                        return seqnoCompare;  // seqno不同，按seqno排序
+                    }
+                }
+
+                // seqno相同或都为空，按创建时间排序
                 if (a.getCreateTime() == null) return 1;
                 if (b.getCreateTime() == null) return -1;
                 return a.getCreateTime().compareTo(b.getCreateTime());
             });
 
-            log.debug("[查询历史审批] 当前实例: {}, 旧实例: {}, 总记录数: {}",
-                    instid, currentInstance.getOldInstid(), result.size());
+            log.debug("[查询历史审批] 当前实例: {}, 旧实例: {}, 深度: {}, 总记录数: {}",
+                    instid, currentInstance.getOldInstid(), depth, result.size());
         }
 
         // 6. 填充处理人姓名
@@ -121,6 +164,38 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             }
         } catch (Exception e) {
             log.warn("populateCreateName 失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 获取当前登录用户的ID
+     * 用于追加意见等功能的权限校验
+     * 复用WfInstanceServiceImpl中已有的获取用户逻辑（Line 1410-1411）
+     *
+     * @return 用户ID，失败时返回null
+     */
+    private String getCurrentUserId() {
+        try {
+            // 使用Apache Shiro获取当前登录用户
+            org.apache.shiro.subject.Subject subject = org.apache.shiro.SecurityUtils.getSubject();
+            Object principal = subject.getPrincipal();
+
+            if (principal == null) {
+                log.warn("当前用户未登录");
+                return null;
+            }
+
+            // LoginUser是系统标准的用户对象
+            if (principal instanceof org.jeecg.common.system.vo.LoginUser) {
+                org.jeecg.common.system.vo.LoginUser loginUser = (org.jeecg.common.system.vo.LoginUser) principal;
+                return loginUser.getId();
+            }
+
+            log.warn("Principal类型不是LoginUser: {}", principal.getClass().getName());
+            return null;
+        } catch (Exception e) {
+            log.warn("获取当前用户ID失败: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -202,7 +277,7 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
         // 3. 更新流程状态
         if (isLastNode) {
-            instance.setStatus("2"); // 完成 (DB约束只接受0/1/2)
+            instance.setStatus(WfConstants.STATUS_ENDED); // ✅ P2-8修复：使用常量替代硬编码
         } else {
             instance.setStatus(WfConstants.STATUS_RUNNING); // 审批中
         }
@@ -271,7 +346,7 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
         // 3. 更新流程状态（与"通过"逻辑一致：最后节点则结束，否则继续审批）
         if (isLastNode) {
-            instance.setStatus("2"); // 完成 (DB约束只接受0/1/2)
+            instance.setStatus(WfConstants.STATUS_ENDED); // ✅ P2-8修复：使用常量替代硬编码
         } else {
             instance.setStatus(WfConstants.STATUS_RUNNING); // 审批中
         }
@@ -368,8 +443,8 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             handleSkip(currentNode, targetNode, opinion, filename, filecontent, userId);
             // 根据目标节点类型设置流程状态
             if ("END".equals(targetNode.getNodetype())) {
-                // 跳转到终止节点，流程完成 (DB约束只接受0/1/2)
-                instance.setStatus("2");
+                // ✅ P2-8修复：跳转到终止节点，流程完成
+                instance.setStatus(WfConstants.STATUS_ENDED);
             } else {
                 // 跳转到普通节点，流程继续审批
                 instance.setStatus(WfConstants.STATUS_RUNNING);
@@ -469,11 +544,11 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("节点状态更新失败，请重试");
         }
 
-        // 2. 流程状态改为终止 (DB约束只接受0/1/2，终止也使用"2")
-        instance.setStatus("2");
+        // 2. ✅ P2-8修复：流程状态改为终止（使用STATUS_ENDED表示已结束）
+        instance.setStatus(WfConstants.STATUS_ENDED);
         int instRows = wfInstanceMapper.updateById(instance);
         if (instRows != 1) {
-            log.error("流程状态更新失败，流程ID: {}, status: 2", instance.getId());
+            log.error("流程状态更新失败，流程ID: {}, status: {}", instance.getId(), WfConstants.STATUS_ENDED);
             throw new JeecgBootException("流程状态更新失败，请重试");
         }
 
@@ -539,9 +614,42 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("只能对已处理的节点追加意见");
         }
 
-        // 校验3: 处理人列表必须包含当前用户
+        // 校验3: 处理人列表必须包含当前用户（支持ID或用户名）
+        // 🔴 P0修复：userid字段存储的是用户ID，但参数userId传入的是用户名，导致不匹配
+        // 修复：同时支持ID和用户名匹配，对齐前端逻辑
         String userid = node.getUserid();
-        if (userid == null || !("," + userid + ",").contains("," + userId + ",")) {
+        if (userid == null || userid.trim().isEmpty()) {
+            throw new JeecgBootException("节点处理人为空");
+        }
+
+        // 将处理人列表按逗号分隔
+        String[] userids = userid.split(",");
+        boolean isMatch = false;
+
+        // 尝试用户名匹配（userId参数是用户名）
+        for (String uid : userids) {
+            String trimmedUid = uid.trim();
+            if (!trimmedUid.isEmpty() && trimmedUid.equals(userId)) {
+                isMatch = true;
+                break;
+            }
+        }
+
+        // 如果用户名不匹配，尝试用户ID匹配
+        if (!isMatch) {
+            String currentUserId = getCurrentUserId();
+            if (currentUserId != null) {
+                for (String uid : userids) {
+                    String trimmedUid = uid.trim();
+                    if (!trimmedUid.isEmpty() && trimmedUid.equals(currentUserId)) {
+                        isMatch = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!isMatch) {
             throw new JeecgBootException("请选择一个处理人为自己的节点");
         }
 

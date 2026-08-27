@@ -15,15 +15,18 @@ import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper;
 import org.jeecg.modules.ietm.workflow.entity.WfInstance;
 import org.jeecg.modules.ietm.workflow.entity.WfInstanceDtl;
+import org.jeecg.modules.ietm.workflow.entity.WfExecute;
 import org.jeecg.modules.ietm.workflow.mapper.WfInstanceDtlMapper;
 import org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper;
 import org.jeecg.modules.ietm.workflow.service.IWfInstanceService;
+import org.jeecg.modules.ietm.workflow.service.IWfExecuteService;
 import org.jeecg.modules.ietm.workflow.constants.WfConstants;
 import org.jeecg.modules.ietm.workflow.util.WfValidatorUtil;
 import org.jeecg.modules.ietm.workflow.vo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -50,6 +53,9 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
 
     @Autowired(required = false)
     private org.jeecg.modules.ietm.workflow.util.WfLockUtil wfLockUtil;
+
+    @Autowired
+    private IWfExecuteService wfExecuteService;
 
     /**
      * 批量启动工作流
@@ -145,7 +151,7 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
             log.debug("开始前置校验...");
 
             // ===== 前置校验（事务内，但操作很快） =====
-            Map<String, IetmDataModule> dmMap = validateAndLoadDms(dmIds);
+            Map<String, IetmDataModule> dmMap = validateAndLoadDms(dmIds, currentUsername);
             validateBatchIdUnique(batchId);
             long validationTime = System.currentTimeMillis() - validationStartTime;
             log.debug("前置校验完成，耗时：{}ms", validationTime);
@@ -167,10 +173,15 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
             log.error("批量启动流程失败，耗时：{}ms", totalTime, e);
             throw e;
         } finally {
-            // 释放分布式锁
+            // ✅ P2-4修复：释放分布式锁时捕获异常，避免掩盖原始业务异常
             if (locked && wfLockUtil != null) {
-                wfLockUtil.unlock(lockKey);
-                log.debug("释放分布式锁，lockKey：{}", lockKey);
+                try {
+                    wfLockUtil.unlock(lockKey);
+                    log.debug("释放分布式锁，lockKey：{}", lockKey);
+                } catch (Exception unlockEx) {
+                    log.error("释放分布式锁失败，lockKey：{}", lockKey, unlockEx);
+                    // 锁释放失败不影响业务结果，只记录日志
+                }
             }
         }
     }
@@ -379,6 +390,42 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
         }
         long dtlInsertTime = System.currentTimeMillis() - dtlInsertStartTime;
         log.debug("批量插入节点明细完成，耗时：{}ms", dtlInsertTime);
+
+        // ✅ 修复：为创建节点自动生成执行记录（对齐旧系统，解决重启流程后处理情况为空的问题）
+        long execInsertStartTime = System.currentTimeMillis();
+        List<WfExecute> createNodeExecutes = new ArrayList<>();
+        for (WfInstanceDtl dtl : allDtlList) {
+            if (WfConstants.NODE_TYPE_CREATE.equals(dtl.getNodetype())) {
+                WfExecute execute = new WfExecute();
+                execute.setId(String.valueOf(IdWorker.getId()));
+                execute.setInstdtlid(dtl.getId());
+                execute.setIfpass(WfConstants.IFPASS_APPROVED);  // "1" - 通过
+                execute.setIfjump("0");  // 无跳转
+                execute.setOpinion("编制");  // 默认意见（对齐旧系统）
+
+                // 处理人：优先使用节点配置的第一个userid，兜底当前用户
+                String executeUser = currentUsername;
+                if (StringUtils.isNotBlank(dtl.getUserid())) {
+                    String[] userIds = dtl.getUserid().split(",");
+                    if (userIds.length > 0 && StringUtils.isNotBlank(userIds[0])) {
+                        executeUser = userIds[0].trim();
+                    }
+                }
+
+                execute.setCreateBy(executeUser);
+                execute.setCreateTime(dtl.getCreateTime());  // 使用节点创建时间
+                execute.setDelFlag("0");  // 正常状态
+                createNodeExecutes.add(execute);
+            }
+        }
+
+        // 批量插入执行记录
+        if (!createNodeExecutes.isEmpty()) {
+            wfExecuteService.saveBatch(createNodeExecutes);
+            log.info("为创建节点自动生成执行记录，数量：{}", createNodeExecutes.size());
+        }
+        long execInsertTime = System.currentTimeMillis() - execInsertStartTime;
+        log.debug("批量插入创建节点执行记录完成，耗时：{}ms", execInsertTime);
 
         // 批量更新创建节点状态
         long updateStartTime = System.currentTimeMillis();
@@ -725,13 +772,17 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
             Map<String, String> ridToIdMap = new HashMap<>();
             List<WfInstanceDtl> instanceDtls = new ArrayList<>();
 
-            // 构建节点明细（seqno+100偏移）
+            // 构建节点明细
+            // ⚠️ 重要：前端传来的seqno已经是最终显示值（前端已+100），不需要再+100
+            // - 第1次启动：前端传0,10,20,30,40 → 存储0,10,20,30,40（不加偏移）
+            // - 第1次重启：前端传100,110,120,130,140 → 存储100,110,120,130,140（不加偏移）
+            // - 第2次重启：前端传200,210,220,230,240 → 存储200,210,220,230,240（不加偏移）
             for (BatchStartFlowDtlVO dtlVO : vo.getNodes()) {
                 WfInstanceDtl dtl = new WfInstanceDtl();
                 String nodeId = String.valueOf(IdWorker.getId());
                 dtl.setId(nodeId);  // K-003修复：生成雪花ID
                 dtl.setInstanceid(newInstanceId);
-                dtl.setSeqno(dtlVO.getSeqno() + WfConstants.SEQNO_OFFSET);
+                dtl.setSeqno(dtlVO.getSeqno());  // 直接使用前端传来的seqno，不加偏移
                 dtl.setNodename(dtlVO.getNodename());
                 dtl.setNodetype(dtlVO.getNodetype());
                 dtl.setUserid(dtlVO.getUserid());
@@ -831,6 +882,44 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
         }
         long dtlInsertTime = System.currentTimeMillis() - dtlInsertStartTime;
         log.debug("批量插入节点明细完成，耗时：{}ms", dtlInsertTime);
+
+        // ✅ 修复：为创建节点自动生成执行记录（对齐旧系统，解决重启流程后处理情况为空的问题）
+        long execInsertStartTime = System.currentTimeMillis();
+        List<WfExecute> createNodeExecutes = new ArrayList<>();
+        for (WfInstanceDtl dtl : allDtls) {
+            if (WfConstants.NODE_TYPE_CREATE.equals(dtl.getNodetype())) {
+                WfExecute execute = new WfExecute();
+                execute.setId(String.valueOf(IdWorker.getId()));
+                execute.setInstdtlid(dtl.getId());
+                execute.setIfpass(WfConstants.IFPASS_APPROVED);  // "1" - 通过
+                execute.setIfjump("0");  // 无跳转
+                execute.setOpinion("编制");  // 默认意见（对齐旧系统）
+
+                // 处理人：优先使用节点配置的第一个userid，兜底当前用户
+                String executeUser = currentUsername;
+                if (StringUtils.isNotBlank(dtl.getUserid())) {
+                    String[] userIds = dtl.getUserid().split(",");
+                    if (userIds.length > 0 && StringUtils.isNotBlank(userIds[0])) {
+                        executeUser = userIds[0].trim();
+                    }
+                }
+
+                execute.setCreateBy(executeUser);
+                execute.setCreateTime(dtl.getCreateTime());  // 使用节点创建时间
+                execute.setDelFlag("0");  // 正常状态
+                createNodeExecutes.add(execute);
+            }
+        }
+
+        // 批量插入执行记录（分片避免超限）
+        if (!createNodeExecutes.isEmpty()) {
+            for (List<WfExecute> chunk : partition(createNodeExecutes, WfConstants.BATCH_CHUNK_SIZE)) {
+                wfExecuteService.saveBatch(chunk);
+            }
+            log.info("为创建节点自动生成执行记录（重启流程），数量：{}", createNodeExecutes.size());
+        }
+        long execInsertTime = System.currentTimeMillis() - execInsertStartTime;
+        log.debug("批量插入创建节点执行记录完成，耗时：{}ms", execInsertTime);
 
         // ===== 批量更新：创建节点状态（F-3修复：分片IN列表） =====
         long updateStartTime = System.currentTimeMillis();
@@ -1074,13 +1163,14 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
     /**
      * 前置校验：验证并加载所有DM
      * <p>
-     * 批量查询DM并验证存在性、状态合法性，将结果放入Map便于后续快速访问。
+     * 批量查询DM并验证存在性、状态合法性、权限，将结果放入Map便于后续快速访问。
      * 该方法在事务外调用，避免长时间持有事务锁。
      * </p>
      *
      * @param dmIds DM ID列表
+     * @param currentUsername 当前登录用户名（用于权限校验）
      * @return DM映射表，Key为DM ID，Value为DM实体
-     * @throws JeecgBootException 当存在不存在的DM、状态不合法时抛出
+     * @throws JeecgBootException 当存在不存在的DM、状态不合法、无权限时抛出
      *
      * <p><b>S-001修复：添加DM状态校验</b></p>
      * <ul>
@@ -1089,9 +1179,15 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
      *   <li>已发布（status=2）的DM应使用重启流程功能</li>
      * </ul>
      *
+     * <p><b>P1-1修复：添加业务权限校验</b></p>
+     * <ul>
+     *   <li>只能启动自己创建的DM流程</li>
+     *   <li>对标重启流程的权限控制逻辑</li>
+     * </ul>
+     *
      * @since 1.0
      */
-    private Map<String, IetmDataModule> validateAndLoadDms(List<String> dmIds) {
+    private Map<String, IetmDataModule> validateAndLoadDms(List<String> dmIds, String currentUsername) {
         Map<String, IetmDataModule> dmMap = new HashMap<>();
         for (String dmId : dmIds) {
             IetmDataModule dm = ietmDataModuleMapper.selectById(dmId);
@@ -1100,6 +1196,12 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
             }
 
             String dmcCode = oConvertUtils.getString(dm.getDmcCode(), dmId);
+
+            // P1-1修复：业务权限校验 - 只能启动自己创建的DM流程
+            if (!oConvertUtils.isEmpty(dm.getCreateBy()) &&
+                !dm.getCreateBy().equals(currentUsername)) {
+                throw new JeecgBootException("只能启动自己创建的流程，DMC：" + dmcCode);
+            }
 
             // S-001修复：检查DM状态是否允许启动流程
             // 注意：status字段含义为（0=已删除，1=正常），不是流程状态
@@ -1222,15 +1324,16 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
 
             // 检查创建节点
             if (WfConstants.NODE_TYPE_CREATE.equals(node.getNodetype())) {
-                if (node.getSeqno() != 0) {
-                    throw new JeecgBootException("创建节点的顺序号必须为0");
-                }
                 hasCreateNode = true;
-            } else {
-                // S-003修复：非创建节点的seqno必须大于0
-                if (node.getSeqno() <= 0) {
-                    throw new JeecgBootException("非创建节点的顺序号必须大于0，节点：" + node.getNodename());
+                // 重启流程时，创建节点的seqno可能不是0（例如第1次重启=100，第2次重启=200）
+                // 只要求创建节点的seqno是所有节点中最小的即可
+                int minSeqno = nodes.stream().mapToInt(BatchStartFlowDtlVO::getSeqno).min().orElse(0);
+                if (node.getSeqno() != minSeqno) {
+                    throw new JeecgBootException("创建节点的顺序号必须是所有节点中最小的，当前创建节点=" + node.getSeqno() + "，最小值=" + minSeqno);
                 }
+            } else {
+                // S-003修复：非创建节点的seqno必须大于创建节点的seqno
+                // 不再要求 >0，因为重启时所有节点的seqno都会增加（100,110,120...）
             }
 
             // 验证必填字段

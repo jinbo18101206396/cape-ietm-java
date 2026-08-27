@@ -109,4 +109,9 @@ public class WfInstanceDtl implements Serializable {
     @ApiModelProperty(value = "更新时间")
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private Date updateTime;
+
+    /** 是否为历史节点（用于前端显示，transient） */
+    @ApiModelProperty(value = "是否为历史节点")
+    @TableField(exist = false)
+    private Boolean isHistory;
 }
