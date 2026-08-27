@@ -33,11 +33,70 @@ public class WfConstants {
     /** seqno偏移量（重启流程时） */
     public static final int SEQNO_OFFSET = 100;
 
+    /**
+     * 批量SQL分片大小。
+     * <p>达梦DM8/Oracle 的 IN 列表最多 1000 个表达式，CASE WHEN 批量更新会产生更多绑定参数，
+     * 因此将批量 SELECT/INSERT/UPDATE 按此大小分片，避免超限报错。</p>
+     */
+    public static final int BATCH_CHUNK_SIZE = 500;
+
     /** 用户ID前缀 */
     public static final String PREFIX_DEPT = "dpt_";      // 部门
     public static final String PREFIX_ROLE = "rol_";      // 角色
     public static final String PREFIX_POST = "pst_";      // 岗位
     public static final String PREFIX_GROUP = "grp_";     // 用户组
+
+    // ==================== 审批结果常量 ====================
+    /**
+     * 审批结果: 通过
+     */
+    public static final String IFPASS_APPROVED = "1";
+    /**
+     * 审批结果: 拒绝
+     */
+    public static final String IFPASS_REJECTED = "2";
+    /**
+     * 审批结果: 未审批
+     */
+    public static final String IFPASS_PENDING = "3";
+    /**
+     * 审批结果: 撤回
+     */
+    public static final String IFPASS_WITHDRAWN = "4";
+    /**
+     * 审批结果: 会签
+     */
+    public static final String IFPASS_COUNTERSIGN = "5";
+    /**
+     * 审批结果: 未通过 (废弃使用)
+     */
+    public static final String IFPASS_NOT_PASSED = "9";
+
+    // ==================== 紧急程度常量 ====================
+    /**
+     * 紧急程度: 加急
+     */
+    public static final String URGENT_YES = "1";
+    /**
+     * 紧急程度: 不加急
+     */
+    public static final String URGENT_NO = "2";
+
+    // ==================== 模板状态常量 ====================
+    /**
+     * 模板状态: 启用
+     */
+    public static final String TEMPLATE_STATUS_ENABLED = "1";
+    /**
+     * 模板状态: 禁用
+     */
+    public static final String TEMPLATE_STATUS_DISABLED = "0";
+
+    // ==================== 序号常量 ====================
+    /**
+     * 序号: 起始节点
+     */
+    public static final String SEQNO_START = "0";
 
     private WfConstants() {
         // 工具类不允许实例化

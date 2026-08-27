@@ -86,8 +86,7 @@ public class WfInstanceDtlController {
             // P0-11: 预先校验顺序号唯一性（防止重复）
             java.util.Set<Integer> seqnoSet = new java.util.HashSet<>();
             for (Map<String, Object> nodeData : nodesData) {
-                Integer seqno = nodeData.get("seqno") != null ?
-                    Integer.parseInt(nodeData.get("seqno").toString()) : null;
+                Integer seqno = safeParseInt(nodeData.get("seqno"), "节点顺序号");
                 if (seqno != null && !seqnoSet.add(seqno)) {
                     return Result.error("顺序号不能重复：" + seqno);
                 }
@@ -109,8 +108,7 @@ public class WfInstanceDtlController {
                 }
 
                 // 顺序号校验
-                Integer seqno = nodeData.get("seqno") != null ?
-                    Integer.parseInt(nodeData.get("seqno").toString()) : null;
+                Integer seqno = safeParseInt(nodeData.get("seqno"), "节点顺序号");
                 if (seqno == null || seqno < 0) {
                     return Result.error("顺序号必须是非负整数");
                 }
@@ -142,7 +140,7 @@ public class WfInstanceDtlController {
             if (execedSeqno != null) {
                 for (Map<String, Object> nodeData : nodesData) {
                     String id = (String) nodeData.get("id");
-                    Integer seqno = Integer.parseInt(nodeData.get("seqno").toString());
+                    Integer seqno = safeParseInt(nodeData.get("seqno"), "节点顺序号");
 
                     // 新增节点且顺序号小于已处理最大顺序号
                     if ((id == null || id.startsWith("new_")) && seqno > 0 && seqno <= execedSeqno) {
@@ -173,7 +171,7 @@ public class WfInstanceDtlController {
                 String id = (String) nodeData.get("id");
                 String nodename = (String) nodeData.get("nodename");
                 String userid = (String) nodeData.get("userid");
-                Integer seqno = Integer.parseInt(nodeData.get("seqno").toString());
+                Integer seqno = safeParseInt(nodeData.get("seqno"), "节点顺序号");
                 String nodetype = (String) nodeData.get("nodetype");
                 String stagename = (String) nodeData.get("stagename");
                 String ifgetback = (String) nodeData.get("ifgetback");
@@ -235,8 +233,7 @@ public class WfInstanceDtlController {
             if (userid == null || userid.trim().isEmpty()) {
                 return Result.error("处理人不能为空");
             }
-            Integer seqno = nodeData.get("seqno") != null ?
-                Integer.parseInt(nodeData.get("seqno").toString()) : null;
+            Integer seqno = safeParseInt(nodeData.get("seqno"), "节点顺序号");
             if (seqno == null || seqno < 0) {
                 return Result.error("顺序号必须是非负整数");
             }
@@ -389,6 +386,30 @@ public class WfInstanceDtlController {
         } catch (Exception e) {
             log.error("查询已处理节点的最大顺序号失败", e);
             return Result.error("查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * P0-3修复：安全的整数解析工具方法
+     *
+     * @param obj 待解析的对象
+     * @param fieldName 字段名称（用于错误提示）
+     * @return 解析后的整数，如果obj为null则返回null
+     * @throws JeecgBootException 当解析失败时抛出，包含友好的错误提示
+     */
+    private Integer safeParseInt(Object obj, String fieldName) {
+        if (obj == null) {
+            return null;
+        }
+        try {
+            String str = obj.toString().trim();
+            if (str.isEmpty()) {
+                return null;
+            }
+            return Integer.parseInt(str);
+        } catch (NumberFormatException e) {
+            log.warn("{}格式错误，期望整数，实际值：{}", fieldName, obj);
+            throw new JeecgBootException(fieldName + "格式错误，必须为整数（实际值：" + obj + "）");
         }
     }
 }

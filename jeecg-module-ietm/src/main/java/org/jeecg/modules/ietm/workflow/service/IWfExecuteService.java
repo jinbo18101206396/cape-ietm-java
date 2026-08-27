@@ -28,6 +28,17 @@ public interface IWfExecuteService extends IService<WfExecute> {
     List<WfExecute> listByInstId(String instid);
 
     /**
+     * 根据实例ID查询所有执行记录（包含重启前的历史记录）
+     * <p>
+     * 如果当前实例有old_instid_字段，会递归查询旧实例的执行记录，
+     * 并将新旧记录合并返回（按时间排序）。
+     * </p>
+     * @param instid 当前实例ID
+     * @return 执行记录列表（新旧合并，按创建时间排序）
+     */
+    List<WfExecute> listByInstIdWithHistory(String instid);
+
+    /**
      * 查询节点的最新执行记录
      * @param instdtlid 明细ID
      * @return 最新执行记录

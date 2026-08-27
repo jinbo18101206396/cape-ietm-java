@@ -11,10 +11,12 @@ import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.system.base.controller.JeecgController;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.constant.DmConstants;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDataModuleService;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.constant.DmConstants;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmFormVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmEditPropVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmProjectInfoVO;
@@ -132,8 +134,8 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
         copyFormVOToEntity(formVO, dataModule);
 
         // 新增时设置默认值
-        dataModule.setIsLatest("1");  // 新增默认为最新版本
-        dataModule.setStatus("1");    // 状态默认为正常
+        dataModule.setIsLatest(DmConstants.IS_LATEST_YES);  // 新增默认为最新版本
+        dataModule.setStatus(DmConstants.STATUS_VALID);    // 状态默认为正常
         if (dataModule.getVersionType() == null) {
             dataModule.setVersionType("0");  // 默认为草稿版本
         }

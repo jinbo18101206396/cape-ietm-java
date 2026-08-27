@@ -37,6 +37,14 @@ public interface WfInstanceMapper extends BaseMapper<WfInstance> {
     int batchTerminate(@Param("instanceIds") List<String> instanceIds, @Param("updateBy") String updateBy);
 
     /**
+     * 批量插入工作流实例（一次SQL插入多条，替代循环insert）
+     * <p>调用方需提前生成id（IdWorker），本方法不依赖MyBatis-Plus的主键回填与自动填充。</p>
+     * @param list 实例列表（id/createBy/createTime 需已赋值）
+     * @return 影响行数
+     */
+    int batchInsert(@Param("list") List<WfInstance> list);
+
+    /**
      * 签出时迁移工作流实例的formid关联
      * 将活动的工作流实例从旧版本DM关联到新版本DM
      *

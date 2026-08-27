@@ -91,7 +91,7 @@ public class IetmStandardConfigurationManagementController extends JeecgControll
 			 result.setResult(ls);
 			 result.setSuccess(true);
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("树加载失败", e);
 			 result.setMessage(e.getMessage());
 			 result.setSuccess(false);
 		 }
@@ -116,7 +116,7 @@ public class IetmStandardConfigurationManagementController extends JeecgControll
 			 result.setResult(ls);
 			 result.setSuccess(true);
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("树加载失败", e);
 			 result.setMessage(e.getMessage());
 			 result.setSuccess(false);
 		 }

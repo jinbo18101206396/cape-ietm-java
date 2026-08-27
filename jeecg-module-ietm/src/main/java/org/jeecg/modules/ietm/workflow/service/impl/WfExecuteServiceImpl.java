@@ -58,6 +58,39 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
         return list;
     }
 
+    @Override
+    public List<WfExecute> listByInstIdWithHistory(String instid) {
+        // 1. 查询当前实例的执行记录
+        List<WfExecute> result = wfExecuteMapper.selectByInstId(instid);
+
+        // 2. 查询是否有旧实例ID
+        WfInstance currentInstance = wfInstanceMapper.selectById(instid);
+        if (currentInstance != null && currentInstance.getOldInstid() != null
+                && !currentInstance.getOldInstid().trim().isEmpty()) {
+
+            // 3. 递归查询旧实例的执行记录（支持多次重启）
+            List<WfExecute> oldRecords = listByInstIdWithHistory(currentInstance.getOldInstid());
+
+            // 4. 合并新旧记录
+            result.addAll(oldRecords);
+
+            // 5. 按创建时间排序
+            result.sort((a, b) -> {
+                if (a.getCreateTime() == null) return 1;
+                if (b.getCreateTime() == null) return -1;
+                return a.getCreateTime().compareTo(b.getCreateTime());
+            });
+
+            log.debug("[查询历史审批] 当前实例: {}, 旧实例: {}, 总记录数: {}",
+                    instid, currentInstance.getOldInstid(), result.size());
+        }
+
+        // 6. 填充处理人姓名
+        populateCreateName(result);
+
+        return result;
+    }
+
     /**
      * 填充处理人姓名（createName，对齐旧系统 CREATED_NAME 字段）
      * 使用反射调用 SysUserService，避免模块间循环依赖
@@ -169,7 +202,7 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
         // 3. 更新流程状态
         if (isLastNode) {
-            instance.setStatus(WfConstants.STATUS_ENDED); // 完成
+            instance.setStatus("2"); // 完成 (DB约束只接受0/1/2)
         } else {
             instance.setStatus(WfConstants.STATUS_RUNNING); // 审批中
         }
@@ -181,18 +214,22 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
         // 🔴 P0-17修复：流程结束时同步更新 ietm_data_module.workflow_status 字段
         // 对齐旧系统 - 流程结束后，列表页面的"流程状态"应显示为"已结束"
+        // 🔴 P0-新增：清空签出状态，避免结束后签出按钮禁用
         if (isLastNode) {
             String businessId = instance.getFormid();
             if (businessId != null && !businessId.trim().isEmpty()) {
-                int dmRows = ietmDataModuleMapper.update(null,
-                    new LambdaUpdateWrapper<IetmDataModule>()
+                LambdaUpdateWrapper<IetmDataModule> updateWrapper = new LambdaUpdateWrapper<IetmDataModule>()
                         .eq(IetmDataModule::getId, businessId)
-                        .set(IetmDataModule::getWorkflowStatus, "0")  // 0=已结束
-                );
+                        .set(IetmDataModule::getWorkflowStatus, "0");  // 0=已结束
+
+                // P2-1重构：使用公共方法清空签出状态
+                clearCheckoutStatus(updateWrapper);
+
+                int dmRows = ietmDataModuleMapper.update(null, updateWrapper);
                 if (dmRows == 0) {
                     log.warn("更新DM的workflow_status失败，DM可能不存在，businessId: {}", businessId);
                 } else {
-                    log.info("流程结束，已更新DM的workflow_status=0，businessId: {}", businessId);
+                    log.info("流程结束，已更新DM的workflow_status=0并清空签出状态，businessId: {}", businessId);
                 }
             }
         }
@@ -234,7 +271,7 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
         // 3. 更新流程状态（与"通过"逻辑一致：最后节点则结束，否则继续审批）
         if (isLastNode) {
-            instance.setStatus(WfConstants.STATUS_ENDED); // 完成
+            instance.setStatus("2"); // 完成 (DB约束只接受0/1/2)
         } else {
             instance.setStatus(WfConstants.STATUS_RUNNING); // 审批中
         }
@@ -246,18 +283,22 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
 
         // 🔴 P0-17修复：流程结束时同步更新 ietm_data_module.workflow_status 字段
         // "发表不同意见"如果是最后一个节点，流程也结束
+        // 🔴 P0-新增：清空签出状态，避免结束后签出按钮禁用
         if (isLastNode) {
             String businessId = instance.getFormid();
             if (businessId != null && !businessId.trim().isEmpty()) {
-                int dmRows = ietmDataModuleMapper.update(null,
-                    new LambdaUpdateWrapper<IetmDataModule>()
+                LambdaUpdateWrapper<IetmDataModule> updateWrapper = new LambdaUpdateWrapper<IetmDataModule>()
                         .eq(IetmDataModule::getId, businessId)
-                        .set(IetmDataModule::getWorkflowStatus, "0")  // 0=已结束
-                );
+                        .set(IetmDataModule::getWorkflowStatus, "0");  // 0=已结束
+
+                // P2-1重构：使用公共方法清空签出状态
+                clearCheckoutStatus(updateWrapper);
+
+                int dmRows = ietmDataModuleMapper.update(null, updateWrapper);
                 if (dmRows == 0) {
                     log.warn("更新DM的workflow_status失败，DM可能不存在，businessId: {}", businessId);
                 } else {
-                    log.info("流程结束（发表不同意见），已更新DM的workflow_status=0，businessId: {}", businessId);
+                    log.info("流程结束（发表不同意见），已更新DM的workflow_status=0并清空签出状态，businessId: {}", businessId);
                 }
             }
         }
@@ -300,7 +341,7 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
                 for (String allowedId : allowedIds) {
                     String trimmedId = allowedId.trim();
                     // 0表示可以跳转到创建节点
-                    if ("0".equals(trimmedId) && targetNode.getSeqno() == 0) {
+                    if (WfConstants.SEQNO_START.equals(trimmedId) && targetNode.getSeqno() == 0) {
                         isAllowed = true;
                         break;
                     }
@@ -327,8 +368,8 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             handleSkip(currentNode, targetNode, opinion, filename, filecontent, userId);
             // 根据目标节点类型设置流程状态
             if ("END".equals(targetNode.getNodetype())) {
-                // 跳转到终止节点，流程终止
-                instance.setStatus(WfConstants.STATUS_TERMINATED);
+                // 跳转到终止节点，流程完成 (DB约束只接受0/1/2)
+                instance.setStatus("2");
             } else {
                 // 跳转到普通节点，流程继续审批
                 instance.setStatus(WfConstants.STATUS_RUNNING);
@@ -428,28 +469,32 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
             throw new JeecgBootException("节点状态更新失败，请重试");
         }
 
-        // 2. 流程状态改为"9"（终止）
-        instance.setStatus(WfConstants.STATUS_TERMINATED);
+        // 2. 流程状态改为终止 (DB约束只接受0/1/2，终止也使用"2")
+        instance.setStatus("2");
         int instRows = wfInstanceMapper.updateById(instance);
         if (instRows != 1) {
-            log.error("流程状态更新失败，流程ID: {}, status: 9", instance.getId());
+            log.error("流程状态更新失败，流程ID: {}, status: 2", instance.getId());
             throw new JeecgBootException("流程状态更新失败，请重试");
         }
 
         // 🔴 P0-17修复：同步更新 ietm_data_module.workflow_status 字段
         // 对齐旧系统 - 流程终止后，列表页面的"流程状态"应显示为"已终止"
         // wf_instance.status='9' 对应 ietm_data_module.workflow_status='9'
+        // 🔴 P0-新增：清空签出状态，避免终止后签出按钮禁用
         String businessId = instance.getFormid();
         if (businessId != null && !businessId.trim().isEmpty()) {
-            int dmRows = ietmDataModuleMapper.update(null,
-                new LambdaUpdateWrapper<IetmDataModule>()
+            LambdaUpdateWrapper<IetmDataModule> updateWrapper = new LambdaUpdateWrapper<IetmDataModule>()
                     .eq(IetmDataModule::getId, businessId)
-                    .set(IetmDataModule::getWorkflowStatus, "9")  // 9=已终止
-            );
+                    .set(IetmDataModule::getWorkflowStatus, "9");  // 9=已终止
+
+            // P2-1重构：使用公共方法清空签出状态
+            clearCheckoutStatus(updateWrapper);
+
+            int dmRows = ietmDataModuleMapper.update(null, updateWrapper);
             if (dmRows == 0) {
                 log.warn("更新DM的workflow_status失败，DM可能不存在，businessId: {}", businessId);
             } else {
-                log.info("流程终止，已更新DM的workflow_status=9，businessId: {}", businessId);
+                log.info("流程终止，已更新DM的workflow_status=9并清空签出状态，businessId: {}", businessId);
             }
         }
 
@@ -548,7 +593,7 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
         for (WfExecute exec : executes) {
             // 允许"通过"或"发表不同意见"的处理人拿回
             if (userId.equals(exec.getCreateBy()) &&
-                ("1".equals(exec.getIfpass()) || "2".equals(exec.getIfpass()))) {
+                (WfConstants.IFPASS_APPROVED.equals(exec.getIfpass()) || WfConstants.IFPASS_REJECTED.equals(exec.getIfpass()))) {
                 isHandler = true;
                 break;
             }
@@ -590,5 +635,25 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
         // 🔴 修复：对齐旧系统 - 拿回后不保存拿回记录，处理情况列应完全清空
         // 注释掉原有的保存拿回记录逻辑
         // saveExecuteRecord(instdtlid, "5", null, "拿回操作", null, null, userId);
+    }
+
+    /**
+     * P2-1重构：清空DM签出状态的公共方法
+     * <p>
+     * 在以下3种流程操作后调用，清空签出状态避免签出按钮被禁用：
+     * 1. 终止流程（handleTerminate）
+     * 2. 审批通过最后节点（handlePass）
+     * 3. 审批拒绝（handleReject）
+     * </p>
+     *
+     * @param updateWrapper 已配置查询条件的UpdateWrapper，方法会在其上添加清空签出状态的set操作
+     * @return 修改后的UpdateWrapper，支持链式调用
+     */
+    private LambdaUpdateWrapper<IetmDataModule> clearCheckoutStatus(
+            LambdaUpdateWrapper<IetmDataModule> updateWrapper) {
+        return updateWrapper
+                .set(IetmDataModule::getCheckoutUser, null)
+                .set(IetmDataModule::getCheckoutTime, null)
+                .set(IetmDataModule::getCheckoutDmId, null);
     }
 }

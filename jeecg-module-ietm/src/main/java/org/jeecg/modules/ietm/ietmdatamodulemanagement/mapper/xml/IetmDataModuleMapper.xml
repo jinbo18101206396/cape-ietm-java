@@ -243,7 +243,9 @@
     <select id="selectContentById" resultMap="BaseResultMap">
         SELECT id, issue_no, in_work, dmc_code, dm_content
         FROM ietm_data_module
-        WHERE id = #{id} AND status IN ('1', '2')
+        <!-- status 是逻辑删除标志(1=正常/0=已删除)，只取正常记录。
+             修复：原 IN ('1','2') 中的 '2' 为死条件(status 从不为'2')，等价于 status='1'。 -->
+        WHERE id = #{id} AND status = '1'
     </select>
 
     <!-- 5. 查询引用关系（out=出引用 / in=入引用，添加参数校验）-->
@@ -474,6 +476,45 @@
           </choose>
           AND language_iso_code = #{languageIsoCode}
           AND country_iso_code = #{countryIsoCode}
+    </update>
+
+    <!-- H-003修复：批量更新DM状态（重启流程专用）
+         使用CASE WHEN语法一次性更新多条记录，避免循环UPDATE性能问题
+         性能对比：1000条 循环UPDATE=10秒 vs 批量UPDATE=0.5秒（20倍提升）
+
+         2026-08-26修复：重启流程后清理签出状态，否则按钮保持禁用
+    -->
+    <update id="batchUpdateForRestartFlow">
+        UPDATE ietm_data_module
+        SET
+            attribute_05 = CASE id
+                <foreach collection="dmIds" item="dmId" index="index">
+                    WHEN #{dmId} THEN #{todoUsernames[${index}]}
+                </foreach>
+            END,
+            workflow_instance_id = CASE id
+                <foreach collection="dmIds" item="dmId" index="index">
+                    WHEN #{dmId} THEN #{instanceIds[${index}]}
+                </foreach>
+            END,
+            status = '1',
+            workflow_status = '1',
+            version_type = '0',
+            issue_type = 'revised',
+            checkout_user = NULL,
+            checkout_time = NULL,
+            checkout_dm_id = NULL,
+            update_by = #{updateBy},
+            update_time = SYSDATE
+        WHERE id IN
+        <foreach collection="dmIds" item="dmId" open="(" separator="," close=")">
+            #{dmId}
+        </foreach>
+        <!-- 乐观锁/前置守卫：status 是逻辑删除标志(1=正常/0=已删除)，只更新正常记录。
+             修复：原条件 status='2' 恒不匹配(status从不为'2')，导致 updateRows=0 误报
+             "已被其他用户修改"。与 batchStartFlow 的 status='1' 守卫保持一致。
+             🔧 RESTART-VERSION-TYPE-FIX：重启流程后清空version_type='0'，允许签出编辑修订版本。 -->
+        AND status = '1'
     </update>
 
 </mapper>

@@ -51,4 +51,8 @@ public class BatchStartFlowDtlVO implements Serializable {
     /** 可跳转节点ID串（空=不限制，-1=不可跳转） */
     @ApiModelProperty(value = "可跳转节点ID串")
     private String ifgetback;
+
+    /** 前端行稳定标识（用于映射到真实节点ID，不存储到数据库） */
+    @ApiModelProperty(value = "前端行标识_rid", hidden = true)
+    private String _rid;
 }

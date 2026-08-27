@@ -197,7 +197,7 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 			 result.setResult(ls);
 			 result.setSuccess(true);
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("操作失败", e);
 			 result.setMessage(e.getMessage());
 			 result.setSuccess(false);
 		 }
@@ -222,7 +222,7 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 			 result.setResult(ls);
 			 result.setSuccess(true);
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("操作失败", e);
 			 result.setMessage(e.getMessage());
 			 result.setSuccess(false);
 		 }
@@ -461,7 +461,7 @@ public class IetmProjectConfigurationManagementController extends JeecgControlle
 			 result.setResult(treeModelList);
 			 result.setSuccess(true);
 		 } catch (Exception e) {
-			 e.printStackTrace();
+			 log.error("操作失败", e);
 			 result.setMessage(e.getMessage());
 			 result.setSuccess(false);
 		 }

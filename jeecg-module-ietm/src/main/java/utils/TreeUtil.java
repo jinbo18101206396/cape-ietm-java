@@ -1,5 +1,6 @@
 package utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.validator.internal.util.StringHelper;
 import org.jeecg.common.system.vo.TreeModel;
 import org.springframework.util.CollectionUtils;
@@ -18,6 +19,7 @@ import java.util.List;
  * @return:
  * @version: 1.0
  */
+@Slf4j
 public class TreeUtil {
     /**
      * @param dtoList    实体列表
@@ -53,7 +55,7 @@ public class TreeUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("转换列表为树结构失败", e);
         }
         return rootNodes;
     }

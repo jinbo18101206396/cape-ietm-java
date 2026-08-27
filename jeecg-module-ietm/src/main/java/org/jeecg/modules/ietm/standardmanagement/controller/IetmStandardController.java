@@ -323,7 +323,7 @@ public class IetmStandardController extends JeecgController<IetmStandard, IIetmS
 				 try {
 					 file.getInputStream().close();
 				 } catch (IOException e) {
-					 e.printStackTrace();
+					 log.error("操作失败", e);
 				 }
 			 }
 		 }

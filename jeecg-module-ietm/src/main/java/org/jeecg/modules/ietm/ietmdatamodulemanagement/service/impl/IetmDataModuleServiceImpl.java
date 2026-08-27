@@ -15,6 +15,7 @@ import org.dom4j.io.SAXReader;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.common.util.oConvertUtils;
+import org.jeecg.common.util.oss.OssBootUtil;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDmComment;
@@ -85,6 +86,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     private static final String WF_STATUS_ENDED        = "0";  // 流程已结束
     private static final String WF_STATUS_TERMINATED   = "9";  // 流程已终止
     private static final String WF_STATUS_REVOKED      = "2";  // 流程已撤销
+    private static final String WF_STATUS_REJECTED     = "3";  // 流程已拒绝（审批不通过）
 
 
     /**
@@ -238,8 +240,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         if (oConvertUtils.isEmpty(dataModule.getIssueNo())) {
             dataModule.setIssueNo(INITIAL_ISSUE_NO);
         }
-        dataModule.setIsLatest("1");
-        dataModule.setStatus("1");
+        // ✅ P1-1修复：设置version_type默认值为'0'（草稿），避免NULL值导致业务逻辑异常
+        if (oConvertUtils.isEmpty(dataModule.getVersionType())) {
+            dataModule.setVersionType(VERSION_TYPE_DRAFT);  // '0'
+        }
+        dataModule.setIsLatest(DmConstants.IS_LATEST_YES);
+        dataModule.setStatus(DmConstants.STATUS_VALID);
         // 对齐旧系统：新建DM时设置版本日期
         if (dataModule.getIssueDate() == null) {
             dataModule.setIssueDate(new Date());
@@ -777,15 +783,22 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             if (!WF_STATUS_ENDED.equals(dm.getWorkflowStatus())) {
                 String statusText = WF_STATUS_IN_PROGRESS.equals(dm.getWorkflowStatus()) ? "进行中" :
                                    WF_STATUS_TERMINATED.equals(dm.getWorkflowStatus()) ? "已终止" :
-                                   WF_STATUS_REVOKED.equals(dm.getWorkflowStatus()) ? "已撤销" : dm.getWorkflowStatus();
+                                   WF_STATUS_REVOKED.equals(dm.getWorkflowStatus()) ? "已撤销" :
+                                   WF_STATUS_REJECTED.equals(dm.getWorkflowStatus()) ? "已拒绝" : dm.getWorkflowStatus();
                 throw new JeecgBootException("工作流未结束，不可发布（当前状态：" + statusText + "）");
             }
         }
 
+        // P2-4修复：空内容DM明确拦截
+        IetmDataModule fullDm = this.getById(id);
+        if (fullDm == null || StringUtils.isBlank(fullDm.getDmContent())) {
+            throw new JeecgBootException("DM内容为空，无法发布");
+        }
+
         // ========== 新增：XSD Schema 校验 ==========
         // REQ-PUB-004：发布前必须通过XSD校验
-        IetmDataModule fullDm = this.getById(id);
-        if (fullDm != null && StringUtils.isNotBlank(fullDm.getDmContent())) {
+        // 注意：使用上面已查询的fullDm，避免重复查询
+        if (StringUtils.isNotBlank(fullDm.getDmContent())) {
             // 获取项目标准和schema
             IetmProject project = projectService.getById(dm.getProjectId());
             String standard = project != null ? project.getIetmStandard() : null;
@@ -889,7 +902,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                 .set(IetmDataModule::getIssueDate, dm.getIssueDate())
                 // ✅ 修复：不再设置 issueType，保持原值（对齐旧系统）
                 .set(IetmDataModule::getIsLatest, IS_LATEST_YES)  // ✅ 使用常量：标记为最新版本
-                .set(IetmDataModule::getWorkflowStatus, WF_STATUS_ENDED)  // ✅ 使用常量：流程结束
+                // P2-8修复：发布前已校验workflow_status='0'(已结束)，无需重复设置
+                // .set(IetmDataModule::getWorkflowStatus, WF_STATUS_ENDED)
                 // 注意：不设置 workflowStep 和 workflowHandler，视图会自动返回空
                 .set(IetmDataModule::getUpdateBy, username)
                 .set(IetmDataModule::getUpdateTime, new Date())
@@ -1405,8 +1419,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
             // 5. 设置默认值
             dataModule.setVersionType("0");  // 导入默认为草稿
-            dataModule.setStatus("1");       // 正常状态
-            dataModule.setIsLatest("1");     // 最新版本
+            dataModule.setStatus(DmConstants.STATUS_VALID);       // 正常状态
+            dataModule.setIsLatest(DmConstants.IS_LATEST_YES);     // 最新版本
 
             // 6. 验证必填字段
             if (oConvertUtils.isEmpty(dataModule.getSns())) {
@@ -2039,14 +2053,21 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             newDm.setInWork(newVersion.get("newInwork"));
             newDm.setIssueNo(sourceDm.getIssueNo());
 
+            // ✅ P1-2修复：强制设置为草稿状态（不继承发布状态），确保新DM可编辑
+            newDm.setVersionType(VERSION_TYPE_DRAFT);  // '0'
+
             // 将源DM的isLatest设为0
-            sourceDm.setIsLatest("0");
+            sourceDm.setIsLatest(DmConstants.IS_LATEST_NO);
             this.updateById(sourceDm);
         } else {
             // type=0：仅复制属性（创建全新DM）
             // newDm.setMainId(null); // 字段不存在，已注释
             // newDm.setIsOriginal("1");  // 字段不存在
             // newDm.setVersionPath(null); // 字段不存在，已注释
+
+            // ✅ P1-2修复：强制设置为草稿状态（不继承发布状态），确保新DM可编辑
+            newDm.setVersionType(VERSION_TYPE_DRAFT);  // '0'
+
             newDm.setInWork(INITIAL_IN_WORK);
             newDm.setIssueNo(INITIAL_ISSUE_NO);
         }
@@ -2151,7 +2172,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
             // 7. 更新DM记录的流程字段
             dm.setWorkflowInstanceId(instanceId);
-            dm.setWorkflowStatus("1");  // 1=流转中
+            dm.setWorkflowStatus(WF_STATUS_IN_PROGRESS);  // 1=流转中
             this.updateById(dm);
 
             log.info("启动工作流成功，DM ID：{}，流程Key：{}，用户：{}，模板：{}，实例ID：{}",
@@ -2174,21 +2195,14 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         }
 
         try {
-            // TODO: 集成工作流引擎（Flowable/Activiti）
-            // 1. 完成任务
-            // Map<String, Object> variables = new HashMap<>();
-            // variables.put("approved", approved);
-            // variables.put("comment", comment);
-            // taskService.complete(taskId, variables);
-
-            // 2. 更新工作流状态
+            // 更新工作流状态
             // 注意：status字段是逻辑删除标志(0=删除,1=正常)，不要修改
             // 只修改 workflowStatus 表示工作流结果
             // workflow_status 字典: 0=已结束, 1=流转中, 2=已撤销, 3=已拒绝, 9=已终止
             if (approved) {
-                dm.setWorkflowStatus("0"); // 0=已结束（审批通过，正常结束）
+                dm.setWorkflowStatus(WF_STATUS_ENDED);    // 0=已结束（审批通过，正常结束）
             } else {
-                dm.setWorkflowStatus("3"); // 3=已拒绝
+                dm.setWorkflowStatus(WF_STATUS_REJECTED); // 3=已拒绝
             }
             // 注意：不设置 workflowStep 和 workflowHandler，这些字段从 v_wf_instance 视图动态获取
             this.updateById(dm);
@@ -2476,22 +2490,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         String fileId = dmComment.getFilePath();  // fileId存储在filePath字段中
         if (oConvertUtils.isNotEmpty(fileId)) {
             try {
-                // TODO: 集成文件服务（JeecgBoot文件管理模块）
-                // 方式1：通过MinIO/OSS删除
-                // minioClient.removeObject(bucketName, fileId);
-
-                // 方式2：通过JeecgBoot CommonAPI删除
-                // commonAPI.deleteFileById(fileId);
-
-                // 方式3：本地文件删除
-                // File file = new File(uploadPath + "/" + fileId);
-                // if (file.exists()) {
-                //     file.delete();
-                // }
-
-                log.info("已标记删除物理文件，fileId：{}（待集成文件服务）", fileId);
+                // 通过OssBootUtil删除文件（支持OSS/MinIO）
+                OssBootUtil.deleteUrl(fileId);
+                log.info("已删除物理文件，fileId：{}", fileId);
             } catch (Exception e) {
-                log.error("删除物理文件失败，fileId：{}，错误：{}", fileId, e.getMessage());
+                // 文件删除失败不影响数据库操作，记录警告日志
+                log.warn("删除物理文件失败，fileId：{}，错误：{}（已跳过，继续删除数据库记录）", fileId, e.getMessage());
                 // 不抛出异常，允许继续删除数据库记录
             }
         }
@@ -2949,8 +2953,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         // 设置默认值
         dataModule.setSchema("J");
-        dataModule.setIsLatest("1");
-        dataModule.setStatus("1");
+        dataModule.setIsLatest(DmConstants.IS_LATEST_YES);
+        dataModule.setStatus(DmConstants.STATUS_VALID);
 
         return dataModule;
     }
@@ -2975,10 +2979,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         // 2. 校验工作流状态（使用 workflowStatus 字段，来自 v_wf_instance 视图）
         // workflowStatus 含义：null/空=未启动，0=已结束，1=流转中，2=已撤销
-        if (dm.getWorkflowStatus() == null || "0".equals(dm.getWorkflowStatus())) {
+        if (dm.getWorkflowStatus() == null || WF_STATUS_ENDED.equals(dm.getWorkflowStatus())) {
             return Result.error("还没有启动流程，不能编辑DM属性。");
         }
-        if ("2".equals(dm.getWorkflowStatus())) {
+        if (WF_STATUS_REVOKED.equals(dm.getWorkflowStatus())) {
             return Result.error("流程已撤销，不能编辑DM属性。");
         }
 
@@ -3039,7 +3043,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             String safeIssueNo = dm.getIssueNo();
 
             // 额外防御：如果 issueNo 为 null, 空, "0" 或其他无效值，设为默认值
-            if (StringUtils.isBlank(safeIssueNo) || "0".equals(safeIssueNo)) {
+            if (StringUtils.isBlank(safeIssueNo) || INITIAL_ISSUE_NO.equals(safeIssueNo) || "000".equals(safeIssueNo)) {
                 safeIssueNo = INITIAL_ISSUE_NO;
                 log.warn("DM issueNo 值异常({}), 已重置为 {}, id={}", dm.getIssueNo(), INITIAL_ISSUE_NO, id);
             }
@@ -3297,7 +3301,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     public boolean checkDmcUnique(String sns, String infoCode, String infoCodeVariant,
                                   String ietmLocationCode, String excludeId) {
         QueryWrapper<IetmDataModule> qw = new QueryWrapper<>();
-        qw.eq("sns", sns).eq("info_code", infoCode).eq("status", "1").eq("is_latest", "1");
+        qw.eq("sns", sns).eq("info_code", infoCode).eq("status", DmConstants.STATUS_VALID).eq("is_latest", DmConstants.IS_LATEST_YES);
         if (StringUtils.isNotBlank(infoCodeVariant)) {
             qw.eq("info_code_variant", infoCodeVariant);
         } else {
@@ -3455,7 +3459,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         if (StringUtils.isNotBlank(dm.getCheckoutUser())) {
             return Result.error("DM已被签出，无法复制");
         }
-        if (!"1".equals(dm.getStatus())) {
+        if (!DmConstants.STATUS_NORMAL.equals(dm.getStatus())) {
             return Result.error("DM状态无效，无法复制");
         }
         log.info("DM可以复制，dmId={}, dmc={}", dmId, dm.getDmcCode());

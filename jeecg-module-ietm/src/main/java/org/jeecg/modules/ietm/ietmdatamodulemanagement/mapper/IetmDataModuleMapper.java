@@ -145,4 +145,19 @@ public interface IetmDataModuleMapper extends BaseMapper<IetmDataModule> {
                                   @Param("languageIsoCode") String languageIsoCode,
                                   @Param("countryIsoCode") String countryIsoCode,
                                   @Param("excludeId") String excludeId);
+
+    /**
+     * 批量更新DM状态（重启流程时使用）
+     * 使用CASE WHEN语法一次性更新多条记录，避免循环UPDATE性能问题
+     *
+     * @param dmIds DM ID列表
+     * @param instanceIds 对应的流程实例ID列表（与dmIds一一对应）
+     * @param todoUsernames 对应的待办用户名列表（与dmIds一一对应）
+     * @param updateBy 更新人
+     * @return 更新行数
+     */
+    int batchUpdateForRestartFlow(@Param("dmIds") List<String> dmIds,
+                                   @Param("instanceIds") List<String> instanceIds,
+                                   @Param("todoUsernames") List<String> todoUsernames,
+                                   @Param("updateBy") String updateBy);
 }

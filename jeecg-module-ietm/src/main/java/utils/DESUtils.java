@@ -1,20 +1,19 @@
 package utils;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
-import sun.misc.BASE64Decoder;
-import sun.misc.BASE64Encoder;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import java.io.*;
 import java.security.Key;
 import java.security.SecureRandom;
+import java.util.Base64;
 
 /**
- * @Description: TODO
+ * @Description: DES加密解密工具类
  * @author: wangdong
  * @date: 2023年06月05日 13:12
+ * @modified: 2026-08-26 - 替换sun.misc.BASE64为java.util.Base64（P0-1修复）
  */
 public class DESUtils {
     private static Key key;
@@ -41,40 +40,34 @@ public class DESUtils {
 
     /**
      * 对字符串进行加密，返回BASE64的加密字符串
-     * <功能详细描述>
      *
-     * @param str
-     * @return
-     * @see [类、类#方法、类#成员]
+     * @param str 待加密字符串
+     * @return BASE64编码的加密字符串
      */
     public static String getjiami(String str) {
-
-        BASE64Encoder base64Encoder = new BASE64Encoder();
         try {
             byte[] strBytes = str.getBytes("UTF-8");
             //获取加密对象
             Cipher cipher = Cipher.getInstance("DES");
             cipher.init(Cipher.ENCRYPT_MODE, key);
             byte[] encryptStrBytes = cipher.doFinal(strBytes);
-            return base64Encoder.encode(encryptStrBytes);
+            // 使用java.util.Base64替代sun.misc.BASE64Encoder
+            return Base64.getEncoder().encodeToString(encryptStrBytes);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
     }
 
     /**
      * 对BASE64加密字符串进行解密
-     * <功能详细描述>
      *
-     * @param str
-     * @return
-     * @see [类、类#方法、类#成员]
+     * @param str BASE64编码的加密字符串
+     * @return 解密后的原文
      */
     public static String getjiemi(String str) {
-        BASE64Decoder base64Decoder = new BASE64Decoder();
-        try {    //将密码转化base64
-            byte[] strBytes = base64Decoder.decodeBuffer(str);
+        try {
+            // 使用java.util.Base64替代sun.misc.BASE64Decoder
+            byte[] strBytes = Base64.getDecoder().decode(str);
             //初始化加密对象
             Cipher cipher = Cipher.getInstance("DES");
             //初始化加密信息按照
@@ -85,7 +78,6 @@ public class DESUtils {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
     }
 
     /**
@@ -93,11 +85,10 @@ public class DESUtils {
      *
      * @param inputs   文件的输入流
      * @param filePath 加密后文件的位置
-     * @param realPath
-     * @throws Exception
+     * @param realPath 实际文件路径
+     * @throws Exception 加密异常
      */
     public static void encodeBase64File(InputStream inputs, String filePath, String realPath) throws Exception {
-        BASE64Encoder base64En = new BASE64Encoder();
         FileOutputStream fo = null;
         FileOutputStream foreal = null;
         try {
@@ -108,13 +99,11 @@ public class DESUtils {
                     realFile.delete();
                 }
             }
-//            if(temFile.exists()){
-//                temFile.delete();
-//            }
             byte[] buffer = new byte[inputs.available()];
             inputs.read(buffer);
             fo = new FileOutputStream(filePath);
-            String result = base64En.encode(buffer);
+            // 使用java.util.Base64替代sun.misc.BASE64Encoder
+            String result = Base64.getEncoder().encodeToString(buffer);
             fo.write(result.getBytes());
             fo.close();
             if (StringUtils.isNotBlank(realPath)) {
@@ -137,8 +126,8 @@ public class DESUtils {
      * 解密文件
      *
      * @param pathStr    加密文件所在的全路径
-     * @param toFilename 输出的解密文件的 文件名
-     * @return
+     * @param toFilename 输出的解密文件的文件名
+     * @return 是否成功
      */
     public static boolean decodeBase64File(String pathStr, String toFilename) {
         File file = new File(pathStr);
@@ -156,7 +145,8 @@ public class DESUtils {
             String str = sb.toString();
             bReader.close();
             reader.close();
-            byte[] bytes = new BASE64Decoder().decodeBuffer(str);
+            // 使用java.util.Base64替代sun.misc.BASE64Decoder
+            byte[] bytes = Base64.getDecoder().decode(str);
             FileOutputStream out = new FileOutputStream(toFilename);
             out.write(bytes);
             out.close();
@@ -169,8 +159,9 @@ public class DESUtils {
     /**
      * 解密文件
      *
-     * @param pathStr    加密文件所在的全路径
-     * @return
+     * @param pathStr 加密文件所在的全路径
+     * @return 解密后的字节数组
+     * @throws Exception 解密异常
      */
     public static byte[] decodeBase64Bytes(String pathStr) throws Exception {
         File file = new File(pathStr);
@@ -188,7 +179,8 @@ public class DESUtils {
             String str = sb.toString();
             bReader.close();
             reader.close();
-            byte[] bytes = new BASE64Decoder().decodeBuffer(str);
+            // 使用java.util.Base64替代sun.misc.BASE64Decoder
+            byte[] bytes = Base64.getDecoder().decode(str);
             return bytes;
         } catch (Exception e) {
             throw new Exception(e.getMessage());
@@ -213,8 +205,8 @@ public class DESUtils {
                 sb.append(line);
             }
 
-            // Base64解密
-            byte[] decodedBytes = new BASE64Decoder().decodeBuffer(sb.toString());
+            // 使用java.util.Base64替代sun.misc.BASE64Decoder
+            byte[] decodedBytes = Base64.getDecoder().decode(sb.toString());
 
             // 写入输出流
             output.write(decodedBytes);
@@ -235,11 +227,11 @@ public class DESUtils {
         // 1. 截取指定范围的字节
         byte[] targetBytes = new byte[length];
         System.arraycopy(srcBytes, offset, targetBytes, 0, length);
-        return Base64.decodeBase64(targetBytes);
+        // 使用java.util.Base64替代apache commons codec
+        return Base64.getDecoder().decode(targetBytes);
     }
 
     public static void encodeOneFiles(String path, String toPath, String filename) {
-        BASE64Encoder base64En = new BASE64Encoder();
         try {
             File f = new File(path);
             FileInputStream inputFile = new FileInputStream(f);
@@ -248,7 +240,8 @@ public class DESUtils {
             inputFile.close();
             createDir(toPath);// 文件夹
             FileOutputStream fo = new FileOutputStream(toPath + "\\" + filename);
-            String result = base64En.encode(buffer);
+            // 使用java.util.Base64替代sun.misc.BASE64Encoder
+            String result = Base64.getEncoder().encodeToString(buffer);
             fo.write(result.getBytes());
             fo.close();
         } catch (Exception e) {
@@ -257,7 +250,6 @@ public class DESUtils {
     }
 
     public static void encodeALLFiles(String path) {
-        BASE64Encoder base64En = new BASE64Encoder();
         try {
             File file = new File(path);
             File[] fas = file.listFiles();
@@ -269,7 +261,8 @@ public class DESUtils {
                 inputFile.close();
                 createDir(path + "\\encod\\");// 文件夹
                 FileOutputStream fo = new FileOutputStream(path + "\\encod\\" + f.getName());
-                String result = base64En.encode(buffer);
+                // 使用java.util.Base64替代sun.misc.BASE64Encoder
+                String result = Base64.getEncoder().encodeToString(buffer);
                 fo.write(result.getBytes());
                 fo.close();
             }

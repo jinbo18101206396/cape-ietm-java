@@ -28,6 +28,9 @@ public class DmConstants {
     /** 状态：正常 */
     public static final String STATUS_NORMAL = "1";
 
+    /** 状态：正常（别名，向后兼容） */
+    public static final String STATUS_VALID = "1";
+
     /** 状态：已发布 */
     public static final String STATUS_PUBLISHED = "2";
 

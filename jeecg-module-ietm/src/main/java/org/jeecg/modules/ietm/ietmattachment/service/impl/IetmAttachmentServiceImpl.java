@@ -1,6 +1,7 @@
 package org.jeecg.modules.ietm.ietmattachment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import lombok.extern.slf4j.Slf4j;
 import org.jeecg.modules.base.service.BaseCommonService;
 import org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment;
 import org.jeecg.modules.ietm.ietmattachment.mapper.IetmAttachmentMapper;
@@ -20,6 +21,7 @@ import java.util.List;
  * @Date:   2026-03-03
  * @Version: V1.0
  */
+@Slf4j
 @Service
 public class IetmAttachmentServiceImpl extends ServiceImpl<IetmAttachmentMapper, IetmAttachment> implements IIetmAttachmentService {
 
@@ -66,7 +68,7 @@ public class IetmAttachmentServiceImpl extends ServiceImpl<IetmAttachmentMapper,
                     fileName = attachment.getFileName() + ";" + fileName;
                     securityMax = Math.max(attachment.getSecurity(), securityMax);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    log.error("删除附件文件失败: {}", actualFileName, e);
                 }
 
             }

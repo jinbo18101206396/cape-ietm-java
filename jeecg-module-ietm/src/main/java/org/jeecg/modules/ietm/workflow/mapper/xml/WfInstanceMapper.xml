@@ -14,6 +14,7 @@
         <result column="stagenames_"   property="stagenames"/>
         <result column="batch_id_"     property="batchId"/>
         <result column="reason_"       property="reason"/>
+        <result column="old_instid_"   property="oldInstid"/>
         <result column="create_by"     property="createBy"/>
         <result column="create_time"   property="createTime"/>
         <result column="update_by"     property="updateBy"/>
@@ -40,7 +41,7 @@
     <!-- P0-004修复：添加update_by参数 -->
     <update id="batchTerminate">
         UPDATE "IETM"."wf_instance"
-        SET "status_" = '9',
+        SET "status_" = '2',
             "update_time" = SYSDATE,
             "update_by" = #{updateBy}
         WHERE "id" IN
@@ -48,6 +49,19 @@
             #{id}
         </foreach>
     </update>
+
+    <!-- F-2修复：批量插入工作流实例（一次SQL替代循环insert） -->
+    <insert id="batchInsert">
+        INSERT INTO "IETM"."wf_instance"
+        ("id", "formid_", "title_", "titleparam_", "url_", "status_", "ifurgent_",
+         "stagenames_", "batch_id_", "reason_", "old_instid_", "create_by", "create_time")
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.id}, #{item.formid}, #{item.title}, #{item.titleparam}, #{item.url},
+             #{item.status}, #{item.ifurgent}, #{item.stagenames}, #{item.batchId}, #{item.reason},
+             #{item.oldInstid}, #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
 
     <!-- 签出时迁移工作流实例的formid关联 -->
     <!-- 将活动的工作流实例从旧版本DM关联到新版本DM，使签出后列表页能继续显示流程信息 -->

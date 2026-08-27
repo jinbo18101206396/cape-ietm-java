@@ -54,6 +54,17 @@ public class WfExecuteController extends JeecgController<WfExecute, IWfExecuteSe
     }
 
     /**
+     * 根据实例ID查询执行记录（包含重启前的历史记录）
+     */
+    @ApiOperation(value = "查询执行记录（含历史）", notes = "根据实例ID查询执行记录，包含重启前的历史审批信息")
+    @GetMapping("/listWithHistory")
+    public Result<List<WfExecute>> listWithHistory(
+            @ApiParam("实例ID") @RequestParam String instid) {
+        List<WfExecute> list = wfExecuteService.listByInstIdWithHistory(instid);
+        return Result.OK(list);
+    }
+
+    /**
      * 查询节点的最新执行记录
      */
     @ApiOperation(value = "查询最新执行记录", notes = "根据明细ID查询最新执行记录")

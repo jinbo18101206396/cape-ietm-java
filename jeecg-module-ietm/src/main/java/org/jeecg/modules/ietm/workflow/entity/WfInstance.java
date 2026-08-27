@@ -76,6 +76,11 @@ public class WfInstance implements Serializable {
     @TableField("reason_")
     private String reason;
 
+    /** 旧实例ID（重启流程时记录，用于查询历史审批信息） */
+    @ApiModelProperty(value = "旧实例ID")
+    @TableField("old_instid_")
+    private String oldInstid;
+
     /** 创建人 */
     @ApiModelProperty(value = "创建人")
     @TableField(value = "create_by", fill = FieldFill.INSERT)
