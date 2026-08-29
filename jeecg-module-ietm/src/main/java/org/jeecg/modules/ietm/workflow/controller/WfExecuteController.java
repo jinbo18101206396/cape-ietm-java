@@ -9,11 +9,14 @@ import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.modules.ietm.workflow.entity.WfExecute;
 import org.jeecg.modules.ietm.workflow.service.IWfExecuteService;
+import org.jeecg.modules.ietm.workflow.vo.BatchApproveVO;
+import org.jeecg.modules.ietm.workflow.vo.BatchApproveResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
 import java.util.List;
 
 /**
@@ -72,6 +75,33 @@ public class WfExecuteController extends JeecgController<WfExecute, IWfExecuteSe
     public Result<WfExecute> getLatest(@ApiParam("明细ID") @RequestParam String instdtlid) {
         WfExecute execute = wfExecuteService.getLatestByDtlId(instdtlid);
         return Result.OK(execute);
+    }
+
+    /**
+     * 批量审批
+     */
+    @ApiOperation(value = "批量审批", notes = "批量审批待办节点")
+    @PostMapping("/batchApprove")
+    public Result<BatchApproveResultVO> batchApprove(
+            @Valid @RequestBody BatchApproveVO vo,
+            HttpServletRequest request) {
+
+        try {
+            String userId = getCurrentUser(request).getUsername();
+            String ifpass = vo.getApproved() ? "1" : "2";  // 1=通过, 2=不同意
+
+            BatchApproveResultVO result = wfExecuteService.batchApprove(
+                vo.getNodeIds(),
+                ifpass,
+                vo.getOpinion(),
+                userId
+            );
+
+            return Result.OK("批量审批完成", result);
+        } catch (Exception e) {
+            log.error("批量审批失败", e);
+            return Result.error(e.getMessage());
+        }
     }
 
     /**

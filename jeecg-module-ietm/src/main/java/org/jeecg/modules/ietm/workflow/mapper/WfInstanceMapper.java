@@ -3,8 +3,10 @@ package org.jeecg.modules.ietm.workflow.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Param;
 import org.jeecg.modules.ietm.workflow.entity.WfInstance;
+import org.jeecg.modules.ietm.workflow.vo.TodoItemVO;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Description: 工作流实例Mapper接口
@@ -56,4 +58,16 @@ public interface WfInstanceMapper extends BaseMapper<WfInstance> {
     int migrateFormid(@Param("oldFormid") String oldFormid,
                       @Param("newFormid") String newFormid,
                       @Param("updateBy") String updateBy);
+
+    /**
+     * 查询我的待办列表（v1.3权限匹配：前缀编码模式）
+     *
+     * @param params 查询参数
+     *               - userId: 当前用户username
+     *               - projectId: 项目ID（参数化查询）
+     *               - searchField: 搜索字段（可选）
+     *               - searchValue: 搜索值（可选）
+     * @return 待办列表
+     */
+    List<TodoItemVO> getMyTodoList(@Param("params") Map<String, Object> params);
 }

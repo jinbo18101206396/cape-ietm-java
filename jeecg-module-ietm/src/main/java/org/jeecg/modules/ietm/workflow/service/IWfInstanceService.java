@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import org.jeecg.modules.ietm.workflow.entity.WfInstance;
 import org.jeecg.modules.ietm.workflow.vo.BatchRestartFlowVO;
 import org.jeecg.modules.ietm.workflow.vo.BatchStartFlowVO;
+import org.jeecg.modules.ietm.workflow.vo.TodoItemVO;
+
+import java.util.List;
 
 /**
  * @Description: 工作流实例Service接口
@@ -76,4 +79,14 @@ public interface IWfInstanceService extends IService<WfInstance> {
      * @param reason 终止原因
      */
     void terminate(String id, String reason);
+
+    /**
+     * 查询我的待办列表
+     *
+     * @param projectId 当前项目ID（必填）
+     * @param searchField 搜索字段（可选：title/nodename/created_name/creation_date_str）
+     * @param searchValue 搜索值（可选）
+     * @return 待办列表
+     */
+    List<TodoItemVO> getMyTodoList(String projectId, String searchField, String searchValue);
 }

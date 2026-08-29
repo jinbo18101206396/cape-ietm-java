@@ -1503,4 +1503,32 @@ public class WfInstanceServiceImpl extends ServiceImpl<WfInstanceMapper, WfInsta
 
         log.info("流程实例{}已终止，原因：{}", id, reason);
     }
+
+    @Override
+    public List<TodoItemVO> getMyTodoList(String projectId, String searchField, String searchValue) {
+        if (oConvertUtils.isEmpty(projectId)) {
+            throw new JeecgBootException("项目ID不能为空");
+        }
+
+        // 获取当前登录用户
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        if (loginUser == null) {
+            throw new JeecgBootException("用户未登录");
+        }
+        String userId = loginUser.getId();
+
+        // 构建查询参数
+        Map<String, Object> params = new HashMap<>();
+        params.put("userId", userId);
+        params.put("projectId", projectId);
+        params.put("searchField", searchField);
+        params.put("searchValue", searchValue);
+
+        // 调用Mapper查询待办列表（使用v1.3的前缀编码权限匹配）
+        List<TodoItemVO> todoList = wfInstanceMapper.getMyTodoList(params);
+
+        log.info("查询用户{}在项目{}的待办列表，返回{}条记录", userId, projectId, todoList.size());
+
+        return todoList;
+    }
 }

@@ -15,6 +15,7 @@ import org.jeecg.modules.ietm.workflow.mapper.WfExecuteMapper;
 import org.jeecg.modules.ietm.workflow.mapper.WfInstanceDtlMapper;
 import org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper;
 import org.jeecg.modules.ietm.workflow.service.IWfExecuteService;
+import org.jeecg.modules.ietm.workflow.vo.BatchApproveResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -202,6 +203,32 @@ public class WfExecuteServiceImpl extends ServiceImpl<WfExecuteMapper, WfExecute
     @Override
     public WfExecute getLatestByDtlId(String instdtlid) {
         return wfExecuteMapper.selectLatestByDtlId(instdtlid);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BatchApproveResultVO batchApprove(List<String> nodeIds, String ifpass,
+                                             String opinion, String userId) throws Exception {
+        log.info("[批量审批] 开始处理，节点数量: {}, ifpass: {}, userId: {}", nodeIds.size(), ifpass, userId);
+
+        BatchApproveResultVO result = new BatchApproveResultVO();
+
+        for (String nodeId : nodeIds) {
+            try {
+                // 调用单个审批方法（executeNode），不传附件
+                executeNode(nodeId, ifpass, null, opinion, null, null, userId);
+                result.setSuccessCount(result.getSuccessCount() + 1);
+                log.info("[批量审批] 节点 {} 审批成功", nodeId);
+            } catch (Exception e) {
+                result.setFailedCount(result.getFailedCount() + 1);
+                result.getErrors().add(new BatchApproveResultVO.ApprovalError(nodeId, e.getMessage()));
+                log.error("[批量审批] 节点 {} 审批失败: {}", nodeId, e.getMessage(), e);
+                // 不抛出异常，继续处理下一个节点
+            }
+        }
+
+        log.info("[批量审批] 处理完成，成功: {}, 失败: {}", result.getSuccessCount(), result.getFailedCount());
+        return result;
     }
 
     @Override

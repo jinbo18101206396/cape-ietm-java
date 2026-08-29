@@ -74,4 +74,165 @@
           AND "status_" = '1'
     </update>
 
+    <!-- 待办项VO映射 -->
+    <resultMap id="TodoItemVOMap" type="org.jeecg.modules.ietm.workflow.vo.TodoItemVO">
+        <id column="inst_id" property="id"/>
+        <result column="formid" property="formId"/>
+        <result column="title" property="title"/>
+        <result column="nodetype" property="type"/>
+        <result column="url" property="url"/>
+        <result column="nodename" property="nodeName"/>
+        <result column="status" property="status"/>
+        <result column="ifurgent" property="ifUrgent"/>
+        <result column="created_name" property="createdName"/>
+        <result column="creation_date" property="creationDate"/>
+        <result column="dtlid" property="nodeId"/>
+        <result column="checkout_status" property="checkoutStatus"/>
+    </resultMap>
+
+    <!-- 查询我的待办列表（v1.3权限匹配：前缀编码模式） -->
+    <!-- 注意：视图字段名无下划线后缀，与wf_instance表字段不同 -->
+    <!-- v1.5修正：只显示流程当前步骤的待办（对齐旧系统和数据模块列表） -->
+    <select id="getMyTodoList" resultMap="TodoItemVOMap">
+        SELECT
+            t.inst_id,
+            t.formid,
+            -- 修复：直接从dm表获取dmc_code作为标题（视图的title字段为空）
+            COALESCE(dm.dmc_code, '(无标题-DM)') AS title,
+            t.nodetype,
+            CASE
+                WHEN t.nodetype = '1' THEN '/ietm/datamodule/detail?id=' || t.formid
+                WHEN t.nodetype = '2' THEN '/ietm/pm/edit?id=' || t.formid
+                ELSE ''
+            END AS url,
+            t.nodename,
+            t.status,
+            t.ifurgent,
+            u.realname AS created_name,
+            TO_CHAR(i.create_time, 'YYYY-MM-DD') AS creation_date,
+            t.dtlid,
+            '' AS checkout_status
+        FROM v_wf_instance_todo t
+        LEFT JOIN wf_instance i ON t.inst_id = i.id
+        -- 修复：create_by是username，不是user.id
+        LEFT JOIN sys_user u ON i.create_by = u.username
+        LEFT JOIN ietm_data_module dm ON t.formid = dm.id AND t.nodetype = '1'
+        -- P0-3修复: ietm_pm表不存在，注释掉PM表关联
+        -- LEFT JOIN ietm_pm pm ON t.formid = pm.id AND t.nodetype = '2'
+        -- v1.5新增：JOIN v_wf_instance获取流程当前步骤（activityalias_字段）
+        -- 使用子查询确保每个formid只取最新的工作流实例
+        LEFT JOIN (
+            SELECT v1.formid_, v1.activityalias_
+            FROM v_wf_instance v1
+            INNER JOIN (
+                SELECT formid_, MAX(createtime_) AS max_createtime
+                FROM v_wf_instance
+                GROUP BY formid_
+            ) v2 ON v1.formid_ = v2.formid_ AND v1.createtime_ = v2.max_createtime
+        ) wf ON t.formid = wf.formid_
+        WHERE
+            /* ========== v1.5新增：只显示流程当前步骤的待办 ========== */
+            /* 核心过滤：节点名称必须等于流程当前步骤（对齐旧系统行为） */
+            /* 示例：DM1处于"DM编写"节点，则只显示"DM编写"待办；DM2处于"校对"节点，则只显示"校对"待办 */
+            t.nodename = wf.activityalias_
+
+            /* ========== v1.3修正：权限匹配（前缀编码模式） ========== */
+            AND
+            /*
+             * 数据模型：wf_instance_dtl.userid_ 存储单个值，通过前缀区分类型
+             * - 纯数字 = 用户ID（如 "1234567890123456789"）
+             * - dpt_xxx = 部门ID（如 "dpt_1234567890123456789"）
+             * - rol_xxx = 角色ID（如 "rol_1234567890123456789"）
+             * - grp_xxx = 用户组ID（如 "grp_1234567890123456789"）
+             * - pst_xxx = 岗位（如 "pst_技术主管"）
+             */
+            (
+                /* 1. 用户直接匹配（纯数字，无前缀） */
+                t.userid = #{params.userId}
+
+                /* 2. 部门匹配（dpt_前缀） */
+                OR (
+                    INSTR(t.userid, 'dpt_') = 1
+                    AND EXISTS (
+                        SELECT 1 FROM sys_user_depart ud
+                        WHERE ud.user_id = #{params.userId}
+                        AND t.userid = 'dpt_' || ud.dep_id
+                    )
+                )
+
+                /* 3. 角色匹配（rol_前缀） */
+                OR (
+                    INSTR(t.userid, 'rol_') = 1
+                    AND EXISTS (
+                        SELECT 1 FROM sys_user_role ur
+                        WHERE ur.user_id = #{params.userId}
+                        AND t.userid = 'rol_' || ur.role_id
+                    )
+                )
+
+                /* 4. 用户组匹配（grp_前缀，通过sys_depart.org_code实现） */
+                OR (
+                    INSTR(t.userid, 'grp_') = 1
+                    AND EXISTS (
+                        SELECT 1 FROM sys_user u
+                        INNER JOIN sys_depart d ON u.org_code = d.org_code
+                        WHERE u.id = #{params.userId}
+                        AND t.userid = 'grp_' || d.id
+                    )
+                )
+
+                /* 5. 岗位匹配（pst_前缀） */
+                OR (
+                    INSTR(t.userid, 'pst_') = 1
+                    AND EXISTS (
+                        SELECT 1 FROM sys_user u
+                        WHERE u.id = #{params.userId}
+                        AND t.userid = 'pst_' || u.post
+                    )
+                )
+            )
+
+            /* ========== 去重：排除当前用户已审批的节点 ========== */
+            AND NOT EXISTS (
+                SELECT 1 FROM wf_execute
+                WHERE instdtlid_ = t.dtlid
+                AND create_by = #{params.userId}
+                AND NVL(ifjump_, '0') = NVL(t.ifjump, '0')
+            )
+
+            /* ========== 项目过滤条件（参数化查询） ========== */
+            /* v1.4修正：分别过滤DM和PM类型 */
+            /* P0-3修复: ietm_pm表不存在，仅过滤DM类型 */
+            AND t.nodetype = '1'
+            AND t.formid IN (
+                SELECT id FROM ietm_data_module
+                WHERE cm_node_id IN (
+                    SELECT id FROM ietm_project_configuration_management
+                    WHERE project_id = #{params.projectId}
+                )
+                OR (cm_node_id = #{params.projectId} AND sns = 'DML')
+            )
+            /* PM类型过滤已禁用（ietm_pm表不存在），PM待办不会显示 */
+
+            /* ========== 搜索条件（参数化查询，防SQL注入） ========== */
+            <if test="params.searchField != null and params.searchValue != null and params.searchValue != ''">
+                <choose>
+                    <when test="params.searchField == 'title'">
+                        AND (
+                            CASE
+                                WHEN t.nodetype = '1' THEN COALESCE(dm.dmc_code, '(无标题-DM)')
+                                WHEN t.nodetype = '2' THEN '(PM待办-' || t.formid || ')'
+                                ELSE '(未知类型)'
+                            END
+                        ) LIKE CONCAT('%', #{params.searchValue}, '%')
+                    </when>
+                    <when test="params.searchField == 'nodename'">
+                        AND t.nodename LIKE CONCAT('%', #{params.searchValue}, '%')
+                    </when>
+                </choose>
+            </if>
+
+        ORDER BY t.nodetype ASC, t.ifurgent DESC, t.seqno ASC
+    </select>
+
 </mapper>

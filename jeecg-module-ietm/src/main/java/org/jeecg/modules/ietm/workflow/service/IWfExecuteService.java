@@ -2,6 +2,7 @@ package org.jeecg.modules.ietm.workflow.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.jeecg.modules.ietm.workflow.entity.WfExecute;
+import org.jeecg.modules.ietm.workflow.vo.BatchApproveResultVO;
 
 import java.util.List;
 
@@ -44,6 +45,18 @@ public interface IWfExecuteService extends IService<WfExecute> {
      * @return 最新执行记录
      */
     WfExecute getLatestByDtlId(String instdtlid);
+
+    /**
+     * 批量审批
+     * @param nodeIds 节点ID列表（dtlid）
+     * @param ifpass 处理结果：1=通过,2=不同意
+     * @param opinion 审批意见
+     * @param userId 当前用户ID
+     * @return 批量审批结果
+     * @throws Exception 业务异常
+     */
+    BatchApproveResultVO batchApprove(List<String> nodeIds, String ifpass,
+                                      String opinion, String userId) throws Exception;
 
     /**
      * 执行节点处理（核心业务方法）

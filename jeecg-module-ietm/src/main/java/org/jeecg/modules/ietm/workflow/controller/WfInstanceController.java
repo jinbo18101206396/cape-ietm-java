@@ -8,10 +8,12 @@ import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.modules.ietm.workflow.service.IWfInstanceService;
 import org.jeecg.modules.ietm.workflow.vo.BatchRestartFlowVO;
 import org.jeecg.modules.ietm.workflow.vo.BatchStartFlowVO;
+import org.jeecg.modules.ietm.workflow.vo.TodoItemVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.util.List;
 
 /**
  * @Description: 工作流实例Controller
@@ -160,6 +162,43 @@ public class WfInstanceController {
         } catch (Exception e) {
             log.error("终止流程失败", e);
             return Result.error("终止失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询我的待办列表
+     *
+     * 前端调用场景：
+     * 1. 首页Dashboard加载时自动调用
+     * 2. 用户切换项目时触发
+     * 3. 用户点击刷新按钮
+     * 4. 用户执行搜索操作
+     *
+     * 业务逻辑：
+     * - 只显示当前项目（projectId）的待办
+     * - 5种权限匹配（用户/部门/角色/用户组/岗位）- v1.3前缀编码模式
+     * - 排除当前用户已审批的节点
+     * - 支持4个维度的模糊搜索
+     *
+     * @param projectId   当前项目ID（必填）
+     * @param searchField 搜索字段（可选：title/nodename/created_name/creation_date_str）
+     * @param searchValue 搜索值（可选）
+     * @return 待办列表
+     */
+    @AutoLog(value = "工作流-查询我的待办")
+    @ApiOperation(value = "查询我的待办", notes = "查询当前用户在指定项目中的待办事项")
+    @GetMapping(value = "/myTodoList")
+    public Result<List<TodoItemVO>> getMyTodoList(
+            @RequestParam(required = true) String projectId,
+            @RequestParam(required = false) String searchField,
+            @RequestParam(required = false) String searchValue) {
+        try {
+            List<TodoItemVO> todoList = wfInstanceService.getMyTodoList(
+                    projectId, searchField, searchValue);
+            return Result.OK(todoList);
+        } catch (Exception e) {
+            log.error("查询我的待办失败", e);
+            return Result.error("查询待办列表失败：" + e.getMessage());
         }
     }
 }

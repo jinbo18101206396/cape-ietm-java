@@ -310,6 +310,37 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
+     * 批量查询签出状态
+     */
+    @AutoLog(value = "数据模块管理-批量查询签出状态")
+    @ApiOperation(value = "数据模块管理-批量查询签出状态", notes = "批量查询DM的签出状态")
+    @PostMapping(value = "/batchCheckoutStatus")
+    public Result<Map<String, Map<String, String>>> batchCheckoutStatus(
+            @ApiParam(value = "DM ID列表", required = true) @RequestBody List<String> dmIds) {
+        if (dmIds == null || dmIds.isEmpty()) {
+            return Result.error("DM ID列表不能为空");
+        }
+
+        Map<String, Map<String, String>> result = new HashMap<>();
+
+        // 批量查询签出状态
+        LambdaQueryWrapper<IetmDataModule> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.in(IetmDataModule::getId, dmIds);
+        queryWrapper.select(IetmDataModule::getId, IetmDataModule::getCheckoutUser, IetmDataModule::getCheckoutTime);
+
+        List<IetmDataModule> dmList = ietmDataModuleService.list(queryWrapper);
+
+        for (IetmDataModule dm : dmList) {
+            Map<String, String> statusMap = new HashMap<>();
+            statusMap.put("checkoutUser", dm.getCheckoutUser());
+            statusMap.put("checkoutTime", dm.getCheckoutTime() != null ? dm.getCheckoutTime().toString() : null);
+            result.put(dm.getId(), statusMap);
+        }
+
+        return Result.OK(result);
+    }
+
+    /**
      * 发布
      */
     @AutoLog(value = "数据模块管理-发布")
