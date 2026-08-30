@@ -30,6 +30,8 @@ import org.jeecg.modules.ietm.projectmanagement.service.IIetmProjectParamsServic
 import org.jeecg.modules.ietm.ietmroleauth.service.IIetmAuthCheckService;
 import org.jeecg.modules.ietm.ietmprojectcompany.service.IIetmProjectCompanyService;
 import org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany;
+import org.jeecg.modules.ietm.projectconfigurationmanagement.entity.IetmProjectConfigurationManagement;
+import org.jeecg.modules.ietm.projectconfigurationmanagement.service.IIetmProjectConfigurationManagementService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -66,6 +68,8 @@ public class IetmProjectController {
 	private RedisTemplate<String, Object> redisTemplate;
 	@Autowired
 	private IIetmProjectCompanyService ietmProjectCompanyService;
+	@Autowired
+	private IIetmProjectConfigurationManagementService projectConfigurationManagementService;
 
 	/**
 	 * 分页列表查询
@@ -463,6 +467,25 @@ public class IetmProjectController {
 		if (rpc != null) {
 			projectInfo.put("rpc", rpc.getCompanyCode());
 			projectInfo.put("rpcName", rpc.getCompanyName());
+		}
+
+		// ⭐ 新增：查询并返回CM根节点ID
+		try {
+			QueryWrapper<IetmProjectConfigurationManagement> cmQuery = new QueryWrapper<>();
+			cmQuery.eq("project_id", projectId);
+			cmQuery.eq("pid", "0");  // 根节点pid为"0"
+
+			IetmProjectConfigurationManagement rootNode =
+				projectConfigurationManagementService.getOne(cmQuery, false);
+
+			if (rootNode != null) {
+				projectInfo.put("cmRootNodeId", rootNode.getId());
+				log.debug("项目[{}]的CM根节点ID: {}", projectId, rootNode.getId());
+			} else {
+				log.warn("项目[{}]未配置配置管理根节点", projectId);
+			}
+		} catch (Exception e) {
+			log.error("查询项目[{}]的CM根节点失败: {}", projectId, e.getMessage(), e);
 		}
 
 		redisTemplate.opsForValue().set(redisKey, projectInfo, 6, TimeUnit.HOURS);
