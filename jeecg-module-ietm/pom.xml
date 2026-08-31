@@ -67,6 +67,19 @@
             <version>4.11.0</version>
             <scope>test</scope>
         </dependency>
+        <!-- DM8 数据库驱动：集成测试需要 (2026-08-31) -->
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
+            <version>1.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Spring Boot 测试启动器：@SpringBootTest 必需 (2026-08-31) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

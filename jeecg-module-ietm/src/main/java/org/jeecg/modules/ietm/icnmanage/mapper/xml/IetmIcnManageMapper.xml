@@ -172,15 +172,17 @@
     <select id="getReferencedByDmList" resultType="java.util.HashMap">
         SELECT
             icn_ref.id,
-            icn_ref.dm_code,
-            icn_ref.create_time,
+            dm.id as dmId,
+            dm.dmc_code as dmCode,
+            icn_ref.create_time as createTime,
             icn_ref.remark,
             dm.tech_name as dm_title,
             dm.info_name,
             dm.dm_type,
-            dm.issue_no
+            dm.issue_no,
+            dm.checkout_user as checkoutUser
         FROM ietm_icn_reference icn_ref
-        LEFT JOIN ietm_data_module dm ON icn_ref.dm_code = dm.id
+        INNER JOIN ietm_data_module dm ON icn_ref.dm_code = dm.id
         WHERE icn_ref.source_icn_id = #{icnId}
         AND icn_ref.reference_type = 'ICN_TO_DM'
         ORDER BY icn_ref.create_time DESC

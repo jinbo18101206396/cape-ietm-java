@@ -820,8 +820,25 @@ public class DmXmlHelper {
 
         int multimediaCount = result.size() - dmRefCount - graphicCount;
 
-        log.debug("extractReferencesFromXml: 共提取 {} 条引用（dmRef={}, graphic={}, multimedia={}）",
-                result.size(), dmRefCount, graphicCount, multimediaCount);
+        // 4. 提取 symbol 引用（图符标签，等同于 graphic）
+        for (Object node : root.selectNodes("//symbol[@infoEntityIdent]")) {
+            if (!(node instanceof org.dom4j.Element)) continue;
+            org.dom4j.Element symbol = (org.dom4j.Element) node;
+            String icn = symbol.attributeValue("infoEntityIdent");
+            if (icn != null && !icn.trim().isEmpty()) {
+                org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmRefExtractItemVO item =
+                        new org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmRefExtractItemVO();
+                item.setRefType("symbol");
+                item.setTargetDmc(icn.trim());
+                item.setRefPosition(symbol.getUniquePath());
+                result.add(item);
+            }
+        }
+
+        int symbolCount = result.size() - dmRefCount - graphicCount - multimediaCount;
+
+        log.debug("extractReferencesFromXml: 共提取 {} 条引用（dmRef={}, graphic={}, multimedia={}, symbol={}）",
+                result.size(), dmRefCount, graphicCount, multimediaCount, symbolCount);
         return result;
     }
 

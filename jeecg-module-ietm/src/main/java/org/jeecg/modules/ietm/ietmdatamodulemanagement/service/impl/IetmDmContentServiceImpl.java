@@ -40,6 +40,8 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
     @Resource private IetmDmTypeMapper     dmTypeMapper;
     @Resource private IIetmDmSchemaService schemaService;
     @Resource private IetmProjectMapper    projectMapper;
+    @Resource private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper icnReferenceMapper;
+    @Resource private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper icnManageMapper;
 
     private static final String DEFAULT_STANDARD = "S1000D4.0";
     private static final String DEFAULT_XSD      = "descript.xsd";
@@ -139,7 +141,7 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public String saveContent(String id, String content, Integer clientVersion, String username) {
+    public String saveContent(String id, String content, Integer clientVersion, String username) throws Exception {
         IetmDataModule dm = dataModuleMapper.selectById(id);
         if (dm == null) return "DM不存在";
 
@@ -164,6 +166,17 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
 
         int rows = dataModuleMapper.updateById(update);
         if (rows == 0) return "保存失败：数据已被他人修改(版本冲突)，请重新加载。";
+
+        // ✅ 自动同步 ICN 引用关系到 ietm_icn_reference 表
+        // 修复P1-2：ICN引用同步失败不应阻塞主流程，用户可通过"计算引用"按钮手动补偿
+        try {
+            syncIcnReferences(id, content, username);
+            log.info("saveContent ICN引用同步成功 dmId={}", id);
+        } catch (Exception e) {
+            log.error("saveContent ICN引用同步失败（不影响DM保存） dmId={} error={}", id, e.getMessage(), e);
+            // 不抛出异常，ICN引用失败不影响DM内容保存
+        }
+
         return null; // 成功
     }
 
@@ -592,5 +605,40 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
 
             xml.append("  </dmRefAddressItems>\n");
         }
+    }
+
+    // ── ICN引用自动同步（§需求2：DM引用ICN时自动创建ietm_icn_reference记录） ─────
+
+    /**
+     * 同步 DM 中的 ICN 引用关系到 ietm_icn_reference 表
+     * <p>
+     * 从 XML 中提取所有 graphic/@infoEntityIdent、multimedia/@infoEntityIdent 和 symbol/@infoEntityIdent，
+     * 查询对应的 ICN 记录，批量创建 ietm_icn_reference 记录（referenceType=ICN_TO_DM）。
+     * <p>
+     * 特性：
+     * <ul>
+     *   <li>幂等性：已存在的引用不重复插入</li>
+     *   <li>只增不删：XML 中删除 ICN 引用后，旧记录保持不变</li>
+     *   <li>事务性：同步失败会导致整个保存操作回滚</li>
+     * </ul>
+     *
+     * @param dmId DM主键
+     * @param xmlContent DM的XML内容
+     * @param username 当前用户名
+     * @throws Exception 同步失败时抛出，触发事务回滚
+     */
+    /**
+     * 同步ICN引用关系（DM保存场景）
+     * <p>委托给 IetmIcnReferenceHelper 执行统一逻辑</p>
+     */
+    private void syncIcnReferences(String dmId, String xmlContent, String username) throws Exception {
+        org.jeecg.modules.ietm.ietmdatamodulemanagement.util.IetmIcnReferenceHelper.syncIcnReferences(
+                dmId,
+                xmlContent,
+                username,
+                org.jeecg.modules.ietm.ietmdatamodulemanagement.constants.IetmDataModuleConstants.ICN_REF_REMARK_SAVE,
+                icnManageMapper,
+                icnReferenceMapper
+        );
     }
 }

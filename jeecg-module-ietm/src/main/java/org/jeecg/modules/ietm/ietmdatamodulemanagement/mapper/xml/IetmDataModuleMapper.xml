@@ -152,6 +152,8 @@
         <result column="country_iso_code"        property="countryIsoCode"/>
         <result column="rpc"                     property="rpc"/>
         <result column="rpc_name"                property="rpcName"/>
+        <!-- 🔧 DM内容字段：用于预览/详情/编辑器场景 (2026-08-31修复) -->
+        <result column="dm_content"              property="dmContent"/>
     </resultMap>
 
     <!-- ResultMap（历史版本专用，包含dm_content用于浏览）-->
@@ -343,6 +345,7 @@
 
     <!-- 6b. 查询单条数据模块（JOIN流程视图）- 用于签出等实时流程节点判断 -->
     <!-- 🔧 IETM-CHECKOUT-NODE-001 修复：使用独立的 ResultMap，不依赖继承机制 -->
+    <!-- 🔧 2026-08-31 修复：添加 dm_content 字段，用于预览/详情/编辑器场景 -->
     <select id="selectByIdWithFlow" resultMap="SelectByIdWithFlowResultMap">
         SELECT
             t1.id, t1.project_id, t1.project_name, t1.sns, t1.info_code, t1.info_code_variant,
@@ -352,6 +355,7 @@
             t1.workflow_instance_id, t1.workflow_status, t1.dmc_code, t1.create_time, t1.update_time,
             t1.dm_type, t1.security, t1.issue_date, t1.language_iso_code, t1.country_iso_code,
             t1.rpc, t1.rpc_name,
+            t1.dm_content,  -- DM内容（CLOB字段）
             -- 从流程视图获取动态字段
             v.activityalias_ AS activityalias_,   -- 流程当前步骤（实时计算）
             v.currenthandler_ AS currenthandler_  -- 当前待办人（实时）

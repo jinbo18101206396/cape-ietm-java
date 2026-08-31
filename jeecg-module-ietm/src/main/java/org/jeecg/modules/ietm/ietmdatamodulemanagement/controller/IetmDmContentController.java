@@ -53,8 +53,13 @@ public class IetmDmContentController {
     public Result<String> save(@PathVariable String id,
                                @Valid @RequestBody DmSaveVO vo,
                                HttpServletRequest req) {
-        String err = contentService.saveContent(id, vo.getContent(), vo.getVersion(), getUsername(req));
-        return err == null ? Result.OK("保存成功") : Result.error(err);
+        try {
+            String err = contentService.saveContent(id, vo.getContent(), vo.getVersion(), getUsername(req));
+            return err == null ? Result.OK("保存成功") : Result.error(err);
+        } catch (Exception e) {
+            log.error("保存DM内容失败 dmId={} error={}", id, e.getMessage(), e);
+            return Result.error("保存失败：" + e.getMessage());
+        }
     }
 
     /**

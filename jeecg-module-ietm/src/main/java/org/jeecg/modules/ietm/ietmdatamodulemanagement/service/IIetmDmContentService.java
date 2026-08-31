@@ -19,8 +19,9 @@ public interface IIetmDmContentService {
     /**
      * 仅保存 XML 正文（§15）。契约：只更新 dm_content + 乐观锁；前置校验"本人已签出"。
      * @return 空=成功；非空=错误信息（如版本冲突/未签出/非本人）
+     * @throws Exception 同步ICN引用失败时抛出，触发事务回滚
      */
-    String saveContent(String id, String content, Integer clientVersion, String username);
+    String saveContent(String id, String content, Integer clientVersion, String username) throws Exception;
 
     /** XSD 校验（§17.5 CONFIRMED）。返回错误列表；空列表=通过 */
     List<DmValidateItemVO> validateXsd(String content, String standard, String schema, String dmId);

@@ -178,6 +178,12 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Autowired
     private IIetmDmContentService dmContentService;
 
+    @Autowired
+    private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper icnManageMapper;
+
+    @Autowired
+    private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper icnReferenceMapper;
+
     /**
      * 获取项目信息（包含SNS编码）
      */
@@ -787,15 +793,15 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         }
 
         // P2-4修复：空内容DM明确拦截
-        IetmDataModule fullDm = this.getById(id);
-        if (fullDm == null || StringUtils.isBlank(fullDm.getDmContent())) {
+        // 🔧 2026-08-31修复：直接使用上面selectByIdWithFlow查询的dm对象（已包含dm_content）
+        // 避免使用this.getById()重复查询（可能不包含CLOB字段）
+        if (dm == null || StringUtils.isBlank(dm.getDmContent())) {
             throw new JeecgBootException("DM内容为空，无法发布");
         }
 
         // ========== 新增：XSD Schema 校验 ==========
         // REQ-PUB-004：发布前必须通过XSD校验
-        // 注意：使用上面已查询的fullDm，避免重复查询
-        if (StringUtils.isNotBlank(fullDm.getDmContent())) {
+        if (StringUtils.isNotBlank(dm.getDmContent())) {
             // 获取项目标准和schema
             IetmProject project = projectService.getById(dm.getProjectId());
             String standard = project != null ? project.getIetmStandard() : null;
@@ -814,7 +820,7 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
             // 执行XSD校验
             List<DmValidateItemVO> errors = dmContentService.validateXsd(
-                fullDm.getDmContent(), standard, schema, id
+                dm.getDmContent(), standard, schema, id
             );
 
             if (!errors.isEmpty()) {
@@ -923,10 +929,10 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
         // ✅ 同步版本号变更到 XML 内部的 issueInfo
         // 注意：发布时版本号已变化（issueNo+1, inWork=00），需要同步到 XML
-        // ✅ P1修复：直接使用line 770查询的XML（fullDm），不再重复查询
+        // ✅ P1修复：直接使用line 761查询的dm对象（已包含dm_content）
         // 避免在UPDATE之后再次查询可能获取到其他事务修改后的XML
-        if (StringUtils.isNotBlank(fullDm.getDmContent())) {
-            String syncedXml = DmXmlHelper.syncDmIdentToXml(fullDm.getDmContent(), dm);
+        if (StringUtils.isNotBlank(dm.getDmContent())) {
+            String syncedXml = DmXmlHelper.syncDmIdentToXml(dm.getDmContent(), dm);
             // 单独更新 dm_content 字段
             this.update(new LambdaUpdateWrapper<IetmDataModule>()
                 .eq(IetmDataModule::getId, dm.getId())
@@ -1210,18 +1216,28 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
                         first.getRefType(), first.getCreateBy());
             }
             // 逐条插入，避免MyBatis-Plus的TenantLineInnerInterceptor解析INSERT ALL失败
+            // 【防重复机制】捕获DuplicateKeyException，兼容并发场景
             int successCount = 0;
+            int duplicateCount = 0;
             for (IetmDmRef ref : toInsert) {
                 try {
                     ietmDmRefMapper.insertOne(ref);
                     successCount++;
+                    log.debug("calculateDmReferences 插入成功 dmId={} targetDmId={} refType={} refPosition={}",
+                            dmId, ref.getTargetDmId(), ref.getRefType(), ref.getRefPosition());
+                } catch (org.springframework.dao.DuplicateKeyException e) {
+                    // 【第二层防护】唯一索引冲突，说明记录已存在（并发场景）
+                    duplicateCount++;
+                    log.debug("calculateDmReferences 记录已存在（并发场景） dmId={} targetDmId={} refType={} refPosition={}",
+                            dmId, ref.getTargetDmId(), ref.getRefType(), ref.getRefPosition());
                 } catch (Exception e) {
-                    log.error("calculateDmReferences 单条插入失败 dmId={} refId={} error={}",
-                            dmId, ref.getId(), e.getMessage());
+                    log.error("calculateDmReferences 单条插入失败 dmId={} refId={} targetDmId={} error={}",
+                            dmId, ref.getId(), ref.getTargetDmId(), e.getMessage());
                     // 继续插入其他记录
                 }
             }
-            log.info("calculateDmReferences 插入新引用完成 成功={}/{} dmId={}", successCount, toInsert.size(), dmId);
+            log.info("calculateDmReferences 插入新引用完成 成功={} 重复={} 失败={} 总数={} dmId={}",
+                    successCount, duplicateCount, (toInsert.size() - successCount - duplicateCount), toInsert.size(), dmId);
         } else {
             log.info("calculateDmReferences 无需插入新引用 dmId={}", dmId);
         }
@@ -1235,14 +1251,35 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         for (String tid : affectedTargetIds) updateReferenceCount(tid);
 
         Integer finalRefCount = ietmDmRefMapper.countOutReferences(dmId);
+
+        // ⑦ 同步ICN引用到 ietm_icn_reference 表（新增功能）
+        long icnRefCount = 0L;
+        try {
+            log.info("calculateDmReferences 开始同步ICN引用 dmId={}", dmId);
+            syncIcnReferencesForCalculate(dmId, dmContent, currentUser);
+
+            // 统计ICN引用数量
+            icnRefCount = icnReferenceMapper.selectCount(
+                new LambdaQueryWrapper<org.jeecg.modules.ietm.icnmanage.entity.IetmIcnReference>()
+                    .eq(org.jeecg.modules.ietm.icnmanage.entity.IetmIcnReference::getDmCode, dmId)
+                    .eq(org.jeecg.modules.ietm.icnmanage.entity.IetmIcnReference::getReferenceType,
+                        org.jeecg.modules.ietm.ietmdatamodulemanagement.constants.IetmDataModuleConstants.REF_TYPE_ICN_TO_DM)
+            );
+            log.info("calculateDmReferences ICN引用同步完成 dmId={} icnRefCount={}", dmId, icnRefCount);
+        } catch (Exception e) {
+            log.error("calculateDmReferences ICN引用同步失败（不影响DM引用） dmId={} error={}", dmId, e.getMessage(), e);
+            // 不抛出异常，ICN引用失败不影响DM引用的计算
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("dmId", dmId);
         result.put("dmcCode", srcDmc);
         result.put("techName", dm.getTechName());
         result.put("refCount", finalRefCount);
+        result.put("icnRefCount", icnRefCount);  // 新增：返回ICN引用数量
         result.put("details", details);
 
-        log.info("calculateDmReferences END dmId={} refCount={}", dmId, finalRefCount);
+        log.info("calculateDmReferences END dmId={} refCount={} icnRefCount={}", dmId, finalRefCount, icnRefCount);
         return result;
     }
 
@@ -1509,7 +1546,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     public void exportXml(String id, HttpServletResponse response) {
         try {
             // 1. 查询DM数据
-            IetmDataModule dataModule = this.getById(id);
+            // 🔧 2026-08-31修复：使用baseMapper.selectById确保获取dm_content
+            IetmDataModule dataModule = baseMapper.selectById(id);
             if (dataModule == null) {
                 throw new JeecgBootException("未找到ID为" + id + "的数据模块");
             }
@@ -2005,7 +2043,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     @Transactional(rollbackFor = Exception.class)
     public String copyDm(String id, String targetProjectId, Integer copyType, String username) {
         log.info("复制数据模块，源ID：{}，目标项目：{}，类型：{}", id, targetProjectId, copyType);
-        IetmDataModule sourceDm = this.getById(id);
+        // 🔧 2026-08-31修复：使用baseMapper.selectById确保获取dm_content
+        IetmDataModule sourceDm = baseMapper.selectById(id);
         if (sourceDm == null) {
             throw new JeecgBootException("源数据模块不存在");
         }
@@ -2224,7 +2263,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Override
     public void previewDm(String id, HttpServletResponse response) {
-        IetmDataModule dm = this.getById(id);
+        // 🔧 2026-08-31修复：使用baseMapper.selectById确保获取dm_content
+        IetmDataModule dm = baseMapper.selectById(id);
         if (dm == null) {
             throw new RuntimeException("DM不存在");
         }
@@ -3161,7 +3201,8 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
     }
 
     private IetmDataModule validateAndGetSourceDm(String sourceDmId) {
-        IetmDataModule sourceDm = this.getById(sourceDmId);
+        // 🔧 2026-08-31修复：使用baseMapper.selectById确保获取dm_content
+        IetmDataModule sourceDm = baseMapper.selectById(sourceDmId);
         if (sourceDm == null) {
             throw new JeecgBootException("源DM不存在");
         }
@@ -3633,5 +3674,31 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             result.put("error", e.getMessage());
             return result;
         }
+    }
+
+    /**
+     * 为"计算引用"功能同步ICN引用关系
+     * <p>
+     * 复用 IetmDmContentServiceImpl.syncIcnReferences 的逻辑，
+     * 在计算DM引用时同时创建ICN引用记录。
+     *
+     * @param dmId DM主键
+     * @param xmlContent DM的XML内容
+     * @param username 当前用户名
+     * @throws Exception 同步失败时抛出
+     */
+    /**
+     * 同步ICN引用关系（计算引用场景）
+     * <p>委托给 IetmIcnReferenceHelper 执行统一逻辑</p>
+     */
+    private void syncIcnReferencesForCalculate(String dmId, String xmlContent, String username) throws Exception {
+        org.jeecg.modules.ietm.ietmdatamodulemanagement.util.IetmIcnReferenceHelper.syncIcnReferences(
+                dmId,
+                xmlContent,
+                username,
+                org.jeecg.modules.ietm.ietmdatamodulemanagement.constants.IetmDataModuleConstants.ICN_REF_REMARK_CALCULATE,
+                icnManageMapper,
+                icnReferenceMapper
+        );
     }
 }
