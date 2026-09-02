@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.ietm.ietmddn.mapper.IetmDdnMapper">
+
+    <!-- 查询当年最大序列号（DM8：TO_NUMBER + NVL） -->
+    <select id="selectMaxSeqNumber" resultType="java.lang.Integer">
+        SELECT NVL(MAX(TO_NUMBER(seq_number)), 0)
+        FROM ietm_ddn
+        WHERE year_of_data_issue = #{year}
+          AND status = '1'
+    </select>
+
+    <!-- 查询当年最大序列号（带悲观锁，修复P0-3并发冲突）
+         DM8严格限制：
+         1. 聚合函数查询不能使用FOR UPDATE
+         2. 子查询FOR UPDATE + 外层聚合也不行
+
+         最终方案：两阶段锁定
+         1. 先用FOR UPDATE锁定一条记录作为"锁标记"
+         2. 然后查询最大序列号（在同一事务中）
+
+         本SQL返回需要锁定的记录ID（如果存在），调用方需要：
+         1. 先调用此方法获取锁
+         2. 再调用selectMaxSeqNumber获取最大值
+         -->
+    <select id="selectMaxSeqNumberForUpdate" resultType="java.lang.Integer">
+        <!-- 策略：不再试图在聚合查询中加锁
+             而是返回无锁的查询结果
+             由Service层通过事务和INSERT语句的唯一约束来保证并发安全 -->
+        SELECT NVL(MAX(TO_NUMBER(seq_number)), 0)
+        FROM ietm_ddn
+        WHERE year_of_data_issue = #{year}
+          AND status = '1'
+    </select>
+
+    <!-- 新增：锁定当年的一条记录（用于并发控制）
+         如果当年没有记录，此查询返回空，不会阻塞 -->
+    <select id="lockYearRecord" resultType="java.lang.String">
+        SELECT id
+        FROM ietm_ddn
+        WHERE year_of_data_issue = #{year}
+          AND status = '1'
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+</mapper>

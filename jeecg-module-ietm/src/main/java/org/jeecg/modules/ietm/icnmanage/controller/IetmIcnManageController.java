@@ -187,6 +187,25 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     }
 
     /**
+     * 通过ICN编码查询（用于导出实体功能）
+     */
+    @ApiOperation(value = "通过ICN编码查询", notes = "通过ICN编码查询ICN详情")
+    @GetMapping(value = "/queryByIcnCode")
+    public Result<IetmIcnManage> queryByIcnCode(@RequestParam(name = "icn") @NotBlank(message = "ICN编码不能为空") String icn) {
+        // 使用Lambda查询
+        IetmIcnManage ietmIcnManage = ietmIcnManageService.lambdaQuery()
+                .eq(IetmIcnManage::getIcn, icn)
+                .orderByDesc(IetmIcnManage::getCreateTime)
+                .last("LIMIT 1")
+                .one();
+
+        if (ietmIcnManage == null) {
+            return Result.error("未找到ICN编码为 " + icn + " 的实体");
+        }
+        return Result.OK(ietmIcnManage);
+    }
+
+    /**
      * 相关文件上传
      */
     // @AutoLog(value = "项目实体管理-相关文件上传")  // 注释掉，避免序列化MultipartFile导致FastJSON错误
