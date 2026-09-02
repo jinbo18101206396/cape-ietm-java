@@ -1,71 +1,85 @@
+# 测试环境配置 - 最小化配置以支持 @SpringBootTest
+# 2026-08-31: 为 DM内容预览修复验证测试创建
+
+server:
+  port: 8080
+
 spring:
-  mail:
-    host: smtp.163.com
-    username: test@test.com
-    password: test
-    port: 465
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
   datasource:
-    type: com.alibaba.druid.pool.DruidDataSource
     druid:
+      stat-view-servlet:
+        enabled: false
+      web-stat-filter:
+        enabled: false
       driverClassName: dm.jdbc.driver.DmDriver
       url: jdbc:dm://127.0.0.1:5236/?IETM&zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=utf-8
       username: IETM
       password: AvicCape301
-      initialSize: 2
+      validationQuery: SELECT 1 FROM DUAL
       minIdle: 1
       maxActive: 5
+  redis:
+    database: 0
+    host: 127.0.0.1
+    port: 6379
+    password: avicit
+  mail:
+    host: smtp.test.com
+    port: 25
+    username: test@test.com
+    password: test123
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
 
-# 集成测试用文件路径占位（IetmAttachmentServiceImpl等依赖，测试不实际读写）
-accessFile:
-  resourceHandler: /showStaticDir/**
-  location: ${java.io.tmpdir}/ietm-test/file
-  decryptLocation: ${java.io.tmpdir}/ietm-test/file/decrypt
-  icnLocation: ${java.io.tmpdir}/ietm-test/file/icn
-
-# jeecg框架必需占位（附件/ICN/ES等Bean的@Value依赖，测试不实际使用这些功能）
-jeecg:
-  safeMode: false
-  signatureSecret: dd05f1c54d63749eda95f9fa6d49v442a
-  uploadType: local
-  path:
-    upload: ${accessFile.location}
-    webapp: ${accessFile.location}/webapp
-  # ES关闭健康检查，避免测试环境无ES导致启动失败
-  elasticsearch:
-    cluster-name: jeecg-ES
-    cluster-nodes: 127.0.0.1:9200
-    check-enabled: false
-  oss:
-    accessKey: test
-    secretKey: test
-    endpoint: oss-cn-beijing.aliyuncs.com
-    bucketName: test
-  minio:
-    minio_url: http://minio.jeecg.com
-    minio_name: test
-    minio_pass: test
-    bucketName: test
-  jmreport:
-    mode: dev
-    is_verify_token: false
-  xxljob:
-    enabled: false
-  shiro:
-    excludeUrls: ""
-
+# MyBatis-Plus 配置
 mybatis-plus:
   mapper-locations: classpath*:org/jeecg/modules/**/xml/*Mapper.xml
   global-config:
     banner: false
+    db-config:
+      id-type: ASSIGN_ID
+      table-underline: true
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    call-setters-on-nulls: true
 
-logging:
-  level:
-    root: WARN
-    org.jeecg.modules.ietm: INFO
-    org.springframework: WARN
+# Jeecg 最小配置（防止启动报错）
+jeecg:
+  path:
+    upload: /opt/upFiles
+  uploadType: local
+  elasticsearch:
+    cluster-nodes: 127.0.0.1:9200
+    cluster-name: elasticsearch
+    check-enabled: false
+  minio:
+    minio_url: http://localhost:9000
+    minio_name: test
+    minio_pass: test123
+    bucketName: test
+  oss:
+    endpoint: test-endpoint
+    accessKey: test-key
+    secretKey: test-secret
+    bucketName: test-bucket
+
+# 文件访问路径配置（测试环境）
+accessFile:
+  location: /opt/ietm/test
+  icnLocation: /opt/ietm/test/icn
+  dmLocation: /opt/ietm/test/dm
+  baseLocation: /opt/ietm/test
+
+# IETM 业务配置（测试环境）
+ietm:
+  xsl:
+    path: /opt/ietm/test/xsl
+  schema:
+    path: /opt/ietm/test/schema
+  project:
+    default: TEST_PROJECT
