@@ -394,30 +394,47 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
     /**
      * 输出解密后的文件
-     * @param fileKey 文件Key（相对路径，如：icn\xxxxx.jpg）
+     * @param fileKey 文件Key（相对路径，如：icn\xxxxx.jpg 或 project/xxx/icn/xxxxx.jpg）
      * @param response HTTP响应
      * @param setContentType 是否设置Content-Type（预览需要，下载不需要）
      */
     private void outputDecryptedFile(String fileKey, HttpServletResponse response, boolean setContentType) throws IOException {
-        // 提取文件名
-        String fileName = extractFileName(fileKey);
+        // 修复P0缺陷：支持完整相对路径格式
+        // 导入时保存的fileKey格式：project/{projectId}/icn/{fileName}
+        // 之前的逻辑只提取文件名，导致路径不匹配，文件找不到
 
-        // 构建文件物理路径
-        String filePath = fileStorageLocation + File.separator + fileName;
+        // 统一路径分隔符为正斜杠
+        String normalizedFileKey = fileKey.replace("\\", "/");
+
+        // 尝试1：使用完整相对路径（新格式，导入后的文件）
+        String filePath = fileStorageLocation + File.separator + normalizedFileKey.replace("/", File.separator);
         File file = new File(filePath);
 
         if (!file.exists()) {
-            log.error("文件不存在: {}", filePath);
-            if (setContentType) {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return;
+            // 尝试2：使用旧格式（只有文件名，向后兼容）
+            String fileName = extractFileName(fileKey);
+            String legacyFilePath = fileStorageLocation + File.separator + fileName;
+            File legacyFile = new File(legacyFilePath);
+
+            if (legacyFile.exists()) {
+                file = legacyFile;
+                filePath = legacyFilePath;
+                log.debug("使用旧格式路径：fileKey={}, legacyPath={}", fileKey, legacyFilePath);
             } else {
-                throw new JeecgBootException("文件不存在: " + filePath);
+                log.error("文件不存在: fileKey={}, 尝试路径1={}, 尝试路径2={}",
+                          fileKey, filePath, legacyFilePath);
+                if (setContentType) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    return;
+                } else {
+                    throw new JeecgBootException("文件不存在: " + fileKey);
+                }
             }
         }
 
         // 预览模式：设置Content-Type和缓存
         if (setContentType) {
+            String fileName = extractFileName(fileKey);
             String fileExt = "";
             if (fileName.contains(".")) {
                 fileExt = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
@@ -433,7 +450,7 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
             output.flush();
         } catch (Exception e) {
             String errorMsg = setContentType ? "文件预览失败" : "文件下载失败";
-            log.error(errorMsg, e);
+            log.error(errorMsg + ": fileKey={}, filePath={}", fileKey, filePath, e);
             throw new IOException(errorMsg, e);
         }
     }
@@ -599,45 +616,62 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
     /**
      * 保存附件记录并加密存储文件
+     *
+     * 修复说明（2026-09-05）：统一使用 project/{projectId}/icn/ 目录结构
+     * - 修复前：所有手工上传的ICN保存在 icn/ 目录，可能文件名冲突
+     * - 修复后：统一使用 project/{projectId}/icn/ 目录，按项目隔离，无冲突风险
+     * - 对齐导入逻辑，实现路径格式统一
      */
     private void saveAttachment(String icnId, MultipartFile file, String fileType,
                                 Integer security, String createBy) throws IOException {
-        // 1. 生成文件唯一标识
+        // 1. 获取ICN的projectId（通过cmNodeId查询）
+        IetmIcnManage icn = this.getById(icnId);
+        if (icn == null) {
+            throw new JeecgBootException("ICN记录不存在");
+        }
+
+        String projectId = getProjectIdByCmNodeId(icn.getCmNodeId());
+        if (projectId == null) {
+            throw new JeecgBootException("无法获取项目ID，cmNodeId=" + icn.getCmNodeId());
+        }
+
+        // 2. 生成文件唯一标识
         String fileName = file.getOriginalFilename();
         String fileKey = UUID.randomUUID().toString();
         if (fileName != null && fileName.contains(".")) {
             fileKey += fileName.substring(fileName.lastIndexOf("."));
         }
 
-        // 2. 加密存储文件到ICN专用目录
-        // fileStorageLocation = D:\workspace\IETM\file\icn
-        File storageDir = new File(fileStorageLocation);
-        if (!storageDir.exists()) {
-            storageDir.mkdirs();
+        // 3. 使用 project/{projectId}/icn/ 目录结构（对齐导入逻辑）
+        String relativeDir = "project/" + projectId + "/icn";
+        File icnDir = new File(fileStorageLocation, relativeDir);
+        if (!icnDir.exists()) {
+            icnDir.mkdirs();
         }
 
-        // 物理文件保存路径：D:\workspace\IETM\file\icn\xxxxx.jpg
-        String filePath = fileStorageLocation + File.separator + fileKey;
+        // 4. 加密存储文件
+        // 物理文件保存路径：fileStorageLocation/project/{projectId}/icn/{uuid}.jpg
+        String relativePath = relativeDir + "/" + fileKey;
+        String filePath = fileStorageLocation + File.separator + relativePath.replace("/", File.separator);
+
         try (InputStream input = file.getInputStream()) {
             DESUtils.encodeBase64File(input, filePath, null);
         } catch (Exception e) {
-            log.error("文件加密存储失败", e);
+            log.error("文件加密存储失败: relativePath={}", relativePath, e);
             throw new IOException("文件加密存储失败", e);
         }
 
-        // 3. 保存附件记录
-        // fileKey存储相对于基础路径(D:\workspace\IETM\file)的相对路径：icn/xxxxx.jpg
-        // 这样预览时 CommonController 会拼接为：D:\workspace\IETM\file + icn/xxxxx.jpg
-        String relativeFileKey = "icn" + File.separator + fileKey;
-
-        // 4. 提取位图尺寸，存入 fileProp = "宽,高"（供图符弹窗自动回填宽高输入框）
+        // 5. 提取位图尺寸，存入 fileProp = "宽,高"（供图符弹窗自动回填宽高输入框）
         String fileProp = extractImageDimensions(file, fileName);
 
+        // 6. 保存附件记录
+        // fileKey存储完整相对路径：project/{projectId}/icn/{uuid}.jpg
+        // 这样预览时可以直接拼接：fileStorageLocation + fileKey
         IetmAttachment attachment = new IetmAttachment();
         attachment.setId(String.valueOf(IdWorker.getId()));
         attachment.setPid(icnId);
         attachment.setFileName(fileName);
-        attachment.setFileKey(relativeFileKey);
+        attachment.setFileKey(relativePath);  // ✅ 统一为完整相对路径
         attachment.setFileSize(new BigDecimal(file.getSize()).divide(new BigDecimal(1024), 2, BigDecimal.ROUND_HALF_UP));
         attachment.setFileType(fileType);
         attachment.setFileProp(fileProp);
@@ -646,6 +680,28 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         attachment.setCreateTime(new Date());
 
         attachmentService.save(attachment);
+
+        log.info("成功保存ICN附件：icnId={}, relativePath={}", icnId, relativePath);
+    }
+
+    /**
+     * 通过构型节点ID获取项目ID
+     *
+     * @param cmNodeId 构型节点ID
+     * @return 项目ID
+     */
+    private String getProjectIdByCmNodeId(String cmNodeId) {
+        if (StringUtils.isBlank(cmNodeId)) {
+            return null;
+        }
+
+        IetmProjectConfigurationManagement config = configurationService.getById(cmNodeId);
+        if (config == null) {
+            log.warn("构型节点不存在: cmNodeId={}", cmNodeId);
+            return null;
+        }
+
+        return config.getProjectId();
     }
 
     /**

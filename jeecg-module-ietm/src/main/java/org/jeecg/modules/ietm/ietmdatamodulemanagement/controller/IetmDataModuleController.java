@@ -727,6 +727,28 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
+     * 上传DM资源文件（项目隔离路径）
+     * 参照ICN修复方案，统一使用 project/{projectId}/dm_resource/ 格式
+     */
+    @AutoLog(value = "数据模块管理-上传资源文件")
+    @ApiOperation(value = "数据模块管理-上传资源文件", notes = "上传DM资源文件到项目专属目录")
+    @PostMapping(value = "/uploadDmResource")
+    public Result<String> uploadDmResource(
+            @ApiParam(value = "模块ID", required = true) @RequestParam String dmId,
+            @ApiParam(value = "资源名称", required = true) @RequestParam String resourceName,
+            @ApiParam(value = "说明") @RequestParam(required = false) String comment,
+            @ApiParam(value = "文件", required = true) @RequestParam("file") MultipartFile file) {
+
+        try {
+            String filePath = ietmDataModuleService.uploadDmResource(dmId, resourceName, comment, file);
+            return Result.OK("资源上传成功", filePath);
+        } catch (Exception e) {
+            log.error("上传DM资源失败", e);
+            return Result.error("资源上传失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 更新DM资源
      */
     @AutoLog(value = "数据模块管理-更新资源")

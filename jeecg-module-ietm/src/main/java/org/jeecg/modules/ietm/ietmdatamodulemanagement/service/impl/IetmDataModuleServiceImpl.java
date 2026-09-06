@@ -45,15 +45,19 @@ import org.jeecg.modules.ietm.ietmdatamodulemanagement.exception.DmValidationExc
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmValidateItemVO;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDmContentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -183,6 +187,9 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
 
     @Autowired
     private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper icnReferenceMapper;
+
+    @Value("${accessFile.location:D:/workspace/IETM/file}")
+    private String fileStorageLocation;
 
     /**
      * 获取项目信息（包含SNS编码）
@@ -2498,6 +2505,123 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
         // 如需统计资源数量，可在查询时动态计算
 
         return result > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String uploadDmResource(String dmId, String resourceName, String comment, MultipartFile file) throws Exception {
+        // 1. 验证DM是否存在
+        IetmDataModule dm = this.getById(dmId);
+        if (dm == null) {
+            throw new JeecgBootException("DM不存在：ID=" + dmId);
+        }
+
+        // 2. 获取DM所属的projectId
+        String projectId = getProjectIdByDm(dm);
+        if (projectId == null) {
+            throw new JeecgBootException("无法获取DM所属项目ID");
+        }
+
+        // 3. 生成文件名（时间戳 + 原始文件名，避免冲突）
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null || originalFileName.isEmpty()) {
+            originalFileName = "resource_" + System.currentTimeMillis();
+        }
+        String safeFileName = System.currentTimeMillis() + "_" + sanitizeFileName(originalFileName);
+
+        // 4. 构建项目隔离的存储路径（对齐导入逻辑）
+        String relativeDir = "project/" + projectId + "/dm_resource";
+        File resourceDir = new File(fileStorageLocation, relativeDir);
+        if (!resourceDir.exists()) {
+            resourceDir.mkdirs();
+        }
+
+        File targetFile = new File(resourceDir, safeFileName);
+        String relativePath = relativeDir + "/" + safeFileName;
+
+        // 5. 路径遍历防护
+        Path targetFilePath = targetFile.toPath().toAbsolutePath().normalize();
+        Path baseFilePath = new File(fileStorageLocation).toPath().toAbsolutePath().normalize();
+        if (!targetFilePath.startsWith(baseFilePath)) {
+            throw new JeecgBootException("目标文件路径非法：存在路径遍历风险");
+        }
+
+        // 6. 保存文件到磁盘
+        try {
+            file.transferTo(targetFile);
+            log.info("成功保存资源文件：{} -> {}", originalFileName, relativePath);
+        } catch (Exception e) {
+            log.error("保存资源文件失败：{}", relativePath, e);
+            throw new JeecgBootException("文件保存失败：" + e.getMessage());
+        }
+
+        // 7. 保存资源记录到数据库
+        IetmDmComment dmComment = new IetmDmComment();
+        dmComment.setDmId(dmId);
+        dmComment.setFilePath(relativePath);      // 完整相对路径
+        dmComment.setFileName(originalFileName);   // 原始文件名
+        dmComment.setResourceName(resourceName);   // 资源名称
+        dmComment.setFileSize(file.getSize());     // 文件大小（字节）
+        dmComment.setRemark(comment);              // 说明
+        dmComment.setOperateTime(new Date());
+        dmComment.setOperator(getCurrentUsername());
+
+        int result = ietmDmCommentMapper.insert(dmComment);
+        if (result == 0) {
+            // 数据库插入失败，删除已保存的物理文件
+            if (targetFile.exists()) {
+                targetFile.delete();
+            }
+            throw new JeecgBootException("保存资源记录到数据库失败");
+        }
+
+        log.info("成功上传DM资源：dmId={}, resourceName={}, relativePath={}", dmId, resourceName, relativePath);
+
+        return relativePath;
+    }
+
+    /**
+     * 获取DM所属的项目ID
+     */
+    private String getProjectIdByDm(IetmDataModule dm) {
+        if (dm.getCmNodeId() == null || dm.getCmNodeId().isEmpty()) {
+            return null;
+        }
+
+        IetmProjectConfigurationManagement config = configurationService.getById(dm.getCmNodeId());
+        if (config == null) {
+            log.warn("配置节点不存在：cmNodeId={}", dm.getCmNodeId());
+            return null;
+        }
+
+        return config.getProjectId();
+    }
+
+    /**
+     * 清理文件名（移除不安全字符）
+     */
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            return "file";
+        }
+
+        // 移除路径分隔符和特殊字符
+        String safe = fileName.replaceAll("[/\\\\:*?\"<>|]", "_");
+
+        // 限制文件名长度（最多200字符）
+        if (safe.length() > 200) {
+            // 保留扩展名
+            int dotIndex = safe.lastIndexOf('.');
+            if (dotIndex > 0 && dotIndex < safe.length() - 1) {
+                String ext = safe.substring(dotIndex);
+                String name = safe.substring(0, Math.min(190, safe.length() - ext.length()));
+                safe = name + ext;
+            } else {
+                safe = safe.substring(0, 200);
+            }
+        }
+
+        return safe;
     }
 
     @Override

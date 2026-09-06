@@ -326,6 +326,18 @@ public interface IIetmDataModuleService extends IService<IetmDataModule> {
     boolean saveDmResource(String dmId, String fileId, String resourceName, Long fileSize, String comment);
 
     /**
+     * 上传DM资源文件（项目隔离路径）
+     * 参照ICN修复方案，统一使用 project/{projectId}/dm_resource/ 格式
+     * @param dmId DM模块ID
+     * @param resourceName 资源名称
+     * @param comment 说明
+     * @param file 上传的文件
+     * @return 文件相对路径
+     * @throws Exception 上传失败异常
+     */
+    String uploadDmResource(String dmId, String resourceName, String comment, org.springframework.web.multipart.MultipartFile file) throws Exception;
+
+    /**
      * 更新DM资源
      * @param id 资源ID
      * @param comment 说明
