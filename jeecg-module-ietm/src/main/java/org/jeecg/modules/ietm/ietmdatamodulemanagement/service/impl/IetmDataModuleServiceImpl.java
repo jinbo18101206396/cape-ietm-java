@@ -2280,14 +2280,40 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             response.setContentType("text/html;charset=UTF-8");
             response.setHeader("Content-Disposition", "inline");
 
-            // 渲染DM内容为HTML
-            String htmlContent = renderDmToHtml(dm);
+            // 🔧 2026-09-18修复：使用DmXmlHelper.renderHtml进行XSLT转换
+            String htmlContent;
+            if (oConvertUtils.isEmpty(dm.getDmContent())) {
+                // 空内容降级处理
+                htmlContent = buildEmptyContentHtml();
+            } else {
+                try {
+                    // 使用XSLT转换（支持applicability/warning/caution/note等S1000D标准元素）
+                    htmlContent = DmXmlHelper.renderHtml(dm.getDmContent(), "/ietm");
+                } catch (Exception e) {
+                    log.warn("XSLT转换失败，降级到简化渲染：{}", e.getMessage());
+                    // 降级到简化渲染
+                    htmlContent = renderDmToHtml(dm);
+                }
+            }
+
             response.getWriter().write(htmlContent);
             response.getWriter().flush();
         } catch (Exception e) {
             log.error("预览DM失败", e);
             throw new RuntimeException("预览失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 构建空内容提示HTML
+     * @return HTML内容
+     */
+    private String buildEmptyContentHtml() {
+        return "<!DOCTYPE html>" +
+               "<html lang='zh-CN'>" +
+               "<head><meta charset='UTF-8'><title>暂无内容</title></head>" +
+               "<body><p><em>暂无内容</em></p></body>" +
+               "</html>";
     }
 
     /**

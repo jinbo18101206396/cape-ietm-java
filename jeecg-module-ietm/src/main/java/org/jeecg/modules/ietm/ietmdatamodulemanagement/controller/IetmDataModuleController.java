@@ -574,12 +574,20 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
-     * XML内容校验
+     * XML内容校验（旧接口，已被 /dm-content/validate 替代）
+     *
+     * @deprecated 2026-09-18 DmEditorModal（旧弹窗编辑器）仍在使用，
+     *             待前端迁移至新编辑器后删除。
+     *             新接口路径：/ietm/dm-content/validate
+     *             计划于 2026-12-31 删除。
      */
+    @Deprecated
     @AutoLog(value = "数据模块管理-XML内容校验")
-    @ApiOperation(value = "数据模块管理-XML内容校验", notes = "数据模块管理-XML内容校验")
+    @ApiOperation(value = "【已废弃】数据模块管理-XML内容校验", notes = "已废弃，请使用 /dm-content/validate")
     @PostMapping(value = "/validateContent")
     public Result<Map<String, Object>> validateContent(@RequestBody Map<String, String> params) {
+        // 监控废弃接口使用情况
+        log.warn("⚠️ 废弃接口被调用: validateContent, 调用来源: DmEditorModal（旧弹窗编辑器）");
         String content = params.get("content");
         Map<String, Object> result = ietmDataModuleService.validateXmlContent(content);
         return Result.OK(result);
@@ -668,14 +676,21 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
     }
 
     /**
-     * 预览DM
+     * 预览DM（旧接口，已被 /datamodule/preview/{id} 替代）
+     *
+     * @deprecated 2026-09-18 该接口仅被测试代码使用，生产环境已废弃。
+     *             请使用 {@link #preview(String, HttpServletRequest)} 新接口。
+     *             计划于 2026-12-31 删除。
      */
+    @Deprecated
     @AutoLog(value = "数据模块管理-预览DM")
-    @ApiOperation(value = "数据模块管理-预览DM", notes = "预览DM渲染结果")
+    @ApiOperation(value = "【已废弃】数据模块管理-预览DM", notes = "已废弃，请使用 /datamodule/preview/{id}")
     @GetMapping(value = "/previewDm")
     public void previewDm(
             @ApiParam(value = "DM ID", required = true) @RequestParam String id,
             HttpServletResponse response) {
+        // 监控废弃接口使用情况
+        log.warn("⚠️ 废弃接口被调用: previewDm, dmId={}, 请迁移至 /datamodule/preview/{{id}}", id);
         ietmDataModuleService.previewDm(id, response);
     }
 

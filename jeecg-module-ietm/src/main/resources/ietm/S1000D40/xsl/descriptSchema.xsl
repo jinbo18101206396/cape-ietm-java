@@ -3,7 +3,7 @@
 	<!--===============================================-->
 	<!--<xsl:output encoding="gb2312" indent="yes"></xsl:output>-->
 	<xsl:output media-type= "text/html " encoding= "GB2312" method= "html"/>
-	<!--===============================================-->	
+	<!--===============================================-->
 	<xsl:include href="common.xsl"/>
 	<xsl:include href="base.xsl"/>
 	<xsl:include href="descript.xsl"/>

@@ -130,6 +130,11 @@ public class IetmDdnServiceImpl extends ServiceImpl<IetmDdnMapper, IetmDdn> impl
                 ddn.setIncludeRefDm(params.getIncludeRefDm() ? "1" : "0");
                 ddn.setIncludeDmResource(params.getIncludeDmResource() ? "1" : "0");
                 ddn.setStatus(DdnConstants.Status.GENERATING);  // 生成中
+
+                // 设置导入导出标识和DDN类型
+                ddn.setImpexp("e");  // e=导出
+                ddn.setDdnType("DM");  // DM导出
+
                 this.save(ddn);
 
                 log.info("用户[]预留DDN序列号：{}", username, ddnCode);
@@ -361,12 +366,17 @@ public class IetmDdnServiceImpl extends ServiceImpl<IetmDdnMapper, IetmDdn> impl
                 sdf.setLenient(false);
                 ddn.setIssueDate(sdf.parse(params.getIssueDate()));
 
-                // 注意：ietm_ddn表中无ddn_type字段，通过dm_ids为空来区分ICN导出
-                ddn.setDmIds("");  // ICN导出无DM（通过此字段区分）
+                // ICN导出特点：无DM列表
+                ddn.setDmIds("");  // ICN导出无DM
                 ddn.setIncludeRefIcn("0");
                 ddn.setIncludeRefDm("0");
                 ddn.setIncludeDmResource("0");
                 ddn.setStatus(DdnConstants.Status.GENERATING);
+
+                // 设置导入导出标识和DDN类型
+                ddn.setImpexp("e");  // e=导出
+                ddn.setDdnType("ICN");  // ICN导出
+
                 this.save(ddn);
 
                 log.info("用户{}预留ICN DDN序列号：{}", username, ddnCode);

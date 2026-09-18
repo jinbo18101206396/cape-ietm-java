@@ -97,7 +97,9 @@
                 <xsl:attribute name="style">display: none</xsl:attribute>
             </xsl:if>
             <xsl:call-template name="t_logo"/>
-            <xsl:apply-templates/>
+            <!-- 🔧 2026-09-17修复：先处理identAndStatusSection，再处理其他节点 -->
+            <xsl:apply-templates select="identAndStatusSection"/>
+            <xsl:apply-templates select="*[not(self::identAndStatusSection)]"/>
             <!-- Do not show the End of data module text when is is a fault DM. -->
             <xsl:if test="not(//isoproc) and not (processFragment)">
                 <div class="dmEnd">

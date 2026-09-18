@@ -41,9 +41,35 @@
 		</center>
 	</xsl:template>
 	<!--===============================================-->
-	<xsl:template match="graphic">
+	<xsl:template match="graphic" priority="2">
 		<xsl:param name="figCount" select="1"/>
 		<xsl:param name="figTitle"/>
+
+		<!-- ========== 🔧 2026-09-18修复：处理图形尺寸属性，符合S1000D 4.0标准 ========== -->
+		<!-- 优先级priority="2"高于common.xsl中的默认模板，确保此模板被优先使用 -->
+		<!-- 优先级：reproductionWidth/Height > reproductionScale > 默认值(auto) -->
+		<!-- 参考：common.xsl中<symbol>元素的实现（行115-134） -->
+		<xsl:variable name="wid">
+			<xsl:choose>
+				<xsl:when test="@reproductionWidth">
+					<xsl:value-of select="@reproductionWidth"/>
+				</xsl:when>
+				<xsl:when test="@reproductionScale">
+					<xsl:value-of select="concat(@reproductionScale, '%')"/>
+				</xsl:when>
+				<xsl:otherwise>auto</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		<xsl:variable name="hght">
+			<xsl:choose>
+				<xsl:when test="@reproductionHeight">
+					<xsl:value-of select="@reproductionHeight"/>
+				</xsl:when>
+				<xsl:otherwise>auto</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		<!-- ========== 🔧 尺寸处理逻辑结束 ========== -->
+
 		<xsl:call-template name="t_inlineApplicability">
 			<xsl:with-param name="annotation">
 				<xsl:value-of select="$v00034"/>:&#160;</xsl:with-param>
@@ -65,7 +91,20 @@
 			<xsl:attribute name="onclick">
 				showMultimediaInfo('<xsl:value-of select="@infoEntityIdent"/>');
 			</xsl:attribute>
-			<!--<xsl:attribute name="width">100px</xsl:attribute>-->
+
+			<!-- 🔧 2026-09-18修复：应用尺寸属性（符合S1000D标准） -->
+			<xsl:if test="$wid != 'auto'">
+				<xsl:attribute name="width"><xsl:value-of select="$wid"/></xsl:attribute>
+			</xsl:if>
+			<xsl:if test="$hght != 'auto'">
+				<xsl:attribute name="height"><xsl:value-of select="$hght"/></xsl:attribute>
+			</xsl:if>
+
+			<!-- 🔧 2026-09-18修复：CSS style兜底（未指定尺寸时的默认行为） -->
+			<!-- 最大宽度800px，高度自动保持长宽比，避免图片过大或变形 -->
+			<xsl:if test="$wid = 'auto' and $hght = 'auto'">
+				<xsl:attribute name="style">max-width: 800px; height: auto;</xsl:attribute>
+			</xsl:if>
 		</img>
 		<!-- 
 		<script>

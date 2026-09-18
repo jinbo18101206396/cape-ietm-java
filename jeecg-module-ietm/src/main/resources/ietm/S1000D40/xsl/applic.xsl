@@ -2,7 +2,7 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
     <!--===================================================-->
     <xsl:template match="status/applic | dmStatus/applic">
-        <!--<tr>
+        <tr>
             <xsl:if test="parent::status/@change = 'ADD'">
                 <xsl:attribute name="class">changeMarker</xsl:attribute>
             </xsl:if>
@@ -13,7 +13,7 @@
             <td>
                 <xsl:apply-templates mode="applic"/>
             </td>
-        </tr>-->
+        </tr>
     </xsl:template>
     <!--===============================================-->
     <xsl:template match="inlineapplics|referencedApplicGroup">

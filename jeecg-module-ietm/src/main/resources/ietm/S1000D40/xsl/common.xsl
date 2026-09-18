@@ -111,68 +111,15 @@
             <xsl:apply-templates/>
         </xsl:element> &#160; 
     </xsl:template>
-    <!--======处理symbol,symbols used for warnings, cautions and notes have now 
+    <!--======处理symbol,symbols used for warnings, cautions and notes have now
     to be marked up by element <symbol> instead of element <graphic>.默认高度100px，宽度100px=========================================-->
-    <xsl:template match="symbol">
-    	<!-- Modified to support CGM / tiffs 17th Nov 2009 S.Parker-->
-    	<xsl:variable name="file">
-    		<xsl:value-of select="@boardno|@infoEntityIdent"/>
-    	</xsl:variable>
-    	<!--2012<xsl:variable name="ext"><xsl:value-of select="aadext:fileExt($file)"/></xsl:variable>-->
-    	
-    	<!-- Issue 4 allows for the setting of the dimensions, before 4 states "Projects must decide the sizes and scaling of symbols." -->
-    	<xsl:variable name="wid">
-    		<xsl:choose>
-    			<xsl:when test="@reproductionWidth"><xsl:value-of select="@reproductionWidth"/></xsl:when>
-    			<xsl:otherwise>100px</xsl:otherwise>
-    		</xsl:choose>
-    	</xsl:variable>
-    	<xsl:variable name="hght">
-    		<xsl:choose>
-    			<xsl:when test="@reproductionHeight"><xsl:value-of select="@reproductionHeight"/></xsl:when>
-    			<xsl:otherwise>100px</xsl:otherwise>
-    		</xsl:choose>
-    	</xsl:variable>
-    	
-    	<!--<xsl:choose> 
-    		<xsl:when test="translate($ext,'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')='CGM' or translate($ext,'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')='TIF'">
-    			<xsl:element name="object">
-    				<xsl:attribute name="id">ivx<xsl:value-of select="generate-id(.)"/></xsl:attribute>
-		    		<xsl:attribute name="type">application/x-isoview</xsl:attribute>
-		    		<xsl:attribute name="width"><xsl:value-of select="$wid"/></xsl:attribute>
-		    		<xsl:attribute name="height"><xsl:value-of select="$hght"/></xsl:attribute>
-		    		<xsl:attribute name="border">0</xsl:attribute>
-		    		<xsl:attribute name="tools">0</xsl:attribute>
-		    		<xsl:element name="param">
-		    			<xsl:attribute name="name">src</xsl:attribute>
-		    			<xsl:attribute name="value">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
-		    		</xsl:element>
-		    		<xsl:element name="param">
-		    			<xsl:attribute name="name">tools</xsl:attribute>
-		    			<xsl:attribute name="value">0</xsl:attribute>
-		    		</xsl:element>
-			        <xsl:element name="img">
-			            <xsl:attribute name="src">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"
-			                    />&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"
-			            /></xsl:attribute>
-			            <xsl:attribute name="width"><xsl:value-of select="$wid"/></xsl:attribute>
-			        </xsl:element>
-			       
-				</xsl:element>
-    		</xsl:when>
-    		<xsl:otherwise>
-    			<xsl:element name="img">
-		            <xsl:attribute name="src">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"
-		                    />&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"
-		            /></xsl:attribute>
-		            <xsl:attribute name="width"><xsl:value-of select="$wid"/></xsl:attribute>
-		        </xsl:element>
-    		</xsl:otherwise>
-    	</xsl:choose>-->
-        <!--<xsl:apply-templates/>-->
-    </xsl:template>
-   <!--=========处理graphic======================================-->   
+    <!-- ✅ 2026-09-18: symbol模板已移至symbols.xsl -->
+    <!-- 📍 引用路径: base.xsl第38行 -> symbols.xsl第20行 (priority=2) -->
+    <!-- 🗑️ 已删除此处的冗余模板（58行），消除XSLT警告 XTDE0540 -->
+   <!--=========处理graphic======================================-->
     <xsl:template match="graphic">
+        <!-- 🔧 2026-09-18说明：此模板用于非figure上下文的graphic元素 -->
+        <!-- figure内的graphic由fig_tabFigure.xsl处理，包含完整的尺寸属性支持 -->
         <xsl:call-template name="t_inlineApplicability">
             <xsl:with-param name="annotation"><xsl:value-of select="$v00034"/>:&#160;</xsl:with-param>
         </xsl:call-template>

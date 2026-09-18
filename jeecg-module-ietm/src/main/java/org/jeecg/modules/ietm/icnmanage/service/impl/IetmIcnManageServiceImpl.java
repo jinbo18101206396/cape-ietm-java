@@ -1411,11 +1411,11 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
             return;
         }
 
-        // 查询附件信息
+        // 查询附件信息（使用pid字段关联ICN ID）
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> attachmentQw =
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
-        attachmentQw.eq("business_id", icn.getId());
-        attachmentQw.eq("business_type", "ICN");
+        attachmentQw.eq("pid", icn.getId());
+        attachmentQw.eq("file_type", IetmConstants.FILE_TYPE_ENTITY);
         attachmentQw.orderByAsc("create_time");
 
         List<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> attachments =

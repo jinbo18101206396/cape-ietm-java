@@ -2,6 +2,37 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.jeecg.modules.ietm.ietmddn.mapper.IetmDdnMapper">
 
+    <!-- 通用结果映射，确保新增字段正确映射 -->
+    <resultMap id="BaseResultMap" type="org.jeecg.modules.ietm.ietmddn.entity.IetmDdn">
+        <id column="id" property="id"/>
+        <result column="project_id" property="projectId"/>
+        <result column="ddn_code" property="ddnCode"/>
+        <result column="model_ident_code" property="modelIdentCode"/>
+        <result column="sender_ident" property="senderIdent"/>
+        <result column="receiver_ident" property="receiverIdent"/>
+        <result column="year_of_data_issue" property="yearOfDataIssue"/>
+        <result column="seq_number" property="seqNumber"/>
+        <result column="security" property="security"/>
+        <result column="commercial_security" property="commercialSecurity"/>
+        <result column="caveat" property="caveat"/>
+        <result column="issue_date" property="issueDate"/>
+        <result column="dm_ids" property="dmIds"/>
+        <result column="include_ref_icn" property="includeRefIcn"/>
+        <result column="include_ref_dm" property="includeRefDm"/>
+        <result column="include_dm_resource" property="includeDmResource"/>
+        <result column="ddn_file_path" property="ddnFilePath"/>
+        <result column="dm_count" property="dmCount"/>
+        <result column="icn_count" property="icnCount"/>
+        <result column="status" property="status"/>
+        <result column="impexp" property="impexp"/>
+        <result column="ddn_type" property="ddnType"/>
+        <result column="create_by" property="createBy"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_by" property="updateBy"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="sys_org_code" property="sysOrgCode"/>
+    </resultMap>
+
     <!-- 查询当年最大序列号（DM8：TO_NUMBER + NVL） -->
     <select id="selectMaxSeqNumber" resultType="java.lang.Integer">
         SELECT NVL(MAX(TO_NUMBER(seq_number)), 0)

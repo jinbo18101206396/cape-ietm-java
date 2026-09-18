@@ -108,6 +108,14 @@ public class IetmDdn implements Serializable {
     @TableField("status")
     private String status;
 
+    @ApiModelProperty(value = "导入导出标识：e=导出,i=导入")
+    @TableField("impexp")
+    private String impexp;
+
+    @ApiModelProperty(value = "DDN类型：DM/ICN/PM")
+    @TableField("ddn_type")
+    private String ddnType;
+
     @ApiModelProperty(value = "创建人")
     @TableField(value = "create_by", fill = FieldFill.INSERT)
     private String createBy;

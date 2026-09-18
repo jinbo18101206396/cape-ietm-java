@@ -120,15 +120,13 @@
 	</xsl:template>
 	<!--===============================================-->
 	<xsl:template match="dmtitle|dmTitle">
-		<xsl:if test="techname|techName or infoname|infoName">
-			<tr>
-				<td class="idStatus">
-					<xsl:value-of select="$v01105"/>:</td>
-				<td class="idStatus">
-					<xsl:apply-templates select="techname|techName"/>-<xsl:apply-templates select="infoname|infoName"/>
-				</td>
-			</tr>
-		</xsl:if>
+		<tr>
+			<td class="idStatus">
+				<xsl:value-of select="$v01105"/>:</td>
+			<td class="idStatus">
+				<xsl:apply-templates select="techname|techName"/>-<xsl:apply-templates select="infoname|infoName"/>
+			</td>
+		</tr>
 	</xsl:template>
 	<!--===============================================-->
 	<xsl:template match="techname|techName">

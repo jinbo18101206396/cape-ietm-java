@@ -203,17 +203,19 @@ public class DmXsltTransformer {
     }
 
     /**
-     * 增强预览HTML - 添加基础样式
+     * 增强预览HTML - 添加基础样式 + 多媒体路径替换
      *
      * 功能说明：
      * 1. 注入表格边框样式
      * 2. 注入图片样式
      * 3. 注入通用布局样式
+     * 4. 替换多媒体路径为流式API（S1000D 4.0符合性 - Phase 1）
      *
      * @param html 原始HTML
+     * @param contextPath 上下文路径（如：/jeecg-boot）
      * @return 增强后的HTML
      */
-    public static String enhancePreviewHtml(String html) {
+    public static String enhancePreviewHtml(String html, String contextPath) {
         if (html == null || html.isEmpty()) {
             return html;
         }
@@ -223,6 +225,9 @@ public class DmXsltTransformer {
 
         // 在HTML开头插入样式
         html = "<style>" + basicStyles + "</style>" + html;
+
+        // Phase 1: 替换多媒体路径为流式API
+        html = replaceMultimediaPaths(html, contextPath);
 
         return html;
     }
@@ -281,6 +286,8 @@ public class DmXsltTransformer {
 
     /**
      * 备用精简样式（CSS文件加载失败时使用）
+     *
+     * 🔧 2026-09-18修复：增强图片样式，支持S1000D 4.0图形尺寸规范
      */
     private static String buildFallbackStyles() {
         return
@@ -289,7 +296,11 @@ public class DmXsltTransformer {
             ".tableBorders, table.tableBorders { border-collapse: collapse; width: 100%; margin: 10px 0; }\n" +
             ".tableBorders th, .tableBorders td { border: 1px solid #000; padding: 4px 8px; }\n" +
             ".tableBorders th { background-color: #f0f0f0; font-weight: bold; }\n" +
+
+            // 🔧 2026-09-18修复：图形尺寸样式（符合S1000D 4.0标准）
+            "img.figureLinkGraphic { max-width: 800px; height: auto; display: block; margin: 10px auto; cursor: pointer; }\n" +
             "img { max-width: 100%; height: auto; display: block; margin: 10px auto; }\n" +
+
             ".boldemphasis { font-weight: bold; }\n" +
             ".italicemphasis { font-style: italic; }\n" +
             ".underlineemphasis { text-decoration: underline; }\n";
@@ -312,5 +323,68 @@ public class DmXsltTransformer {
         return String.format("XSLT模板缓存数量: %d, CSS缓存: %s",
             TEMPLATES_CACHE.size(),
             CSS_CACHE != null ? "已加载" : "未加载");
+    }
+
+    /**
+     * 替换多媒体路径为流式API
+     *
+     * S1000D 4.0标准支持：
+     * - multimediaObject[@multimediaType='video']
+     * - multimediaObject[@multimediaType='audio']
+     * - infoEntityIdent引用机制
+     *
+     * 实现策略：
+     * 1. 查找XSLT生成的多媒体占位符（<img onclick="showMultimediaInfo/playSound">）
+     * 2. 替换为HTML5 <video>/<audio> 标签
+     * 3. src指向流式API：/ietm/attachment/stream/{imfCode}
+     *
+     * 优势：
+     * - 浏览器自动缓存（HTTP 304）
+     * - 支持断点续传（HTTP Range）
+     * - 无内存溢出风险（流式传输）
+     * - 文件大小无限制
+     *
+     * @param html 原始HTML
+     * @param contextPath 上下文路径（如：/jeecg-boot）
+     * @return 替换后的HTML
+     */
+    private static String replaceMultimediaPaths(String html, String contextPath) {
+        try {
+            // 1. 替换视频标签（XSLT生成: <img id="IMF-001" onclick="showMultimediaInfo(...)"/>）
+            // 正则说明：
+            // <img[^>]+ - img标签开始
+            // id="([^"]+)" - 捕获ICN/IMF编码（组1）
+            // [^>]+ - 其他属性
+            // onclick="showMultimedia(Info|)\\([^)]*\\)" - onclick事件（兼容showMultimedia/showMultimediaInfo）
+            // [^>]*/?> - 标签结束（支持自闭合）
+            html = html.replaceAll(
+                "<img[^>]+id=\"([^\"]+)\"[^>]+onclick=\"showMultimedia(?:Info)?\\([^)]*\\)\"[^>]*/>",
+                "<video controls width=\"640\" preload=\"metadata\">" +
+                "<source src=\"" + contextPath + "/ietm/attachment/stream/$1\" type=\"video/mp4\">" +
+                "您的浏览器不支持视频播放</video>"
+            );
+
+            // 2. 替换音频标签（XSLT生成: <img id="IMF-002" onclick="playSound(...)"/>）
+            html = html.replaceAll(
+                "<img[^>]+id=\"([^\"]+)\"[^>]+onclick=\"playSound\\([^)]*\\)\"[^>]*/>",
+                "<audio controls preload=\"metadata\">" +
+                "<source src=\"" + contextPath + "/ietm/attachment/stream/$1\" type=\"audio/mpeg\">" +
+                "您的浏览器不支持音频播放</audio>"
+            );
+
+            // 3. 清理旧脚本（showMultimediaInfo/playSound函数定义，已不需要）
+            html = html.replaceAll(
+                "<script[^>]*>\\s*function\\s+(showMultimedia(?:Info)?|playSound)\\s*\\([^)]*\\)[^<]*</script>",
+                ""
+            );
+
+            log.debug("多媒体路径替换完成: contextPath={}", contextPath);
+
+        } catch (Exception e) {
+            log.error("多媒体路径替换失败", e);
+            // 降级：返回原始HTML
+        }
+
+        return html;
     }
 }

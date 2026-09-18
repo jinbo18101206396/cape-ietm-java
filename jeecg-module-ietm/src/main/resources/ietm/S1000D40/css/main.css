@@ -262,8 +262,15 @@ li {
     font-size: 10pt;
 }
 
+/* 🔧 2026-09-18修复：图形尺寸样式，符合S1000D 4.0标准 */
+/* 优先使用XML中的reproductionWidth/Height/Scale属性 */
+/* 未指定尺寸时，最大宽度800px，保持长宽比 */
 .figureLinkGraphic {
     cursor: pointer;
+    max-width: 800px;
+    height: auto;
+    display: block;
+    margin: 10px auto;
 }
 
 img {
