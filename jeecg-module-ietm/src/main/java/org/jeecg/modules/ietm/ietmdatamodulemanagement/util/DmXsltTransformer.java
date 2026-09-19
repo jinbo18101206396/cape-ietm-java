@@ -326,7 +326,7 @@ public class DmXsltTransformer {
     }
 
     /**
-     * 替换多媒体路径为流式API
+     * 替换多媒体路径
      *
      * S1000D 4.0标准支持：
      * - multimediaObject[@multimediaType='video']
@@ -336,13 +336,9 @@ public class DmXsltTransformer {
      * 实现策略：
      * 1. 查找XSLT生成的多媒体占位符（<img onclick="showMultimediaInfo/playSound">）
      * 2. 替换为HTML5 <video>/<audio> 标签
-     * 3. src指向流式API：/ietm/attachment/stream/{imfCode}
+     * 3. src指向viewIcn接口：/ietm/icn/view/{imfCode}
      *
-     * 优势：
-     * - 浏览器自动缓存（HTTP 304）
-     * - 支持断点续传（HTTP Range）
-     * - 无内存溢出风险（流式传输）
-     * - 文件大小无限制
+     * 注：统一使用viewIcn接口处理所有ICN资源（图片/视频/音频）
      *
      * @param html 原始HTML
      * @param contextPath 上下文路径（如：/jeecg-boot）
@@ -351,16 +347,10 @@ public class DmXsltTransformer {
     private static String replaceMultimediaPaths(String html, String contextPath) {
         try {
             // 1. 替换视频标签（XSLT生成: <img id="IMF-001" onclick="showMultimediaInfo(...)"/>）
-            // 正则说明：
-            // <img[^>]+ - img标签开始
-            // id="([^"]+)" - 捕获ICN/IMF编码（组1）
-            // [^>]+ - 其他属性
-            // onclick="showMultimedia(Info|)\\([^)]*\\)" - onclick事件（兼容showMultimedia/showMultimediaInfo）
-            // [^>]*/?> - 标签结束（支持自闭合）
             html = html.replaceAll(
                 "<img[^>]+id=\"([^\"]+)\"[^>]+onclick=\"showMultimedia(?:Info)?\\([^)]*\\)\"[^>]*/>",
                 "<video controls width=\"640\" preload=\"metadata\">" +
-                "<source src=\"" + contextPath + "/ietm/attachment/stream/$1\" type=\"video/mp4\">" +
+                "<source src=\"" + contextPath + "/ietm/icn/view/$1\" type=\"video/mp4\">" +
                 "您的浏览器不支持视频播放</video>"
             );
 
@@ -368,7 +358,7 @@ public class DmXsltTransformer {
             html = html.replaceAll(
                 "<img[^>]+id=\"([^\"]+)\"[^>]+onclick=\"playSound\\([^)]*\\)\"[^>]*/>",
                 "<audio controls preload=\"metadata\">" +
-                "<source src=\"" + contextPath + "/ietm/attachment/stream/$1\" type=\"audio/mpeg\">" +
+                "<source src=\"" + contextPath + "/ietm/icn/view/$1\" type=\"audio/mpeg\">" +
                 "您的浏览器不支持音频播放</audio>"
             );
 

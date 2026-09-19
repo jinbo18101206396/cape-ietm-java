@@ -95,13 +95,13 @@ class DisplayNoneIntegrationTest {
 
         // 验证video标签已生成（只有当模拟的XSLT输出包含正确的onclick模式时才能被替换）
         // simulateXsltTransform生成的HTML可能不完全匹配DmXsltTransformer.replaceMultimediaPaths的正则
-        // 验证至少包含流式API路径或原始img标签
+        // 验证至少包含viewIcn路径或原始img标签
         boolean hasVideoTag = finalHtml.contains("<video controls");
-        boolean hasStreamPath = finalHtml.contains("/jeecg-boot/ietm/attachment/stream/");
+        boolean hasViewIcnPath = finalHtml.contains("/jeecg-boot/ietm/icn/view/");
         boolean hasOriginalImg = finalHtml.contains("onclick=\"showMultimediaInfo");
 
-        assertTrue(hasVideoTag || hasStreamPath || hasOriginalImg,
-            "应该包含video标签、流式路径或原始img标签");
+        assertTrue(hasVideoTag || hasViewIcnPath || hasOriginalImg,
+            "应该包含video标签、viewIcn路径或原始img标签");
     }
 
     /**

@@ -7,8 +7,11 @@
     <xsl:template match="warning" name="t_warning">
         <xsl:param name="acrwIndent">0</xsl:param>
         <div class="wcBorderSpacing warningBGImage">
-             <!--  <xsl:call-template name="t_inlineApplicability"/>
-            <xsl:attribute name="style">margin-left: <xsl:value-of select="$acrwIndent"/>px;</xsl:attribute>-->
+             <!-- 🔧 2026-09-18: 恢复适用性支持，符合S1000D 4.0标准 -->
+             <xsl:call-template name="t_inlineApplicability">
+                <xsl:with-param name="annotation"><xsl:value-of select="$v00034"/>:&#160;</xsl:with-param>
+             </xsl:call-template>
+             <!--<xsl:attribute name="style">margin-left: <xsl:value-of select="$acrwIndent"/>px;</xsl:attribute>-->
             <div class="wcContentArea">
                 <xsl:call-template name="wcContentArea"/>
             </div>
@@ -18,8 +21,11 @@
     <xsl:template match="caution" name="t_caution">
         <xsl:param name="acrwIndent">0</xsl:param>
        <div class="wcBorderSpacing cautionBGImage">
-             <!--<xsl:call-template name="t_inlineApplicability"/>
-            <xsl:attribute name="style">margin-left: <xsl:value-of select="$acrwIndent"/>px;</xsl:attribute>-->
+             <!-- 🔧 2026-09-18: 恢复适用性支持，符合S1000D 4.0标准 -->
+             <xsl:call-template name="t_inlineApplicability">
+                <xsl:with-param name="annotation"><xsl:value-of select="$v00034"/>:&#160;</xsl:with-param>
+             </xsl:call-template>
+             <!--<xsl:attribute name="style">margin-left: <xsl:value-of select="$acrwIndent"/>px;</xsl:attribute>-->
             <div class="wcContentArea">
                 <xsl:call-template name="wcContentArea"/>
             </div>

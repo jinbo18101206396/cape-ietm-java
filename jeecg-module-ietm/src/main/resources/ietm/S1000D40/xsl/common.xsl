@@ -130,7 +130,7 @@
         <xsl:call-template name="t_inlineApplicability">
             <xsl:with-param name="annotation"><xsl:value-of select="$v00034"/>:&#160;</xsl:with-param>
         </xsl:call-template>
-        
+
         <xsl:variable name="id">
             <xsl:value-of select="@id"/>
         </xsl:variable>
@@ -140,8 +140,37 @@
             </xsl:call-template>
         </xsl:variable>
 
-        <script type="text/javascript"> addHotspotRef ( '<xsl:value-of select="$id"/>', new HotspotLink( "linkToHotSpot( '<xsl:value-of select="//graphic[.//hotspot[translate(@id,'-','-') = $id]]/@boardno|//graphic[.//hotspot[translate(@id,'-','-') = $id]]/@infoEntityIdent"/>' , '<xsl:value-of select="$ISOViewInstalled"/>','<xsl:value-of select="$Publication"/>', <xsl:value-of select="$params"/> )" ) ); </script>
+        <!-- 🔧 2026-09-18: 增强热点支持 - 提取坐标信息供前端SVG渲染 -->
+        <!-- 热点坐标从applicationStructure/objectCoordinates提取 -->
+        <xsl:variable name="coordinates">
+            <xsl:value-of select="ancestor::applicationStructure/objectCoordinates/@coordinateString | ancestor::applicationStructure/objectCoordinates"/>
+        </xsl:variable>
+        <xsl:variable name="shape">
+            <xsl:value-of select="ancestor::applicationStructure/objectCoordinates/@shapeType"/>
+        </xsl:variable>
+
+        <!-- 热点描述信息（从para/simplePara提取纯文本） -->
+        <xsl:variable name="description">
+            <xsl:apply-templates select=".//para | .//simplePara" mode="hotspot-text"/>
+        </xsl:variable>
+
+        <script type="text/javascript">
+            addHotspotRef('<xsl:value-of select="$id"/>', new HotspotLink("linkToHotSpot('<xsl:value-of select="//graphic[.//hotspot[translate(@id,'-','-') = $id]]/@boardno|//graphic[.//hotspot[translate(@id,'-','-') = $id]]/@infoEntityIdent"/>', '<xsl:value-of select="$ISOViewInstalled"/>','<xsl:value-of select="$Publication"/>', <xsl:value-of select="$params"/>)"));
+        </script>
+
+        <!-- 输出热点数据属性供前端读取 -->
+        <span class="hotspot-data" style="display:none;"
+              data-hotspot-id="{$id}"
+              data-hotspot-shape="{$shape}"
+              data-hotspot-coords="{$coordinates}"
+              data-hotspot-description="{normalize-space($description)}"/>
+
         <xsl:apply-templates/>
+    </xsl:template>
+
+    <!-- 热点描述文本提取模式（仅提取纯文本，不包含HTML标签） -->
+    <xsl:template match="para | simplePara" mode="hotspot-text">
+        <xsl:value-of select="normalize-space(.)"/>
     </xsl:template>
     <!-- ============处理param | parameter========================================================= -->
     <xsl:template match="param | parameter">

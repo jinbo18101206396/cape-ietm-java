@@ -39,8 +39,8 @@ class DmXsltTransformerTest {
         // 验证video标签生成
         assertTrue(result.contains("<video controls width=\"640\" preload=\"metadata\">"),
             "Should contain video tag");
-        assertTrue(result.contains("<source src=\"/jeecg-boot/ietm/attachment/stream/IMF-VIDEO-001\""),
-            "Should contain correct stream URL");
+        assertTrue(result.contains("<source src=\"/jeecg-boot/ietm/icn/view/IMF-VIDEO-001\""),
+            "Should contain correct viewIcn URL");
         assertTrue(result.contains("type=\"video/mp4\""),
             "Should have video/mp4 MIME type");
         assertTrue(result.contains("您的浏览器不支持视频播放"),
@@ -86,8 +86,8 @@ class DmXsltTransformerTest {
         // 验证audio标签生成
         assertTrue(result.contains("<audio controls preload=\"metadata\">"),
             "Should contain audio tag");
-        assertTrue(result.contains("<source src=\"/jeecg-boot/ietm/attachment/stream/IMF-AUDIO-001\""),
-            "Should contain correct stream URL");
+        assertTrue(result.contains("<source src=\"/jeecg-boot/ietm/icn/view/IMF-AUDIO-001\""),
+            "Should contain correct viewIcn URL");
         assertTrue(result.contains("type=\"audio/mpeg\""),
             "Should have audio/mpeg MIME type");
         assertTrue(result.contains("您的浏览器不支持音频播放"),
@@ -216,7 +216,7 @@ class DmXsltTransformerTest {
         String result = DmXsltTransformer.enhancePreviewHtml(html, "");
 
         // 验证URL正确（空contextPath）
-        assertTrue(result.contains("src=\"/ietm/attachment/stream/IMF-001\""),
+        assertTrue(result.contains("src=\"/ietm/icn/view/IMF-001\""),
             "Empty contextPath should work");
     }
 
@@ -230,7 +230,7 @@ class DmXsltTransformerTest {
         String result = DmXsltTransformer.enhancePreviewHtml(html, "/my-app");
 
         // 验证URL正确
-        assertTrue(result.contains("src=\"/my-app/ietm/attachment/stream/IMF-001\""),
+        assertTrue(result.contains("src=\"/my-app/ietm/icn/view/IMF-001\""),
             "ContextPath with slash should work");
     }
 

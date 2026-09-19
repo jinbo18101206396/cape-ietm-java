@@ -391,8 +391,9 @@ public class DmXmlHelper {
 
         // 2. 批量并行加载ICN（利用缓存和并行加载优化）
         long loadStartTime = System.currentTimeMillis();
-        // TODO: IcnLoader临时移除，待恢复
-        Map<String, String> icnDataMap = new java.util.HashMap<>(); // IcnLoader.loadIcnBatch(icnCodes);
+        // 🔧 2026-09-18 修复：使用IcnBatchLoader恢复批量加载功能
+        IcnBatchLoader icnBatchLoader = org.jeecg.common.util.SpringContextUtils.getBean(IcnBatchLoader.class);
+        Map<String, String> icnDataMap = icnBatchLoader.loadIcnBatch(new HashSet<>(icnCodes));
         long loadDuration = System.currentTimeMillis() - loadStartTime;
         log.info("📦 批量加载ICN完成: 耗时={}ms, 成功率={}/{}",
             loadDuration, icnDataMap.size(), icnCodes.size());
@@ -472,7 +473,7 @@ public class DmXmlHelper {
             html = html.replaceAll(
                 "<img\\s+([^>]*?)id=\"([^\"]+)\"([^>]*?)onclick=\"showMultimediaInfo\\([^)]+\\)\"([^>]*?)/?>[^<]*(?:<script>[^<]*</script>)?",
                 "<video controls width=\"640\" preload=\"metadata\" style=\"max-width:100%; display:block; margin:10px auto;\">" +
-                "<source src=\"" + contextPath + "/ietm/attachment/stream/$2\" type=\"video/mp4\">" +
+                "<source src=\"" + contextPath + "/ietm/icn/view/$2\" type=\"video/mp4\">" +
                 "您的浏览器不支持视频播放。请使用Chrome/Firefox/Edge等现代浏览器。" +
                 "</video>"
             );
@@ -482,7 +483,7 @@ public class DmXmlHelper {
             html = html.replaceAll(
                 "<img\\s+([^>]*?)id=\"([^\"]+)\"([^>]*?)onclick=\"playSound\\([^)]+\\)\"([^>]*?)/?>[^<]*(?:<script>[^<]*</script>)?",
                 "<audio controls preload=\"metadata\" style=\"display:block; margin:10px auto;\">" +
-                "<source src=\"" + contextPath + "/ietm/attachment/stream/$2\" type=\"audio/mpeg\">" +
+                "<source src=\"" + contextPath + "/ietm/icn/view/$2\" type=\"audio/mpeg\">" +
                 "您的浏览器不支持音频播放。" +
                 "</audio>"
             );

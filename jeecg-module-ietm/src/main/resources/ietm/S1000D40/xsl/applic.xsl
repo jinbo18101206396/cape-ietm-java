@@ -1,19 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
     <!--===================================================-->
+    <!-- 2026-09-19: 隐藏dmStatus状态信息表格中的适用性显示 -->
     <xsl:template match="status/applic | dmStatus/applic">
-        <tr>
-            <xsl:if test="parent::status/@change = 'ADD'">
-                <xsl:attribute name="class">changeMarker</xsl:attribute>
-            </xsl:if>
-            <xsl:call-template name="t_changeMarker"/>
-            <td>
-                <xsl:value-of select="$v00034"/>
-            </td>
-            <td>
-                <xsl:apply-templates mode="applic"/>
-            </td>
-        </tr>
+        <!-- 完全隐藏，不渲染任何内容 -->
     </xsl:template>
     <!--===============================================-->
     <xsl:template match="inlineapplics|referencedApplicGroup">

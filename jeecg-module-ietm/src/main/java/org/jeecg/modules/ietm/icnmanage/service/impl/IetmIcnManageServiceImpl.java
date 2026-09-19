@@ -1307,8 +1307,8 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         if ("swf".equals(fileExt)) {
             return "FLASH";
         }
-        // 3D模型
-        if ("wrl".equals(fileExt)) {
+        // 3D模型 (VRML + glTF + OBJ + STL + FBX + COLLADA + PLY)
+        if (Arrays.asList("wrl", "gltf", "glb", "obj", "stl", "fbx", "dae", "ply").contains(fileExt)) {
             return "3D";
         }
         // SMG
