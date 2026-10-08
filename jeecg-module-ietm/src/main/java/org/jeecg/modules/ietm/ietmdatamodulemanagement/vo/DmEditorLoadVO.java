@@ -47,6 +47,9 @@ public class DmEditorLoadVO implements Serializable {
     @ApiModelProperty("签出用户(用于流程提交前校验，对齐旧系统)")
     private String checkoutUser;
 
+    @ApiModelProperty("最大uniqueId(Para设计器使用)")
+    private Integer maxUniqueId;
+
     @ApiModelProperty("提示信息(加载失败时)")
     private String message;
 }

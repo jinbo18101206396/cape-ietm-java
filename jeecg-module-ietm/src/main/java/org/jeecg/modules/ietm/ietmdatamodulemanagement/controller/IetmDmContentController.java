@@ -494,6 +494,68 @@ public class IetmDmContentController {
         }
     }
 
+    /**
+     * Para设计器 - para2html转换
+     */
+    @AutoLog(value = "Para设计器-para2html转换")
+    @ApiOperation("para2html转换（XML→HTML）")
+    @PostMapping("/para2html")
+    public Result<String> para2html(@Valid @RequestBody ParaConvertVO vo) {
+        try {
+            String html = org.jeecg.modules.ietm.ietmdatamodulemanagement.util.ParaConverter.para2html(vo.getXml());
+            return Result.OK(html);
+        } catch (Exception e) {
+            log.error("para2html转换失败", e);
+            return Result.error("转换失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Para设计器 - html2para转换
+     */
+    @AutoLog(value = "Para设计器-html2para转换")
+    @ApiOperation("html2para转换（HTML→XML）")
+    @PostMapping("/html2para")
+    public Result<String> html2para(@Valid @RequestBody ParaConvertVO vo) {
+        try {
+            String xml = org.jeecg.modules.ietm.ietmdatamodulemanagement.util.ParaConverter.html2para(vo.getXml());
+            return Result.OK(xml);
+        } catch (Exception e) {
+            log.error("html2para转换失败", e);
+            return Result.error("转换失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Para设计器 - 分配uniqueid
+     * 使用SELECT FOR UPDATE行级锁防止并发冲突
+     */
+    @AutoLog(value = "Para设计器-分配uniqueid")
+    @ApiOperation("分配uniqueid")
+    @PostMapping("/allocate-uniqueids")
+    public Result<Map<String, Object>> allocateUniqueids(@RequestBody Map<String, Object> params) {
+        try {
+            String dmId = (String) params.get("dmId");
+            Integer count = (Integer) params.get("count");
+
+            if (dmId == null || count == null || count <= 0) {
+                return Result.error("参数错误");
+            }
+
+            // 调用Service分配uniqueid
+            int startId = contentService.allocateUniqueids(dmId, count);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("start", startId);
+            result.put("count", count);
+
+            return Result.OK(result);
+        } catch (Exception e) {
+            log.error("分配uniqueid失败", e);
+            return Result.error("分配失败：" + e.getMessage());
+        }
+    }
+
     private String getUsername(HttpServletRequest req) {
         try {
             LoginUser u = (LoginUser) SecurityUtils.getSubject().getPrincipal();

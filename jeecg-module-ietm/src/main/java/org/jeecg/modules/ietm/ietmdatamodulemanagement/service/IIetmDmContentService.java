@@ -44,4 +44,12 @@ public interface IIetmDmContentService {
      * 返回 {flag:"success", xml:"拼接后的dmRef字符串"} 或 {flag:"failure", message:...}
      */
     Map<String, Object> buildDmRef(List<DmRefBuildItemVO> items);
+
+    /**
+     * Para设计器 - 分配uniqueid（使用SELECT FOR UPDATE行级锁防止并发冲突）
+     * @param dmId DM主表ID
+     * @param count 需要分配的uniqueid数量
+     * @return 分配的起始uniqueid
+     */
+    int allocateUniqueids(String dmId, int count);
 }

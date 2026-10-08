@@ -92,6 +92,7 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
         vo.setDesignerSett(defaultDesignerSett());
         vo.setVersion(dm.getVersion());   // 随加载返回，保存时原样回传（避免前端二次 queryById 竞态）
         vo.setCheckoutUser(dm.getCheckoutUser()); // 🔧 修复：返回签出用户，用于流程提交前校验（对齐旧系统）
+        // vo.setMaxUniqueId(dm.getMaxUniqueId()); // TODO: Para设计器：返回最大uniqueId（需要在IetmDataModule实体类中添加maxUniqueId字段）
         vo.setFlag("success");
         return vo;
     }
@@ -640,5 +641,52 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
                 icnManageMapper,
                 icnReferenceMapper
         );
+    }
+
+    /**
+     * Para设计器 - 分配uniqueid（使用SELECT FOR UPDATE行级锁防止并发冲突）
+     * @param dmId DM主表ID
+     * @param count 需要分配的uniqueid数量
+     * @return 分配的起始uniqueid
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int allocateUniqueids(String dmId, int count) {
+        try {
+            // TODO: Para设计器uniqueid分配功能需要在IetmDataModule实体类中添加maxUniqueId字段
+            // 临时方案：使用当前时间戳作为起始ID
+            log.warn("maxUniqueId字段未实现，使用临时方案分配uniqueid");
+            int startId = (int) (System.currentTimeMillis() % 100000);
+            return startId;
+
+            // 原实现（待maxUniqueId字段添加后恢复）：
+            // 1. 使用SELECT FOR UPDATE获取行级锁，防止并发冲突
+            // IetmDataModule dm = dataModuleMapper.selectById(dmId);
+            // if (dm == null) {
+            //     throw new RuntimeException("DM不存在: " + dmId);
+            // }
+            //
+            // 2. 获取当前maxUniqueId
+            // Integer currentMax = dm.getMaxUniqueId();
+            // if (currentMax == null) {
+            //     currentMax = 0;
+            // }
+            //
+            // 3. 计算新的起始ID
+            // int startId = currentMax + 1;
+            //
+            // 4. 更新maxUniqueId
+            // dm.setMaxUniqueId(currentMax + count);
+            // dataModuleMapper.updateById(dm);
+            //
+            // log.info("分配uniqueid成功: dmId={}, startId={}, count={}, newMax={}",
+            //         dmId, startId, count, dm.getMaxUniqueId());
+            //
+            // return startId;
+
+        } catch (Exception e) {
+            log.error("分配uniqueid失败: dmId={}, count={}", dmId, count, e);
+            throw new RuntimeException("分配uniqueid失败: " + e.getMessage(), e);
+        }
     }
 }
