@@ -358,12 +358,13 @@ public class ParaConverter {
 
     /**
      * symbol转<img>标签
+     * 🔧 修复2026-10-09: 使用真实存在的后端接口 /icnmanage/ietmIcnManage/view/{icnCode}
+     * 原因：/tmpICN/ 接口不存在，导致图片404。后端应调用真实的查看接口
      */
     private static String convertSymbolToImg(Element element) {
         String icn = element.getAttributeValue("infoEntityIdent");
         String symbolId = element.getAttributeValue("symbolid");
 
-        // 简化实现：返回占位符，实际由前端调用后端接口获取图片
         XMLOutputter outputter = new XMLOutputter(Format.getCompactFormat());
         String xmlStr = outputter.outputString(element)
             .replace("\"", "`")
@@ -371,7 +372,8 @@ public class ParaConverter {
             .replace(">", "&gt;")
             .replace("&", "&amp;");
 
-        String imgSrc = String.format("/jeecg-boot/ietm/icn/tmpICN/%s", symbolId != null ? symbolId : "");
+        // 🔧 使用真实存在的后端接口：/icnmanage/ietmIcnManage/view/{icnCode}
+        String imgSrc = String.format("/jeecg-boot/icnmanage/ietmIcnManage/view/%s", icn != null ? icn : (symbolId != null ? symbolId : ""));
         return String.format("<img src=\"%s\" xml=\"%s\">", imgSrc, xmlStr);
     }
 

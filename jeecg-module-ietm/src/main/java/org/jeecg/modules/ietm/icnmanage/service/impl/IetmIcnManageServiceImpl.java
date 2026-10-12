@@ -1406,10 +1406,12 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     }
 
     @Override
-    public void loadAttachment(IetmIcnManage icn) {
+    public boolean loadAttachment(IetmIcnManage icn) {
         if (icn == null || icn.getId() == null) {
-            return;
+            return false;
         }
+
+        log.info("[loadAttachment] 开始查询附件 - ICN ID: {}, ICN Code: {}", icn.getId(), icn.getIcn());
 
         // 查询附件信息（使用pid字段关联ICN ID）
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> attachmentQw =
@@ -1421,9 +1423,37 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         List<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> attachments =
                 attachmentService.list(attachmentQw);
 
+        log.info("[loadAttachment] 查询结果 - ICN ID: {}, file_type: {}, 附件数量: {}",
+            icn.getId(), IetmConstants.FILE_TYPE_ENTITY, attachments != null ? attachments.size() : 0);
+
+        // 如果没找到，尝试查询所有类型的附件
+        if (attachments == null || attachments.isEmpty()) {
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> allQw =
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            allQw.eq("pid", icn.getId());
+            List<org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment> allAttachments = attachmentService.list(allQw);
+
+            log.warn("[loadAttachment] 未找到file_type='实体文件'的附件，但该ICN有{}个其他类型附件",
+                allAttachments != null ? allAttachments.size() : 0);
+
+            if (allAttachments != null && !allAttachments.isEmpty()) {
+                for (org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment att : allAttachments) {
+                    log.warn("[loadAttachment] 附件详情 - ID: {}, file_type: {}, file_key: {}, file_name: {}",
+                        att.getId(), att.getFileType(), att.getFileKey(), att.getFileName());
+                }
+            }
+        }
+
         if (attachments != null && !attachments.isEmpty()) {
             // 取第一个附件作为主文件
-            icn.setIetmAttachment(attachments.get(0));
+            org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment firstAttachment = attachments.get(0);
+            icn.setIetmAttachment(firstAttachment);
+            log.info("[loadAttachment] 成功加载附件 - ID: {}, fileKey: {}, fileName: {}",
+                firstAttachment.getId(), firstAttachment.getFileKey(), firstAttachment.getFileName());
+            return true;  // 🔧 修复P3：成功加载附件
         }
+
+        log.warn("[loadAttachment] 未找到任何附件 - ICN ID: {}", icn.getId());
+        return false;  // 🔧 修复P3：未找到附件
     }
 }

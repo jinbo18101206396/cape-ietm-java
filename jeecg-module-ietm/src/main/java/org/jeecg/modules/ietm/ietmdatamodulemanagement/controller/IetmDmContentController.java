@@ -532,7 +532,7 @@ public class IetmDmContentController {
      */
     @AutoLog(value = "Para设计器-分配uniqueid")
     @ApiOperation("分配uniqueid")
-    @PostMapping("/allocate-uniqueids")
+    @PostMapping("/allocateUniqueids")
     public Result<Map<String, Object>> allocateUniqueids(@RequestBody Map<String, Object> params) {
         try {
             String dmId = (String) params.get("dmId");

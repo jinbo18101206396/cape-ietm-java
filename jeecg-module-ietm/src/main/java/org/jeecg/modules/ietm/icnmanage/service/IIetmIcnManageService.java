@@ -182,6 +182,7 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
     /**
      * 加载ICN的附件信息（用于预览时按需加载）
      * @param icn ICN实体（会设置其ietmAttachment属性）
+     * @return true表示成功加载附件，false表示未找到附件
      */
-    void loadAttachment(IetmIcnManage icn);
+    boolean loadAttachment(IetmIcnManage icn);
 }

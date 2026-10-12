@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 
 /**
  * ICN资源查看Controller - DM预览专用
@@ -61,19 +62,27 @@ public class IetmIcnViewController {
     public Result<MultimediaInfoVO> getMetadata(@PathVariable("icnCode") String icnCode) {
         try {
             // 1. 根据ICN编码查询实体
+            // 🔧 2026-10-10 修复：改用.list()而非.getOne()，避免多条记录时抛异常
             QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
             qw.eq("icn", icnCode);
-            IetmIcnManage icn = icnManageService.getOne(qw);
+            qw.orderByDesc("create_time");
+            qw.last("LIMIT 1");
+            List<IetmIcnManage> icnList = icnManageService.list(qw);
 
-            if (icn == null) {
+            if (icnList == null || icnList.isEmpty()) {
                 log.warn("ICN不存在: {}", icnCode);
                 return Result.error("ICN不存在: " + icnCode);
             }
 
-            // 2. 加载附件信息
-            icnManageService.loadAttachment(icn);
+            IetmIcnManage icn = icnList.get(0);
 
-            if (icn.getIetmAttachment() == null || icn.getIetmAttachment().getFileKey() == null) {
+            // 2. 加载附件信息
+            if (!icnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
+                log.warn("ICN附件缺失: {}", icnCode);
+                return Result.error("ICN附件缺失");
+            }
+
+            if (icn.getIetmAttachment().getFileKey() == null) {
                 log.warn("ICN附件缺失: {}", icnCode);
                 return Result.error("ICN附件缺失");
             }
@@ -146,18 +155,27 @@ public class IetmIcnViewController {
             // 1. 根据ICN编码查询实体
             QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
             qw.eq("icn", icnCode);
-            IetmIcnManage icn = icnManageService.getOne(qw);
+            qw.orderByDesc("create_time");
+            qw.orderByDesc("id");  // 🔧 修复P1：添加secondary sort，确定排序顺序
+            qw.last("LIMIT 1");  // 🔧 修复P1：仅取1条记录
+            List<IetmIcnManage> icnList = icnManageService.list(qw);
 
-            if (icn == null) {
+            if (icnList == null || icnList.isEmpty()) {
                 log.warn("ICN不存在: {}", icnCode);
                 sendPlaceholderImage(response, "ICN不存在");
                 return;
             }
 
-            // 2. 加载附件信息
-            icnManageService.loadAttachment(icn);
+            IetmIcnManage icn = icnList.get(0);
 
-            if (icn.getIetmAttachment() == null || icn.getIetmAttachment().getFileKey() == null) {
+            // 2. 加载附件信息
+            if (!icnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
+                log.warn("ICN附件缺失: {}", icnCode);
+                sendPlaceholderImage(response, "图片文件缺失");
+                return;
+            }
+
+            if (icn.getIetmAttachment().getFileKey() == null) {
                 log.warn("ICN附件缺失: {}", icnCode);
                 sendPlaceholderImage(response, "图片文件缺失");
                 return;

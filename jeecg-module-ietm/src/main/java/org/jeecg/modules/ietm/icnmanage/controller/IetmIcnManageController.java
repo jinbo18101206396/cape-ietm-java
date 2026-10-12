@@ -195,16 +195,28 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     @GetMapping(value = "/queryByIcnCode")
     public Result<IetmIcnManage> queryByIcnCode(@RequestParam(name = "icn") @NotBlank(message = "ICN编码不能为空") String icn) {
         // 使用Lambda查询
-        IetmIcnManage ietmIcnManage = ietmIcnManageService.lambdaQuery()
+        // 🔧 修复P0：改用.list()而非.one()，避免多条记录时抛MybatisPlusException
+        List<IetmIcnManage> icnList = ietmIcnManageService.lambdaQuery()
                 .eq(IetmIcnManage::getIcn, icn)
                 .orderByDesc(IetmIcnManage::getCreateTime)
                 .last("LIMIT 1")
-                .one();
+                .list();
 
-        if (ietmIcnManage == null) {
+        if (icnList == null || icnList.isEmpty()) {
             return Result.error("未找到ICN编码为 " + icn + " 的实体");
         }
-        return Result.OK(ietmIcnManage);
+
+        IetmIcnManage icnManage = icnList.get(0);
+        // 🔧 修复：加载附件信息，确保返回的ICN包含ietmAttachment
+        boolean loaded = ietmIcnManageService.loadAttachment(icnManage);
+
+        // 调试日志
+        log.info("[queryByIcnCode] ICN: {}, loadAttachment: {}, hasAttachment: {}, fileKey: {}",
+            icn, loaded,
+            icnManage.getIetmAttachment() != null,
+            icnManage.getIetmAttachment() != null ? icnManage.getIetmAttachment().getFileKey() : "null");
+
+        return Result.OK(icnManage);
     }
 
     /**
@@ -620,9 +632,11 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             }
 
             // 加载附件信息
-            ietmIcnManageService.loadAttachment(icn);
+            if (!ietmIcnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
+                return Result.error("ICN附件缺失");
+            }
 
-            if (icn.getIetmAttachment() == null || icn.getIetmAttachment().getFileKey() == null) {
+            if (icn.getIetmAttachment().getFileKey() == null) {
                 return Result.error("ICN附件缺失");
             }
 
@@ -686,19 +700,34 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             // 根据icnCode查询ICN实体（含附件）
             QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
             qw.eq("icn", icnCode);
-            IetmIcnManage icn = ietmIcnManageService.getOne(qw);
+            qw.orderByDesc("create_time");
+            qw.orderByDesc("id");  // 🔧 修复P1：添加secondary sort，确定排序顺序
+            qw.last("LIMIT 1");  // 🔧 修复P1：仅取1条记录
+            List<IetmIcnManage> icnList = ietmIcnManageService.list(qw);
 
-            if (icn == null) {
+            System.err.println(">>> viewIcn 诊断: icnCode=" + icnCode + ", 查询到 " + (icnList == null ? 0 : icnList.size()) + " 条记录");
+
+            if (icnList == null || icnList.isEmpty()) {
+                System.err.println(">>> viewIcn: ICN不存在");
                 log.warn("ICN不存在: {}", icnCode);
                 sendPlaceholderImage(response, "ICN不存在");
                 return;
             }
 
-            // 加载附件信息
-            ietmIcnManageService.loadAttachment(icn);
+            IetmIcnManage icn = icnList.get(0);
+            System.err.println(">>> viewIcn: 选中第一条ICN id=" + icn.getId());
 
-            if (icn.getIetmAttachment() == null || icn.getIetmAttachment().getFileKey() == null) {
-                log.warn("ICN附件缺失: {}", icnCode);
+            // 加载附件信息
+            if (!ietmIcnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
+                System.err.println(">>> viewIcn: 附件未找到");
+                log.warn("ICN附件未找到: icnCode={}, icnId={}", icnCode, icn.getId());
+                sendPlaceholderImage(response, "图片文件缺失");
+                return;
+            }
+
+            if (icn.getIetmAttachment().getFileKey() == null) {
+                System.err.println(">>> viewIcn: FileKey为null");
+                log.warn("附件FileKey为null: icnCode={}, attachmentId={}", icnCode, icn.getIetmAttachment().getId());
                 sendPlaceholderImage(response, "图片文件缺失");
                 return;
             }
@@ -712,11 +741,17 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
             java.io.File file = new java.io.File(fileStorageLocation, fileKey);
 
+            System.err.println(">>> viewIcn: fileKey=" + fileKey + ", path=" + file.getAbsolutePath() + ", exists=" + file.exists());
+
             if (!file.exists()) {
+                System.err.println(">>> viewIcn: 文件不存在");
                 log.warn("ICN文件不存在: fileKey={}, path={}", fileKey, file.getAbsolutePath());
                 sendPlaceholderImage(response, "文件不存在");
                 return;
             }
+
+            System.err.println(">>> viewIcn: 文件存在，开始读取");
+            log.info("文件存在，准备读取: path={}, size={}", file.getAbsolutePath(), file.length());
 
             byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
 
@@ -739,7 +774,9 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
         } catch (Exception e) {
             log.error("查看ICN图片失败: icnCode={}", icnCode, e);
             try {
-                sendPlaceholderImage(response, "加载失败");
+                // 临时诊断：返回错误信息而不是占位符
+                String errorMsg = "ERROR: " + e.getClass().getSimpleName() + " - " + e.getMessage();
+                sendPlaceholderImage(response, errorMsg.substring(0, Math.min(50, errorMsg.length())));
             } catch (Exception ex) {
                 log.error("发送占位图失败", ex);
             }

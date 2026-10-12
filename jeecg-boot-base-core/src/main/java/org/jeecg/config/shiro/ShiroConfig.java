@@ -95,6 +95,8 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/sys/common/pdf/**", "anon");//pdf预览
         filterChainDefinitionMap.put("/generic/**", "anon");//pdf预览需要文件
         filterChainDefinitionMap.put("/icnmanage/ietmIcnManage/view/**", "anon");//ICN图片查看（DM预览中使用）
+        filterChainDefinitionMap.put("/icnmanage/ietmIcnManage/viewFile**", "anon");//ICN文件查看-Para设计视图图片加载（2026-10-10修复）
+        filterChainDefinitionMap.put("/icnmanage/ietmIcnManage/queryByIcnCode**", "anon");//ICN编码查询-Para设计视图获取图符（2026-10-10修复路径）
         filterChainDefinitionMap.put("/ietm/icn/view/**", "anon");//ICN资源查看-DM预览专用（新增统一路径）
         filterChainDefinitionMap.put("/ietm/icn/metadata/**", "anon");//ICN元数据获取-DM预览专用
 
