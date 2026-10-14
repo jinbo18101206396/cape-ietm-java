@@ -295,4 +295,34 @@
         ORDER BY icn.create_time DESC
     </select>
 
+    <!-- 根据ICN编码查询公式内容 -->
+    <select id="getByIcnWithContent" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            id,
+            create_by,
+            create_time,
+            update_by,
+            update_time,
+            cm_node_id,
+            sns,
+            rpc,
+            originator,
+            unique_id,
+            variant_code,
+            issue_no,
+            security_classification,
+            security,
+            icn_type,
+            ispublished,
+            isdeleted,
+            version,
+            org_identity,
+            icn,
+            filecontent
+        FROM ietm_icn_manage
+        WHERE icn = #{icn}
+        AND isdeleted = '0'
+        LIMIT 1
+    </select>
+
 </mapper>

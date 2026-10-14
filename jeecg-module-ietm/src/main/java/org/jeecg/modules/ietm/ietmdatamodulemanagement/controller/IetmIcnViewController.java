@@ -46,6 +46,9 @@ public class IetmIcnViewController {
     @Autowired
     private IIetmIcnManageService icnManageService;
 
+    @Autowired
+    private org.jeecg.modules.ietm.icnmanage.service.IIetmIcnFormulaService icnFormulaService;
+
     /**
      * 获取ICN多媒体元数据
      *
@@ -364,5 +367,140 @@ public class IetmIcnViewController {
                    .replace(">", "&gt;")
                    .replace("\"", "&quot;")
                    .replace("'", "&apos;");
+    }
+
+    /**
+     * 公式保存端点（对标旧系统的 platform/ietm/csdb/ietmicn/IetmIcnController/operation/save）
+     *
+     * 方案B：使用独立的ietm_icn_formula表（绕过DM8聚集索引限制）
+     * - ietm_icn_manage表有CLUSTER索引，无法添加CLOB字段
+     * - ietm_icn_formula表无CLUSTER索引，可以使用CLOB存储公式HTML
+     * - 对现有ICN功能（图符管理）零影响
+     *
+     * 接收参数格式：{data: JSON.stringify({icn, sns, rpc, originator, uniqueid, variantcode, securityclassification, issueno, secretLevel, cmnodeid, filename, filecontent})}
+     */
+    @PostMapping("/save-formula")
+    @ApiOperation(value = "保存公式ICN", notes = "将UEditor中的公式保存为ICN，filecontent存储完整的<img>标签HTML到独立表ietm_icn_formula")
+    public Result<?> saveFormula(@RequestBody java.util.Map<String, String> params) {
+        try {
+            String dataJson = params.get("data");
+            if (dataJson == null || dataJson.isEmpty()) {
+                return Result.error("参数data不能为空");
+            }
+
+            // 解析JSON为FormulaIcnVO
+            org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FormulaIcnVO vo =
+                com.alibaba.fastjson.JSON.parseObject(dataJson,
+                    org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FormulaIcnVO.class);
+
+            // 🔍 2026-10-14 调试日志：检查filecontent是HTML还是十六进制
+            String filecontent = vo.getFilecontent();
+            log.info("[saveFormula] 接收到的filecontent前100字符: {}",
+                filecontent != null && filecontent.length() > 100 ? filecontent.substring(0, 100) : filecontent);
+            log.info("[saveFormula] filecontent是否以<img开头: {}", filecontent != null && filecontent.startsWith("<img"));
+
+            // 关键：filecontent存储完整的<img>标签HTML（包含base64图片和LaTeX源码）
+            byte[] filecontentBytes = filecontent.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+            // 创建公式ICN实体（使用独立表）
+            org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula entity =
+                new org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula();
+            entity.setIcn(vo.getIcn());
+            entity.setSns(vo.getSns());
+            entity.setRpc(vo.getRpc());
+            entity.setOriginator(vo.getOriginator());
+            entity.setUniqueId(vo.getUniqueid());
+            entity.setVariantCode(vo.getVariantcode());
+            entity.setSecurityClassification(vo.getSecurityclassification());
+            entity.setIssueNo(vo.getIssueno());
+            entity.setSecurity(Integer.parseInt(vo.getSecretLevel()));
+            entity.setCmNodeId(vo.getCmnodeid());
+            entity.setFilecontent(filecontentBytes);  // 存储完整的HTML到CLOB
+            entity.setIcnType("formula");  // 标识为公式类型
+            entity.setVersion("1");
+            entity.setIspublished("0");
+            entity.setIsdeleted("0");
+            entity.setCreateTime(new java.util.Date());
+
+            // 🔧 修复P0: 从LoginUser获取当前用户名
+            try {
+                org.jeecg.common.system.vo.LoginUser loginUser =
+                    (org.jeecg.common.system.vo.LoginUser) org.apache.shiro.SecurityUtils.getSubject().getPrincipal();
+                if (loginUser != null) {
+                    entity.setCreateBy(loginUser.getUsername());
+                } else {
+                    log.warn("[saveFormula] LoginUser为null，使用默认值");
+                    entity.setCreateBy("system");
+                }
+            } catch (Exception e) {
+                log.error("[saveFormula] 获取用户名失败，使用默认值", e);
+                entity.setCreateBy("system");
+            }
+
+            // 保存到独立表ietm_icn_formula
+            icnFormulaService.save(entity);
+
+            log.info("[saveFormula] 公式保存成功（独立表）- ICN: {}, UniqueId: {}", vo.getIcn(), vo.getUniqueid());
+            return Result.OK("公式保存成功");
+        } catch (Exception e) {
+            log.error("[saveFormula] 公式保存失败", e);
+            return Result.error("公式保存失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 公式加载端点（对标旧系统的 platform/ietm/csdb/ietmicn/IetmIcnController/operation/getIcnContent）
+     *
+     * 方案B：优先从独立的ietm_icn_formula表查询
+     * - 如果是公式ICN，返回 {formula: "<img class=\"kfformula\"..."}
+     * - 否则返回普通附件信息（从ietm_icn_manage + ietm_attachment查询）
+     */
+    @PostMapping("/getIcnContent")
+    @ApiOperation(value = "获取ICN内容", notes = "如果是公式ICN，从独立表ietm_icn_formula返回完整HTML；否则返回附件信息")
+    public Result<?> getIcnContent(@RequestParam String icn) {
+        try {
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+
+            // 1. 优先从独立的公式表查询
+            org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula formulaEntity =
+                icnFormulaService.getByIcnWithContent(icn);
+
+            if (formulaEntity != null && formulaEntity.getFilecontent() != null && formulaEntity.getFilecontent().length > 0) {
+                // 🔧 2026-10-14 修复P0: byte[]直接放入Map会被JSON序列化成十六进制字符串
+                // 必须先转成String再放入result，否则前端收到的是hex而不是HTML
+                String formulaHtml = new String(formulaEntity.getFilecontent(), java.nio.charset.StandardCharsets.UTF_8);
+                result.put("formula", formulaHtml);  // 关键：必须是String类型，不能是byte[]
+                log.info("[getIcnContent] 公式加载成功（独立表）- ICN: {}, HTML长度: {}", icn, formulaHtml.length());
+                return Result.OK(result);
+            }
+
+            // 2. 查询普通ICN（图符）
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<IetmIcnManage> qw =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            qw.eq("icn", icn);
+            qw.orderByDesc("create_time");
+            qw.last("LIMIT 1");
+            java.util.List<IetmIcnManage> icnList = icnManageService.list(qw);
+
+            if (icnList == null || icnList.isEmpty()) {
+                log.warn("[getIcnContent] ICN不存在 - ICN: {}", icn);
+                return Result.error("ICN不存在");
+            }
+
+            IetmIcnManage entity = icnList.get(0);
+
+            // 3. 加载附件信息（普通图符）
+            if (icnManageService.loadAttachment(entity)) {
+                result.put("dto", entity);
+                log.info("[getIcnContent] 附件加载成功 - ICN: {}", icn);
+                return Result.OK(result);
+            }
+
+            log.warn("[getIcnContent] 未找到ICN内容 - ICN: {}", icn);
+            return Result.error("未找到ICN内容");
+        } catch (Exception e) {
+            log.error("[getIcnContent] 获取ICN内容失败", e);
+            return Result.error("获取ICN内容失败：" + e.getMessage());
+        }
     }
 }

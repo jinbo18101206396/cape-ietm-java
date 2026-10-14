@@ -42,6 +42,7 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
     @Resource private IetmProjectMapper    projectMapper;
     @Resource private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper icnReferenceMapper;
     @Resource private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper icnManageMapper;
+    @Resource private org.jeecg.modules.ietm.ietmprojectcompany.mapper.IetmProjectCompanyMapper projectCompanyMapper;
 
     private static final String DEFAULT_STANDARD = "S1000D4.0";
     private static final String DEFAULT_XSD      = "descript.xsd";
@@ -89,7 +90,7 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
         vo.setEn2cnElem(en2cn);
         vo.setCn2enElem(cn2en);
 
-        vo.setDesignerSett(defaultDesignerSett());
+        vo.setDesignerSett(buildDesignerSett(dm.getProjectId()));
         vo.setVersion(dm.getVersion());   // 随加载返回，保存时原样回传（避免前端二次 queryById 竞态）
         vo.setCheckoutUser(dm.getCheckoutUser()); // 🔧 修复：返回签出用户，用于流程提交前校验（对齐旧系统）
         // vo.setMaxUniqueId(dm.getMaxUniqueId()); // TODO: Para设计器：返回最大uniqueId（需要在IetmDataModule实体类中添加maxUniqueId字段）
@@ -127,14 +128,65 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
         return dmTypeMapper.selectOne(w);
     }
 
-    private Map<String, Object> defaultDesignerSett() {
+    /**
+     * 构建编辑器配置参数（包含项目参数：originator、rpc等）
+     * 对标旧系统的projectParameters，用于Para设计器生成公式ICN
+     */
+    private Map<String, Object> buildDesignerSett(String projectId) {
         Map<String, Object> common = new LinkedHashMap<>();
         common.put("autosavetime", "10");              // 分钟，"0"禁用（§21.4）
         common.put("validdmBeforesave", "false");
         common.put("toRefsAndDoctypeBeforesave", "false");
         common.put("popupPreview", "false");
+
         Map<String, Object> sett = new LinkedHashMap<>();
         sett.put("common", common);
+
+        // 从项目单位表获取创作单位(originator)和责任单位(rpc)
+        if (StringUtils.hasText(projectId)) {
+            try {
+                // 查询创作单位（type=1）
+                LambdaQueryWrapper<org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany> originatorQuery =
+                    new LambdaQueryWrapper<>();
+                originatorQuery.eq(org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany::getPid, projectId)
+                              .eq(org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany::getType, 1);
+                List<org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany> originators =
+                    projectCompanyMapper.selectList(originatorQuery);
+
+                List<Map<String, Object>> originatorList = new ArrayList<>();
+                for (org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany company : originators) {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("code", company.getCompanyCode());
+                    item.put("name", company.getCompanyName());
+                    originatorList.add(item);
+                }
+
+                // 查询责任单位（type=2）
+                LambdaQueryWrapper<org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany> rpcQuery =
+                    new LambdaQueryWrapper<>();
+                rpcQuery.eq(org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany::getPid, projectId)
+                        .eq(org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany::getType, 2);
+                List<org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany> rpcs =
+                    projectCompanyMapper.selectList(rpcQuery);
+
+                List<Map<String, Object>> rpcList = new ArrayList<>();
+                for (org.jeecg.modules.ietm.ietmprojectcompany.entity.IetmProjectCompany company : rpcs) {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("code1", company.getCompanyCode());  // 注意：旧系统使用code1字段
+                    item.put("name", company.getCompanyName());
+                    rpcList.add(item);
+                }
+
+                sett.put("originator", originatorList);
+                sett.put("rpc", rpcList);
+
+                log.info("buildDesignerSett: projectId={}, originator count={}, rpc count={}",
+                    projectId, originatorList.size(), rpcList.size());
+            } catch (Exception e) {
+                log.error("获取项目单位参数失败", e);
+            }
+        }
+
         return sett;
     }
 

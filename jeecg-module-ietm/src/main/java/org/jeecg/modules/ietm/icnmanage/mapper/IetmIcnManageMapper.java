@@ -91,4 +91,11 @@ public interface IetmIcnManageMapper extends BaseMapper<IetmIcnManage> {
     com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listSymbolsForDialogIncludeChildren(
             @Param("cmNodeId") String cmNodeId,
             com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmIcnManage> page);
+
+    /**
+     * 根据ICN编码查询公式内容
+     * @param icn ICN编码
+     * @return ICN对象（含filecontent BLOB字段）
+     */
+    IetmIcnManage getByIcnWithContent(@Param("icn") String icn);
 }

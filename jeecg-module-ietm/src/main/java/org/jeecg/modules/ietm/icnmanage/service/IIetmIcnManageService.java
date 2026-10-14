@@ -185,4 +185,11 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
      * @return true表示成功加载附件，false表示未找到附件
      */
     boolean loadAttachment(IetmIcnManage icn);
+
+    /**
+     * 根据ICN编码查询公式内容
+     * @param icn ICN编码
+     * @return ICN对象（含filecontent BLOB字段）
+     */
+    IetmIcnManage getByIcnWithContent(String icn);
 }

@@ -1456,4 +1456,9 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
         log.warn("[loadAttachment] 未找到任何附件 - ICN ID: {}", icn.getId());
         return false;  // 🔧 修复P3：未找到附件
     }
+
+    @Override
+    public IetmIcnManage getByIcnWithContent(String icn) {
+        return this.baseMapper.getByIcnWithContent(icn);
+    }
 }

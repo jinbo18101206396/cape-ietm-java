@@ -183,4 +183,9 @@ public class IetmIcnManage implements Serializable {
      */
     @TableField(exist = false)
     private String needDimension;
+
+    /**公式或文件内容（BLOB）*/
+    @TableField("filecontent")
+    @ApiModelProperty(value = "公式或文件内容")
+    private byte[] filecontent;
 }

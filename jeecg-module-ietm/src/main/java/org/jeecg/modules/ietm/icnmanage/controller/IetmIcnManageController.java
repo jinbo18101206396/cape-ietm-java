@@ -45,6 +45,9 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     @Autowired
     private IIetmIcnManageService ietmIcnManageService;
 
+    @Autowired
+    private org.jeecg.modules.ietm.icnmanage.service.IIetmIcnFormulaService icnFormulaService;
+
     /**
      * 分页列表查询
      */
@@ -194,6 +197,21 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     @ApiOperation(value = "通过ICN编码查询", notes = "通过ICN编码查询ICN详情")
     @GetMapping(value = "/queryByIcnCode")
     public Result<IetmIcnManage> queryByIcnCode(@RequestParam(name = "icn") @NotBlank(message = "ICN编码不能为空") String icn) {
+        // 🔧 2026-10-14 修复P0: 公式ICN查询
+        // 根因：公式存储在独立表ietm_icn_formula，queryByIcnCode只查ietm_icn_manage导致"ICN不存在"
+
+        // 1. 优先查询公式表（Schema B独立表）
+        org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula formulaEntity =
+            icnFormulaService.getByIcnWithContent(icn);
+
+        if (formulaEntity != null) {
+            // 🔧 P1优化：使用BeanUtils消除代码重复（20行→3行）
+            IetmIcnManage adapted = convertFormulaToManage(formulaEntity);
+            log.info("[queryByIcnCode] 公式ICN查询成功 - ICN: {}, 来源: ietm_icn_formula", icn);
+            return Result.OK(adapted);
+        }
+
+        // 2. Fallback: 查询普通ICN（图符/图像）
         // 使用Lambda查询
         // 🔧 修复P0：改用.list()而非.one()，避免多条记录时抛MybatisPlusException
         List<IetmIcnManage> icnList = ietmIcnManageService.lambdaQuery()
@@ -203,6 +221,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
                 .list();
 
         if (icnList == null || icnList.isEmpty()) {
+            log.warn("[queryByIcnCode] ICN不存在（两表都未找到） - ICN: {}", icn);
             return Result.error("未找到ICN编码为 " + icn + " 的实体");
         }
 
@@ -211,7 +230,7 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
         boolean loaded = ietmIcnManageService.loadAttachment(icnManage);
 
         // 调试日志
-        log.info("[queryByIcnCode] ICN: {}, loadAttachment: {}, hasAttachment: {}, fileKey: {}",
+        log.info("[queryByIcnCode] 普通ICN查询成功 - ICN: {}, loadAttachment: {}, hasAttachment: {}, fileKey: {}",
             icn, loaded,
             icnManage.getIetmAttachment() != null,
             icnManage.getIetmAttachment() != null ? icnManage.getIetmAttachment().getFileKey() : "null");
@@ -982,5 +1001,36 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
                    .replace("\"", "&quot;")
                    .replace("'", "&apos;");
     }
+
+    /**
+     * 🔧 P1优化：公式实体转换为图符实体（消除代码重复）
+     *
+     * @param formulaEntity 公式实体（来自ietm_icn_formula表）
+     * @return IetmIcnManage 适配对象（前端期望的结构）
+     */
+    private IetmIcnManage convertFormulaToManage(org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula formulaEntity) {
+        IetmIcnManage adapted = new IetmIcnManage();
+
+        // 使用Spring BeanUtils复制同名字段（避免逐一赋值）
+        org.springframework.beans.BeanUtils.copyProperties(formulaEntity, adapted);
+
+        // ✅ 关键：标记类型为公式（前端依赖此字段判断）
+        adapted.setIcnType("formula");
+
+        // 构造虚拟附件对象（保持API兼容性，实际不使用）
+        // 公式内容已存储在filecontent CLOB字段中，不需要真实附件
+        if (formulaEntity.getFilecontent() != null && formulaEntity.getFilecontent().length > 0) {
+            org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment attachment =
+                new org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment();
+            attachment.setFileName("formula.html");
+            attachment.setFileSize(new java.math.BigDecimal(formulaEntity.getFilecontent().length));
+            // 注意：此fileKey为虚拟标识，前端实际通过getIcnContent端点获取公式内容
+            attachment.setFileKey("formula-" + formulaEntity.getId());
+            adapted.setIetmAttachment(attachment);
+        }
+
+        return adapted;
+    }
+
 }
 
