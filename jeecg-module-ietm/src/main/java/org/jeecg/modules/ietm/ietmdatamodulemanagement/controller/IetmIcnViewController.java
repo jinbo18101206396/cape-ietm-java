@@ -149,13 +149,56 @@ public class IetmIcnViewController {
      * @param response HTTP响应
      */
     @ApiOperation(value = "查看ICN图片/视频/音频",
-                  notes = "用于DM预览中显示图形/视频/音频，根据ICN编码返回文件流，支持Range请求（视频拖动）")
+                  notes = "用于DM预览中显示图形/视频/音频，根据ICN编码返回文件流，支持Range请求（视频拖动）。支持公式ICN（从ietm_icn_formula表加载）")
     @GetMapping(value = "/view/{icnCode}")
     public void viewIcn(@PathVariable("icnCode") String icnCode,
                         HttpServletRequest request,
                         HttpServletResponse response) {
         try {
-            // 1. 根据ICN编码查询实体
+            // 🔧 2026-10-15 修复P0：公式预览加载失败
+            // 根因：公式ICN存储在独立的ietm_icn_formula表（绕过DM8聚集索引限制），
+            //      但预览接口只查询普通的ietm_icn_manage表，导致"ICN不存在"
+            // 修复：优先从ietm_icn_formula表查询，如果是公式ICN则从filecontent字段
+            //      提取base64图片返回；否则走原有的附件流程
+
+            // 1. 优先查询公式ICN（独立表）
+            org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula formulaEntity =
+                icnFormulaService.getByIcnWithContent(icnCode);
+
+            if (formulaEntity != null && formulaEntity.getFilecontent() != null && formulaEntity.getFilecontent().length > 0) {
+                // 公式ICN：从HTML中提取base64图片
+                String formulaHtml = new String(formulaEntity.getFilecontent(), java.nio.charset.StandardCharsets.UTF_8);
+
+                // 提取base64图片数据（格式：<img src="data:image/png;base64,iVBORw0KG..." .../>）
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("src=\"(data:image/png;base64,[^\"]+)\"");
+                java.util.regex.Matcher matcher = pattern.matcher(formulaHtml);
+
+                if (matcher.find()) {
+                    String base64Data = matcher.group(1);
+                    // 去掉data URL前缀，只保留base64编码
+                    String base64Image = base64Data.substring(base64Data.indexOf(',') + 1);
+                    byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Image);
+
+                    // 返回PNG图片
+                    response.setStatus(HttpServletResponse.SC_OK);
+                    response.setContentType("image/png");
+                    response.setContentLength(imageBytes.length);
+                    response.setHeader("Content-Disposition", "inline; filename=\"formula.png\"");
+                    response.setHeader("Cache-Control", "public, max-age=86400");
+
+                    response.getOutputStream().write(imageBytes);
+                    response.getOutputStream().flush();
+
+                    log.info("公式ICN预览成功: icnCode={}, 图片大小={}KB", icnCode, imageBytes.length / 1024);
+                    return;
+                } else {
+                    log.warn("公式ICN无法提取base64图片: icnCode={}", icnCode);
+                    sendPlaceholderImage(response, "公式图片格式错误");
+                    return;
+                }
+            }
+
+            // 2. 查询普通ICN（图符/视频/音频）
             QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
             qw.eq("icn", icnCode);
             qw.orderByDesc("create_time");
@@ -171,7 +214,7 @@ public class IetmIcnViewController {
 
             IetmIcnManage icn = icnList.get(0);
 
-            // 2. 加载附件信息
+            // 3. 加载附件信息
             if (!icnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
                 log.warn("ICN附件缺失: {}", icnCode);
                 sendPlaceholderImage(response, "图片文件缺失");
@@ -184,7 +227,7 @@ public class IetmIcnViewController {
                 return;
             }
 
-            // 3. 读取文件内容
+            // 4. 读取文件内容
             String fileKey = icn.getIetmAttachment().getFileKey();
             String fileName = icn.getIetmAttachment().getFileName();
             String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
@@ -198,12 +241,12 @@ public class IetmIcnViewController {
 
             byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
 
-            // 4. MIME类型检测（使用魔数，支持18种格式）
+            // 5. MIME类型检测（使用魔数，支持18种格式）
             String mimeType = MimeTypeDetector.detect(fileContent);
             log.debug("ICN: {}, 文件名: {}, 检测到MIME类型: {}, 文件大小: {} bytes",
                      icnCode, fileName, mimeType, fileContent.length);
 
-            // 5. 检测Range请求头
+            // 6. 检测Range请求头
             String rangeHeader = request.getHeader("Range");
 
             if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {

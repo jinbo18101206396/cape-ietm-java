@@ -29,6 +29,6 @@ public interface IetmIcnFormulaMapper extends BaseMapper<IetmIcnFormula> {
             "FROM ietm_icn_formula " +
             "WHERE icn = #{icn} AND isdeleted = '0' " +
             "ORDER BY create_time DESC " +
-            "LIMIT 1")
+            "FETCH FIRST 1 ROWS ONLY")
     IetmIcnFormula getByIcnWithContent(@Param("icn") String icn);
 }
