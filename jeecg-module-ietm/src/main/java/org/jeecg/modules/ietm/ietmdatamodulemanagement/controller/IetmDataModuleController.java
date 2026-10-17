@@ -1030,6 +1030,11 @@ public class IetmDataModuleController extends JeecgController<IetmDataModule, II
                 return Result.OK(ret);
             }
 
+            // 1.5. 清理XML前导空白（与编辑器预览保持一致）
+            // 修复：The processing instruction target matching "[xX][mM][lL]" is not allowed
+            // XML解析器要求 <?xml 必须在文件最开始，不能有前导空白或BOM
+            dmContent = dmContent.replaceAll("^\\s+", "");
+
             // 2. 复用编辑器预览的转换逻辑（DmXsltTransformer）
             long transformStart = System.currentTimeMillis();
             String html = DmXmlHelper.renderHtml(dmContent, request.getContextPath());

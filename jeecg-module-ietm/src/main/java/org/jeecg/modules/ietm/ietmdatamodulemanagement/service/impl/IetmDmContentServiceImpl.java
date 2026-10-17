@@ -321,6 +321,12 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
             ret.put("flag", "0");
             return ret;
         }
+
+        // 清理 XML 前导空白（与编辑器预览保持一致）
+        // 修复：The processing instruction target matching "[xX][mM][lL]" is not allowed
+        // XML 解析器要求 <?xml 必须在文件最开始，不能有前导空白或 BOM
+        content = content.replaceAll("^\\s+", "");
+
         String standard = resolveStandard(dm);
         IetmDmType type = resolveDmType(dm, standard);
         String schema = type != null ? type.getXsdFile() : DEFAULT_XSD;

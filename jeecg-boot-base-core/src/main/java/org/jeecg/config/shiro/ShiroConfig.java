@@ -99,6 +99,7 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/icnmanage/ietmIcnManage/queryByIcnCode**", "anon");//ICN编码查询-Para设计视图获取图符（2026-10-10修复路径）
         filterChainDefinitionMap.put("/ietm/icn/view/**", "anon");//ICN资源查看-DM预览专用（新增统一路径）
         filterChainDefinitionMap.put("/ietm/icn/metadata/**", "anon");//ICN元数据获取-DM预览专用
+        filterChainDefinitionMap.put("/ietm/icn/**", "anon");//ICN相关接口全部放开-DM预览专用（2026-10-16修复）
 
         filterChainDefinitionMap.put("/sys/getLoginQrcode/**", "anon"); //登录二维码
         filterChainDefinitionMap.put("/sys/getQrcodeToken/**", "anon"); //监听扫码

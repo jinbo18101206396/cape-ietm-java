@@ -49,6 +49,9 @@ public class IetmIcnViewController {
     @Autowired
     private org.jeecg.modules.ietm.icnmanage.service.IIetmIcnFormulaService icnFormulaService;
 
+    @org.springframework.beans.factory.annotation.Value("${jeecg.path.upload}")
+    private String uploadPath;
+
     /**
      * 获取ICN多媒体元数据
      *
@@ -66,6 +69,7 @@ public class IetmIcnViewController {
         try {
             // 1. 根据ICN编码查询实体
             // 🔧 2026-10-10 修复：改用.list()而非.getOne()，避免多条记录时抛异常
+            // 🔧 2026-10-16 修复：先查ietm_icn_manage，如果不存在则查ietm_icn_formula（公式ICN）
             QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
             qw.eq("icn", icnCode);
             qw.orderByDesc("create_time");
@@ -73,8 +77,9 @@ public class IetmIcnViewController {
             List<IetmIcnManage> icnList = icnManageService.list(qw);
 
             if (icnList == null || icnList.isEmpty()) {
-                log.warn("ICN不存在: {}", icnCode);
-                return Result.error("ICN不存在: " + icnCode);
+                // 尝试从公式表查询
+                log.debug("ICN在ietm_icn_manage中不存在，尝试查询ietm_icn_formula: {}", icnCode);
+                return getFormulaMetadata(icnCode);
             }
 
             IetmIcnManage icn = icnList.get(0);
@@ -93,11 +98,11 @@ public class IetmIcnViewController {
             // 3. 读取文件内容
             String fileKey = icn.getIetmAttachment().getFileKey();
             String fileName = icn.getIetmAttachment().getFileName();
-            String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
-            java.io.File file = new java.io.File(fileStorageLocation, fileKey);
+            java.io.File file = new java.io.File(uploadPath, fileKey);
 
             if (!file.exists()) {
-                log.warn("ICN文件不存在: fileKey={}, path={}", fileKey, file.getAbsolutePath());
+                log.warn("ICN文件不存在: fileKey={}, uploadPath={}, absolutePath={}",
+                        fileKey, uploadPath, file.getAbsolutePath());
                 return Result.error("文件不存在");
             }
 
@@ -121,6 +126,51 @@ public class IetmIcnViewController {
         } catch (Exception e) {
             log.error("获取ICN元数据失败: icnCode={}", icnCode, e);
             return Result.error("获取元数据失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取公式ICN的元数据
+     *
+     * 🔧 2026-10-16 新增：处理公式ICN（存储在ietm_icn_formula表）
+     *
+     * @param icnCode ICN编码
+     * @return 公式ICN的元数据
+     */
+    private Result<MultimediaInfoVO> getFormulaMetadata(String icnCode) {
+        try {
+            // 从公式表查询
+            org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula formulaEntity =
+                icnFormulaService.getByIcnWithContent(icnCode);
+
+            if (formulaEntity == null) {
+                log.warn("公式ICN不存在: {}", icnCode);
+                return Result.error("ICN不存在: " + icnCode);
+            }
+
+            // 构建返回对象
+            MultimediaInfoVO info = new MultimediaInfoVO();
+            info.setIcnCode(icnCode);
+            info.setIcnType("formula");  // 标记为公式类型
+            info.setMimeType("text/html");  // 公式存储为HTML
+
+            // 如果有内容，计算大小
+            if (formulaEntity.getFilecontent() != null) {
+                info.setFileSize((long) formulaEntity.getFilecontent().length);
+            } else {
+                info.setFileSize(0L);
+            }
+
+            info.setFileName(icnCode + ".html");
+
+            log.info("获取公式ICN元数据成功: icnCode={}, size={}",
+                    icnCode, info.getFileSize());
+
+            return Result.OK(info);
+
+        } catch (Exception e) {
+            log.error("获取公式ICN元数据失败: icnCode={}", icnCode, e);
+            return Result.error("获取公式元数据失败: " + e.getMessage());
         }
     }
 
@@ -166,36 +216,32 @@ public class IetmIcnViewController {
                 icnFormulaService.getByIcnWithContent(icnCode);
 
             if (formulaEntity != null && formulaEntity.getFilecontent() != null && formulaEntity.getFilecontent().length > 0) {
-                // 公式ICN：从HTML中提取base64图片
-                String formulaHtml = new String(formulaEntity.getFilecontent(), java.nio.charset.StandardCharsets.UTF_8);
+                // 🔧 2026-10-16 修复：直接返回公式 HTML，让前端提取 base64 图片
+                // 原因：公式 HTML 格式多样，后端提取不可靠；前端统一处理更灵活
 
-                // 提取base64图片数据（格式：<img src="data:image/png;base64,iVBORw0KG..." .../>）
-                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("src=\"(data:image/png;base64,[^\"]+)\"");
-                java.util.regex.Matcher matcher = pattern.matcher(formulaHtml);
+                byte[] filecontentBytes = formulaEntity.getFilecontent();
+                String formulaHtml;
 
-                if (matcher.find()) {
-                    String base64Data = matcher.group(1);
-                    // 去掉data URL前缀，只保留base64编码
-                    String base64Image = base64Data.substring(base64Data.indexOf(',') + 1);
-                    byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Image);
-
-                    // 返回PNG图片
-                    response.setStatus(HttpServletResponse.SC_OK);
-                    response.setContentType("image/png");
-                    response.setContentLength(imageBytes.length);
-                    response.setHeader("Content-Disposition", "inline; filename=\"formula.png\"");
-                    response.setHeader("Cache-Control", "public, max-age=86400");
-
-                    response.getOutputStream().write(imageBytes);
-                    response.getOutputStream().flush();
-
-                    log.info("公式ICN预览成功: icnCode={}, 图片大小={}KB", icnCode, imageBytes.length / 1024);
-                    return;
+                // 判断是否为十六进制编码（数据库中可能存储的是十六进制字符串）
+                String hexTest = new String(filecontentBytes, java.nio.charset.StandardCharsets.UTF_8);
+                if (hexTest.matches("^[0-9A-Fa-f]+$")) {
+                    // 十六进制字符串：先解码为字节数组，再转成 UTF-8 字符串
+                    byte[] decodedBytes = hexStringToByteArray(hexTest);
+                    formulaHtml = new String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8);
+                    log.info("公式ICN（十六进制存储）: icnCode={}, 原始长度={}, 解码后长度={}",
+                            icnCode, filecontentBytes.length, formulaHtml.length());
                 } else {
-                    log.warn("公式ICN无法提取base64图片: icnCode={}", icnCode);
-                    sendPlaceholderImage(response, "公式图片格式错误");
-                    return;
+                    // 普通 UTF-8 字符串
+                    formulaHtml = hexTest;
                 }
+
+                response.setStatus(HttpServletResponse.SC_OK);
+                response.setContentType("text/html; charset=UTF-8");
+                response.setHeader("Cache-Control", "public, max-age=86400");
+                response.getWriter().write(formulaHtml);
+
+                log.info("公式ICN预览成功: icnCode={}, HTML长度={}字符", icnCode, formulaHtml.length());
+                return;
             }
 
             // 2. 查询普通ICN（图符/视频/音频）
@@ -230,11 +276,16 @@ public class IetmIcnViewController {
             // 4. 读取文件内容
             String fileKey = icn.getIetmAttachment().getFileKey();
             String fileName = icn.getIetmAttachment().getFileName();
-            String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
-            java.io.File file = new java.io.File(fileStorageLocation, fileKey);
+            java.io.File file = new java.io.File(uploadPath, fileKey);
+
+            log.info("图符ICN文件路径检查: icnCode={}, fileKey={}, uploadPath={}, absolutePath={}",
+                    icnCode, fileKey, uploadPath, file.getAbsolutePath());
 
             if (!file.exists()) {
-                log.warn("ICN文件不存在: fileKey={}, path={}", fileKey, file.getAbsolutePath());
+                // 检查是否文件存储路径配置错误
+                java.io.File storageDir = new java.io.File(uploadPath);
+                log.warn("ICN文件不存在: fileKey={}, path={}, storageDir.exists={}, storageDir.isDirectory={}",
+                        fileKey, file.getAbsolutePath(), storageDir.exists(), storageDir.isDirectory());
                 sendPlaceholderImage(response, "文件不存在");
                 return;
             }
@@ -500,7 +551,14 @@ public class IetmIcnViewController {
      */
     @PostMapping("/getIcnContent")
     @ApiOperation(value = "获取ICN内容", notes = "如果是公式ICN，从独立表ietm_icn_formula返回完整HTML；否则返回附件信息")
-    public Result<?> getIcnContent(@RequestParam String icn) {
+    public Result<?> getIcnContent(@RequestParam(required = false) String icn, @RequestBody(required = false) java.util.Map<String, String> params) {
+        // 支持两种参数传递方式：URL查询参数或JSON body
+        if (icn == null && params != null) {
+            icn = params.get("icn");
+        }
+        if (icn == null || icn.trim().isEmpty()) {
+            return Result.error("ICN参数不能为空");
+        }
         try {
             java.util.Map<String, Object> result = new java.util.HashMap<>();
 
@@ -545,5 +603,21 @@ public class IetmIcnViewController {
             log.error("[getIcnContent] 获取ICN内容失败", e);
             return Result.error("获取ICN内容失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 将十六进制字符串解码为字节数组
+     *
+     * @param hexString 十六进制字符串（如 "3C68746D6C3E" 代表 "<html>"）
+     * @return 解码后的字节数组
+     */
+    private byte[] hexStringToByteArray(String hexString) {
+        int len = hexString.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                    + Character.digit(hexString.charAt(i + 1), 16));
+        }
+        return data;
     }
 }

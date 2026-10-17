@@ -3,6 +3,7 @@ package org.jeecg.modules.ietm.ietmdatamodulemanagement.util;
 import lombok.extern.slf4j.Slf4j;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.entity.IetmDataModule;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmValidateItemVO;
+import org.jeecg.modules.ietm.common.util.MimeTypeDetector;
 import org.springframework.core.io.ClassPathResource;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXParseException;
@@ -631,29 +632,28 @@ public class DmXmlHelper {
                 return null;
             }
 
-            // 4. 从配置获取ICN存储路径（与IetmIcnManageServiceImpl一致）
+            // 4. 从配置获取ICN基础路径
+            // 🔧 2026-10-17 修复：使用 accessFile.location 而非 accessFile.icnLocation
+            // 因为 fileKey 中已包含完整路径（如 icn\... 或 project/xxx/icn/...）
             String fileStorageLocation = org.jeecg.common.util.SpringContextUtils
                 .getApplicationContext()
                 .getEnvironment()
-                .getProperty("accessFile.icnLocation", "D:\\workspace\\IETM\\file\\icn");
+                .getProperty("accessFile.location", "D:\\workspace\\IETM\\file");
 
-            // 5. 提取文件名（去掉fileKey中的路径部分）
-            String extractedFileName = fileKey;
-            if (fileKey.contains(java.io.File.separator)) {
-                extractedFileName = fileKey.substring(fileKey.lastIndexOf(java.io.File.separator) + 1);
-            } else if (fileKey.contains("/")) {
-                extractedFileName = fileKey.substring(fileKey.lastIndexOf("/") + 1);
-            }
+            // 5. 直接使用完整的fileKey（包含路径）而非只提取文件名
+            // 这样可以支持嵌套项目结构（如 project/projectId/icn/filename.jpg）
+            // 将 fileKey 中的正斜杠转换为系统路径分隔符
+            String normalizedFileKey = fileKey.replace("/", java.io.File.separator);
 
             // 6. 构建完整文件路径
-            java.io.File file = new java.io.File(fileStorageLocation + java.io.File.separator + extractedFileName);
+            java.io.File file = new java.io.File(fileStorageLocation + java.io.File.separator + normalizedFileKey);
 
-            log.info("🔍 ICN文件路径: icnCode={}, fileStorageLocation={}, extractedFileName={}, fullPath={}",
-                     icnCode, fileStorageLocation, extractedFileName, file.getAbsolutePath());
+            log.info("🔍 ICN文件路径: icnCode={}, fileStorageLocation={}, normalizedFileKey={}, fullPath={}",
+                     icnCode, fileStorageLocation, normalizedFileKey, file.getAbsolutePath());
 
             if (!file.exists()) {
-                log.warn("🔍 ICN文件不存在: icnCode={}, fileKey={}, extractedFileName={}, path={}",
-                         icnCode, fileKey, extractedFileName, file.getAbsolutePath());
+                log.warn("🔍 ICN文件不存在: icnCode={}, fileKey={}, normalizedFileKey={}, path={}",
+                         icnCode, fileKey, normalizedFileKey, file.getAbsolutePath());
                 return null;
             }
 
@@ -663,35 +663,41 @@ public class DmXmlHelper {
             byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
             String mimeType = getMimeTypeForIcn(extractFileExt(fileName));
 
-            // 检测文件是否已经是base64文本（旧系统可能已经编码过）
+            // 🔧 2026-10-17 修复：完善Base64检测逻辑
+            // 使用MimeTypeDetector进行完整的文件格式验证，避免假阳性
             String base64;
 
-            // 如果文件全是ASCII可打印字符且包含典型base64字符，可能已经是base64
-            if (fileContent.length > 100) {
-                String preview = new String(fileContent, 0, Math.min(100, fileContent.length), java.nio.charset.StandardCharsets.US_ASCII);
-                // base64文本特征：只包含A-Za-z0-9+/=和空白符
-                if (preview.matches("[A-Za-z0-9+/=\\s]+")) {
-                    // 尝试解码验证
-                    try {
-                        String fileAsText = new String(fileContent, java.nio.charset.StandardCharsets.UTF_8).trim();
-                        byte[] decoded = java.util.Base64.getDecoder().decode(fileAsText.replaceAll("\\s", ""));
-                        // 检查解码后的数据是否是有效图片（JPEG: FF D8, PNG: 89 50 4E 47）
-                        if (decoded.length > 4 &&
-                            ((decoded[0] == (byte)0xFF && decoded[1] == (byte)0xD8) ||  // JPEG
-                             (decoded[0] == (byte)0x89 && decoded[1] == (byte)0x50))) { // PNG
-                            base64 = fileAsText.replaceAll("\\s", "");
-                        } else {
-                            base64 = java.util.Base64.getEncoder().encodeToString(fileContent);
-                        }
-                    } catch (Exception e) {
-                        // 解码失败，说明不是base64，正常编码
+            // 判断文件是否已经是base64编码（旧系统可能已编码）
+            if (isBase64Encoded(fileContent)) {
+                try {
+                    String fileAsText = new String(fileContent, java.nio.charset.StandardCharsets.UTF_8).trim();
+                    byte[] decoded = java.util.Base64.getDecoder().decode(fileAsText.replaceAll("\\s", ""));
+
+                    // 使用MimeTypeDetector进行完整的魔数检测
+                    String detectedMime = MimeTypeDetector.detect(decoded);
+
+                    // 只有当检测到的格式是图片/视频/音频时才认为是有效的base64编码数据
+                    if (detectedMime.startsWith("image/") ||
+                        detectedMime.startsWith("video/") ||
+                        detectedMime.startsWith("audio/")) {
+                        base64 = fileAsText.replaceAll("\\s", "");
+                        log.info("✓ 检测到预编码的base64数据: icnCode={}, decodedMime={}", icnCode, detectedMime);
+                    } else {
+                        // 如果解码后不是有效的多媒体格式，重新编码
                         base64 = java.util.Base64.getEncoder().encodeToString(fileContent);
+                        log.debug("✓ 解码后格式无效 ({}), 重新编码", detectedMime);
                     }
-                } else {
-                    // 不是base64文本，正常编码
+                } catch (IllegalArgumentException e) {
+                    // Base64解码失败
                     base64 = java.util.Base64.getEncoder().encodeToString(fileContent);
+                    log.debug("✓ Base64解码失败，使用原始编码: {}", e.getMessage());
+                } catch (Exception e) {
+                    // 其他异常，使用原始编码
+                    base64 = java.util.Base64.getEncoder().encodeToString(fileContent);
+                    log.debug("✓ 异常处理，使用原始编码: {}", e.getMessage());
                 }
             } else {
+                // 不是base64编码，正常处理
                 base64 = java.util.Base64.getEncoder().encodeToString(fileContent);
             }
 
@@ -721,6 +727,65 @@ public class DmXmlHelper {
             case "webp": return "image/webp";
             case "cgm": return "image/cgm";
             default: return "application/octet-stream";
+        }
+    }
+
+    /**
+     * 判断文件内容是否为Base64编码的文本
+     *
+     * 🔧 2026-10-17 新增：用于检测旧系统中已编码的base64数据
+     *
+     * @param fileContent 文件内容字节数组
+     * @return true 如果看起来像base64编码，false 否则
+     */
+    private static boolean isBase64Encoded(byte[] fileContent) {
+        // 文件太小，不太可能是有效的base64编码
+        if (fileContent.length < 100) {
+            return false;
+        }
+
+        try {
+            // 尝试以UTF-8解读前100个字节
+            String preview = new String(fileContent, 0, Math.min(100, fileContent.length), java.nio.charset.StandardCharsets.UTF_8);
+
+            // base64文本的特征：
+            // 1. 只包含 A-Z a-z 0-9 + / = 和空白符
+            // 2. 长度是4的倍数（如果移除空白符）
+            // 3. = 只出现在末尾（最多2个）
+
+            // 检查字符集
+            if (!preview.matches("[A-Za-z0-9+/=\\s]*")) {
+                return false;
+            }
+
+            // 移除空白符后检查长度
+            String withoutWhitespace = preview.replaceAll("\\s", "");
+            if (withoutWhitespace.isEmpty()) {
+                return false;
+            }
+
+            if (withoutWhitespace.length() % 4 != 0) {
+                return false;
+            }
+
+            // 检查=只出现在末尾
+            int equalsPos = withoutWhitespace.lastIndexOf('=');
+            if (equalsPos >= 0) {
+                // = 之后不应该有其他字符
+                for (int i = equalsPos + 1; i < withoutWhitespace.length(); i++) {
+                    if (withoutWhitespace.charAt(i) != '=') {
+                        return false;
+                    }
+                }
+                // 最多2个=符号
+                if (withoutWhitespace.length() - equalsPos > 2) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 

@@ -36,6 +36,9 @@ public class MultimediaInfoVO {
     @ApiModelProperty(value = "文件名", example = "video.mp4")
     private String fileName;
 
+    @ApiModelProperty(value = "ICN类型", example = "formula", notes = "formula=公式ICN, 其他为普通ICN")
+    private String icnType;
+
     /**
      * 根据MIME类型设置文件类型标识
      */

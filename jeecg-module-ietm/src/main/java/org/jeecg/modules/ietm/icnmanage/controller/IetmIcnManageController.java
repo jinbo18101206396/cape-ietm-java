@@ -12,6 +12,7 @@ import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.modules.ietm.common.util.MimeTypeDetector;
 import org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage;
+import org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula;
 import org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper;
 import org.jeecg.modules.ietm.icnmanage.service.IIetmIcnManageService;
 import org.jeecg.modules.ietm.icnmanage.vo.IcnProjectInfoVO;
@@ -47,6 +48,11 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
 
     @Autowired
     private org.jeecg.modules.ietm.icnmanage.service.IIetmIcnFormulaService icnFormulaService;
+
+    // 🔧 2026-10-16 修复：注入配置的文件存储路径，统一与 viewFile 接口的路径配置
+    // 使用通用路径配置（fileKey 中已包含 icn\ 前缀）
+    @org.springframework.beans.factory.annotation.Value("${accessFile.location}")
+    private String fileStorageLocation;
 
     /**
      * 分页列表查询
@@ -630,70 +636,6 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
      * @param icnCode ICN完整编码（如：ICN-ZB1-A-02-60101-30101-00001-A-001-01）
      */
     /**
-     * 获取ICN多媒体元数据
-     * 返回MIME类型、文件大小、是否视频/音频等信息
-     * 用于前端判断如何渲染播放器
-     *
-     * @param icnCode ICN编码
-     * @return 多媒体元数据
-     */
-    @ApiOperation(value = "获取ICN多媒体元数据", notes = "返回ICN的MIME类型、文件大小等信息")
-    @GetMapping("/metadata/{icnCode}")
-    public Result<MultimediaInfoVO> getMultimediaMetadata(@PathVariable("icnCode") String icnCode) {
-        try {
-            // 查询ICN实体
-            QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
-            qw.eq("icn", icnCode);
-            IetmIcnManage icn = ietmIcnManageService.getOne(qw);
-
-            if (icn == null) {
-                return Result.error("ICN不存在: " + icnCode);
-            }
-
-            // 加载附件信息
-            if (!ietmIcnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
-                return Result.error("ICN附件缺失");
-            }
-
-            if (icn.getIetmAttachment().getFileKey() == null) {
-                return Result.error("ICN附件缺失");
-            }
-
-            // 获取文件信息
-            String fileKey = icn.getIetmAttachment().getFileKey();
-            String fileName = icn.getIetmAttachment().getFileName();
-
-            // 读取文件
-            String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
-            java.io.File file = new java.io.File(fileStorageLocation, fileKey);
-
-            if (!file.exists()) {
-                return Result.error("文件不存在");
-            }
-
-            byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
-
-            // 检测MIME类型（使用统一工具类）
-            String mimeType = MimeTypeDetector.detect(fileContent);
-
-            // 构建返回对象
-            MultimediaInfoVO info = new MultimediaInfoVO();
-            info.setIcnCode(icnCode);
-            info.setMimeType(mimeType); // 自动设置isVideo/isAudio/isImage
-            info.setFileSize((long) fileContent.length);
-            info.setFileName(fileName);
-
-            log.debug("获取ICN元数据成功: icnCode={}, mimeType={}, size={}", icnCode, mimeType, fileContent.length);
-
-            return Result.OK(info);
-
-        } catch (Exception e) {
-            log.error("获取ICN元数据失败: icnCode={}", icnCode, e);
-            return Result.error("获取元数据失败: " + e.getMessage());
-        }
-    }
-
-    /**
      * 查看ICN图片/视频/音频 - 编辑器预览专用接口
      *
      * 使用场景：DM编辑器的预览弹窗（用户主动点击"预览"按钮）
@@ -716,36 +658,68 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
                         HttpServletRequest request,
                         HttpServletResponse response) {
         try {
-            // 根据icnCode查询ICN实体（含附件）
+            // 🔧 2026-10-16 修复：统一处理公式和图符，简化前端逻辑
+            // 先查询普通图符表
             QueryWrapper<IetmIcnManage> qw = new QueryWrapper<>();
             qw.eq("icn", icnCode);
             qw.orderByDesc("create_time");
-            qw.orderByDesc("id");  // 🔧 修复P1：添加secondary sort，确定排序顺序
-            qw.last("LIMIT 1");  // 🔧 修复P1：仅取1条记录
+            qw.orderByDesc("id");
+            qw.last("LIMIT 1");
             List<IetmIcnManage> icnList = ietmIcnManageService.list(qw);
 
-            System.err.println(">>> viewIcn 诊断: icnCode=" + icnCode + ", 查询到 " + (icnList == null ? 0 : icnList.size()) + " 条记录");
+            IetmIcnManage icn = null;
+            boolean isFormula = false;
+            String formulaHtml = null;
 
-            if (icnList == null || icnList.isEmpty()) {
-                System.err.println(">>> viewIcn: ICN不存在");
+            if (icnList != null && !icnList.isEmpty()) {
+                // 普通图符
+                icn = icnList.get(0);
+                log.debug("找到普通图符: icnCode={}, id={}", icnCode, icn.getId());
+            } else {
+                // 查询公式表
+                QueryWrapper<IetmIcnFormula> formulaQw = new QueryWrapper<>();
+                formulaQw.eq("icn", icnCode);
+                IetmIcnFormula formula = icnFormulaService.getOne(formulaQw);
+
+                if (formula != null) {
+                    log.debug("找到公式: icnCode={}, id={}", icnCode, formula.getId());
+                    isFormula = true;
+
+                    // 读取公式 HTML（从 BLOB 字段）
+                    byte[] formulaBytes = formula.getFilecontent();
+                    if (formulaBytes != null && formulaBytes.length > 0) {
+                        formulaHtml = new String(formulaBytes, java.nio.charset.StandardCharsets.UTF_8);
+                        log.debug("公式HTML长度: {} bytes", formulaHtml.length());
+                    } else {
+                        log.warn("公式内容为空: icnCode={}", icnCode);
+                        sendPlaceholderImage(response, "公式内容为空");
+                        return;
+                    }
+
+                    // 返回公式 HTML
+                    response.setContentType("text/html; charset=UTF-8");
+                    response.getWriter().write(formulaHtml);
+                    return;
+                }
+            }
+
+            if (icn == null && !isFormula) {
                 log.warn("ICN不存在: {}", icnCode);
                 sendPlaceholderImage(response, "ICN不存在");
                 return;
             }
 
-            IetmIcnManage icn = icnList.get(0);
-            System.err.println(">>> viewIcn: 选中第一条ICN id=" + icn.getId());
+            // 以下处理普通图符
+            log.debug("处理普通图符: icnCode={}, id={}", icnCode, icn.getId());
 
             // 加载附件信息
             if (!ietmIcnManageService.loadAttachment(icn)) {  // 🔧 修复P3：检查加载结果
-                System.err.println(">>> viewIcn: 附件未找到");
                 log.warn("ICN附件未找到: icnCode={}, icnId={}", icnCode, icn.getId());
                 sendPlaceholderImage(response, "图片文件缺失");
                 return;
             }
 
             if (icn.getIetmAttachment().getFileKey() == null) {
-                System.err.println(">>> viewIcn: FileKey为null");
                 log.warn("附件FileKey为null: icnCode={}, attachmentId={}", icnCode, icn.getIetmAttachment().getId());
                 sendPlaceholderImage(response, "图片文件缺失");
                 return;
@@ -756,21 +730,20 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
             String fileName = icn.getIetmAttachment().getFileName();
             String fileExtension = extractFileExtension(fileName);
 
-            // 读取文件内容
-            String fileStorageLocation = System.getProperty("user.dir") + "/upload/files/";
-            java.io.File file = new java.io.File(fileStorageLocation, fileKey);
-
-            System.err.println(">>> viewIcn: fileKey=" + fileKey + ", path=" + file.getAbsolutePath() + ", exists=" + file.exists());
+            // 🔧 2026-10-17 修复深度2：支持嵌套项目结构中的ICN文件
+            // fileKey 可能包含目录结构（如 project/projectId/icn/filename.jpg）
+            // 需要将正斜杠转换为系统路径分隔符以支持跨平台路径
+            String normalizedFileKey = fileKey.replace("/", java.io.File.separator);
+            java.io.File file = new java.io.File(fileStorageLocation, normalizedFileKey);
 
             if (!file.exists()) {
-                System.err.println(">>> viewIcn: 文件不存在");
                 log.warn("ICN文件不存在: fileKey={}, path={}", fileKey, file.getAbsolutePath());
                 sendPlaceholderImage(response, "文件不存在");
                 return;
             }
 
-            System.err.println(">>> viewIcn: 文件存在，开始读取");
-            log.info("文件存在，准备读取: path={}, size={}", file.getAbsolutePath(), file.length());
+            log.info("ICN文件存在，准备读取: fileKey={}, path={}, size={}",
+                     fileKey, file.getAbsolutePath(), file.length());
 
             byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
 

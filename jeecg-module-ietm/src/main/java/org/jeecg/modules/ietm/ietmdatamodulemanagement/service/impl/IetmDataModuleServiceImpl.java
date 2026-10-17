@@ -1098,6 +1098,11 @@ public class IetmDataModuleServiceImpl extends ServiceImpl<IetmDataModuleMapper,
             throw new JeecgBootException("DM内容为空，无法计算引用关系，DMC：" + dm.getDmcCode());
         }
 
+        // 清理 XML 前导空白（与校验、预览保持一致）
+        // 修复：The processing instruction target matching "[xX][mM][lL]" is not allowed
+        // XML 解析器要求 <?xml 必须在文件最开始，不能有前导空白或 BOM
+        dmContent = dmContent.replaceAll("^\\s+", "");
+
         // ② 解析XML，提取引用条目
         List<org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.DmRefExtractItemVO> extracted;
         try {
