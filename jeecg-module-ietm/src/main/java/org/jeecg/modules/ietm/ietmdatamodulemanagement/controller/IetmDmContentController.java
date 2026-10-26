@@ -568,4 +568,172 @@ public class IetmDmContentController {
         }
         return "system";
     }
+
+    // ==================== Figure设计器相关接口 ====================
+
+    /**
+     * 获取Figure内容
+     *
+     * @param dmId DM文件ID
+     * @param lineno figure所在行号
+     * @return Figure数据对象
+     */
+    @AutoLog(value = "Figure设计器-获取内容")
+    @ApiOperation("获取Figure内容")
+    @GetMapping("/getFigureContent")
+    public Result<org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FigureResponseVO> getFigureContent(
+            @RequestParam String dmId,
+            @RequestParam Integer lineno) {
+        try {
+            // 参数验证
+            if (dmId == null || dmId.isEmpty() || lineno == null || lineno < 0) {
+                log.warn("参数验证失败 - dmId或lineno无效");
+                return Result.error("参数dmId和lineno不能为空");
+            }
+
+            // 范围检查
+            if (lineno > 100000) {
+                log.warn("行号超出合法范围 - lineno:{}", lineno);
+                return Result.error("行号超出合法范围");
+            }
+            if (dmId.length() > 50) {
+                log.warn("dmId格式错误 - dmId长度:{}", dmId.length());
+                return Result.error("dmId格式错误");
+            }
+
+            // 从DM内容中提取figure XML
+            String figureXml = extractFigureXml(dmId, lineno);
+            if (figureXml == null || figureXml.trim().isEmpty()) {
+                log.debug("未找到Figure内容 - dmId:{}, lineno:{}", dmId, lineno);
+                return Result.OK(new org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FigureResponseVO());
+            }
+
+            // 解析XML为对象
+            org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FigureResponseVO figureData =
+                org.jeecg.modules.ietm.ietmdatamodulemanagement.util.FigureConverter.xmlToFigure(figureXml);
+
+            if (figureData == null) {
+                log.error("Figure数据解析失败 - dmId:{}, lineno:{}", dmId, lineno);
+                return Result.error("Figure数据解析失败");
+            }
+
+            log.info("获取Figure成功 - dmId:{}, lineno:{}, figureId:{}", dmId, lineno, figureData.getId());
+            return Result.OK(figureData);
+
+        } catch (Exception e) {
+            log.error("获取Figure发生错误 - dmId:{}, lineno:{}", dmId, lineno, e);
+            return Result.error("服务暂时不可用，请稍后重试");
+        }
+    }
+
+    /**
+     * 保存Figure内容
+     *
+     * @param editVO 编辑数据
+     * @return 保存后的XML和行号信息
+     */
+    @AutoLog(value = "Figure设计器-保存内容")
+    @ApiOperation("保存Figure内容")
+    @PostMapping("/saveFigureContent")
+    public Result<Map<String, Object>> saveFigureContent(
+            @RequestBody org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FigureEditVO editVO) {
+        try {
+            // 验证请求体
+            if (editVO == null || editVO.getFigureData() == null) {
+                log.warn("请求数据为空");
+                return Result.error("请求数据不能为空");
+            }
+
+            org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.FigureResponseVO figureData = editVO.getFigureData();
+
+            // 数据验证
+            org.jeecg.modules.ietm.ietmdatamodulemanagement.util.FigureValidator.ValidationResult validationResult =
+                org.jeecg.modules.ietm.ietmdatamodulemanagement.util.FigureValidator.validateFigure(figureData);
+
+            if (!validationResult.isValid()) {
+                String errorMsg = validationResult.getErrors().get(0);
+                log.warn("Figure数据验证失败 - firstError:{}", errorMsg);
+                return Result.error("数据验证失败: " + errorMsg);
+            }
+
+            // 生成XML
+            String figureXml = org.jeecg.modules.ietm.ietmdatamodulemanagement.util.FigureConverter.figureToXml(figureData);
+
+            // 多语言处理
+            String locale = editVO.getLocale();
+            if ("cn".equals(locale)) {
+                figureXml = org.jeecg.modules.ietm.ietmdatamodulemanagement.util.FigureConverter.toCnFigureXml(figureXml);
+            }
+
+            // 返回响应(前端负责更新CodeMirror)
+            Map<String, Object> response = new HashMap<>();
+            response.put("lineno", editVO.getLineno());
+            response.put("endline", editVO.getEndline());
+            response.put("figureXml", figureXml);
+            response.put("figureId", figureData.getId());
+
+            log.info("保存Figure成功 - figureId:{}, xmlLength:{}, operator:{}",
+                figureData.getId(), figureXml.length(), editVO.getOperator());
+            return Result.OK(response);
+
+        } catch (Exception e) {
+            log.error("保存Figure失败", e);
+            return Result.error("保存失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 辅助方法 - 从DM内容中提取Figure XML块
+     *
+     * @param dmId DM文件ID
+     * @param lineno 起始行号
+     * @return Figure XML字符串
+     */
+    private String extractFigureXml(String dmId, Integer lineno) throws Exception {
+        // 从数据库获取DM内容
+        DmEditorLoadVO vo = contentService.loadEditorData(dmId, null);
+        if (!"success".equals(vo.getFlag())) {
+            throw new Exception("DM文件不存在: " + dmId);
+        }
+
+        String dmContent = vo.getXml();
+        if (dmContent == null || dmContent.isEmpty()) {
+            throw new Exception("DM内容为空");
+        }
+
+        // 按行分割
+        String[] lines = dmContent.split("\n");
+        if (lineno < 0 || lineno >= lines.length) {
+            throw new Exception("行号超出范围: " + lineno);
+        }
+
+        // 定位并提取figure XML块
+        String startLine = lines[lineno];
+
+        // 检查是否是单行还是多行
+        if (startLine.contains("<figure") && startLine.contains("</figure>")) {
+            // 单行figure
+            return startLine;
+        } else if (startLine.contains("<figure")) {
+            // 多行figure - 查找结束标签
+            StringBuilder figureXml = new StringBuilder(startLine);
+            int endLine = -1;
+
+            for (int i = lineno + 1; i < lines.length; i++) {
+                figureXml.append("\n").append(lines[i]);
+                if (lines[i].contains("</figure>")) {
+                    endLine = i;
+                    break;
+                }
+            }
+
+            if (endLine == -1) {
+                throw new Exception("找不到</figure>结束标签");
+            }
+
+            return figureXml.toString();
+        } else {
+            throw new Exception("第" + lineno + "行不包含figure标签");
+        }
+    }
 }
