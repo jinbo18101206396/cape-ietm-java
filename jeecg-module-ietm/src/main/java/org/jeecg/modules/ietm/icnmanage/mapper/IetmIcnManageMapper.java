@@ -93,6 +93,26 @@ public interface IetmIcnManageMapper extends BaseMapper<IetmIcnManage> {
             com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmIcnManage> page);
 
     /**
+     * 多媒体弹窗-分页查询多媒体类ICN（当前节点，排除普通位图）
+     * @param cmNodeId 构型节点ID
+     * @param page 分页对象
+     * @return ICN分页列表（排除bmp/jpg/jpeg/png/gif/tif/tiff，保留所有其他文件）
+     */
+    com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listMultimediaForDialog(
+            @Param("cmNodeId") String cmNodeId,
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmIcnManage> page);
+
+    /**
+     * 多媒体弹窗-分页查询多媒体类ICN（含子节点，排除普通位图）
+     * @param cmNodeId 构型节点ID
+     * @param page 分页对象
+     * @return ICN分页列表（排除bmp/jpg/jpeg/png/gif/tif/tiff，保留所有其他文件）
+     */
+    com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listMultimediaForDialogIncludeChildren(
+            @Param("cmNodeId") String cmNodeId,
+            com.baomidou.mybatisplus.extension.plugins.pagination.Page<IetmIcnManage> page);
+
+    /**
      * 根据ICN编码查询公式内容
      * @param icn ICN编码
      * @return ICN对象（含filecontent BLOB字段）

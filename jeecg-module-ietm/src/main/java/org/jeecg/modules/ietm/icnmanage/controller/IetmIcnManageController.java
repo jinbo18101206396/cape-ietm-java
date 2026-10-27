@@ -631,6 +631,23 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
     }
 
     /**
+     * 多媒体弹窗-分页查询多媒体类ICN（排除普通位图图像）
+     */
+    @AutoLog(value = "多媒体弹窗-分页查询多媒体类ICN")
+    @ApiOperation(value = "多媒体弹窗-分页查询多媒体类ICN", notes = "用于编辑器多媒体弹窗，排除普通位图图像（bmp/jpg/jpeg/png/gif/tif/tiff），保留视频/音频/CGM/SVG/3D模型/动画等所有其他文件")
+    @GetMapping(value = "/listMultimediaForDialog")
+    public Result<IPage<IetmIcnManage>> listMultimediaForDialog(
+            @RequestParam(name = "cmNodeId") @NotBlank(message = "请先选择构型节点") String cmNodeId,
+            @RequestParam(name = "includeChildren", defaultValue = "0") String includeChildren,
+            @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
+
+        IPage<IetmIcnManage> page = ietmIcnManageService.listMultimediaForDialog(
+                cmNodeId, includeChildren, pageNo, pageSize);
+        return Result.OK(page);
+    }
+
+    /**
      * 预览-查看ICN图片（用于DM预览中的图形显示）
      *
      * @param icnCode ICN完整编码（如：ICN-ZB1-A-02-60101-30101-00001-A-001-01）

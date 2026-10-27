@@ -295,6 +295,64 @@
         ORDER BY icn.create_time DESC
     </select>
 
+    <!-- 多媒体弹窗-分页查询多媒体类ICN（当前节点，排除普通图像）-->
+    <select id="listMultimediaForDialog" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.cm_node_id as cmNodeId,
+            icn.sns,
+            icn.issue_no as issueNo,
+            icn.security_classification as securityClassification,
+            icn.security,
+            icn.create_time as createTime,
+            icn.create_by as createBy,
+            att.file_name as fileName,
+            att.file_size as fileSize,
+            att.file_key as fileKey
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn.cm_node_id = #{cmNodeId}
+          AND icn.isdeleted = '0'
+          AND att.file_name IS NOT NULL
+          -- 排除普通图像（7种位图格式）：bmp/jpg/jpeg/png/gif/tif/tiff
+          -- 保留所有其他文件：视频/音频/CGM/SVG/3D模型/动画等
+          AND LOWER(SUBSTRING(att.file_name, LENGTH(att.file_name) - INSTR(REVERSE(att.file_name), '.') + 2))
+              NOT IN ('bmp','jpg','jpeg','png','gif','tif','tiff')
+        ORDER BY icn.create_time DESC
+    </select>
+
+    <!-- 多媒体弹窗-分页查询多媒体类ICN（含子节点，排除普通图像）-->
+    <select id="listMultimediaForDialogIncludeChildren" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
+        SELECT
+            icn.id,
+            icn.icn,
+            icn.cm_node_id as cmNodeId,
+            icn.sns,
+            icn.issue_no as issueNo,
+            icn.security_classification as securityClassification,
+            icn.security,
+            icn.create_time as createTime,
+            icn.create_by as createBy,
+            att.file_name as fileName,
+            att.file_size as fileSize,
+            att.file_key as fileKey
+        FROM ietm_icn_manage icn
+        LEFT JOIN ietm_attachment att ON icn.id = att.pid AND att.file_type = '实体文件'
+        WHERE icn.cm_node_id IN (
+            SELECT id
+            FROM ietm_project_configuration_management
+            START WITH id = #{cmNodeId}
+            CONNECT BY PRIOR id = pid
+        )
+          AND icn.isdeleted = '0'
+          AND att.file_name IS NOT NULL
+          -- 排除普通图像（7种位图格式）
+          AND LOWER(SUBSTRING(att.file_name, LENGTH(att.file_name) - INSTR(REVERSE(att.file_name), '.') + 2))
+              NOT IN ('bmp','jpg','jpeg','png','gif','tif','tiff')
+        ORDER BY icn.create_time DESC
+    </select>
+
     <!-- 根据ICN编码查询公式内容 -->
     <select id="getByIcnWithContent" resultType="org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage">
         SELECT

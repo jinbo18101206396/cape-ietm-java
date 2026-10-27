@@ -10,6 +10,8 @@ import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.service.IIetmDmContentService;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXmlHelper;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.DmXsltTransformer;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.MultimediaConverter;
+import org.jeecg.modules.ietm.ietmdatamodulemanagement.util.MultimediaValidator;
 import org.jeecg.modules.ietm.ietmdatamodulemanagement.vo.*;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
@@ -734,6 +736,173 @@ public class IetmDmContentController {
             return figureXml.toString();
         } else {
             throw new Exception("第" + lineno + "行不包含figure标签");
+        }
+    }
+
+    /**
+     * 获取Multimedia内容（Multimedia设计器）
+     *
+     * @param dmId DM文件ID
+     * @param lineno multimedia所在行号
+     * @return Multimedia数据对象
+     */
+    @AutoLog(value = "Multimedia设计器-获取内容")
+    @ApiOperation("获取Multimedia内容")
+    @GetMapping("/getMultimediaContent")
+    public Result<MultimediaResponseVO> getMultimediaContent(
+            @RequestParam String dmId,
+            @RequestParam Integer lineno) {
+        try {
+            // 参数验证
+            if (dmId == null || dmId.isEmpty() || lineno == null || lineno < 0) {
+                log.warn("参数验证失败 - dmId或lineno无效");
+                return Result.error("参数dmId和lineno不能为空");
+            }
+
+            // 范围检查
+            if (lineno > 100000) {
+                log.warn("行号超出合法范围 - lineno:{}", lineno);
+                return Result.error("行号超出合法范围");
+            }
+            if (dmId.length() > 50) {
+                log.warn("dmId格式错误 - dmId长度:{}", dmId.length());
+                return Result.error("dmId格式错误");
+            }
+
+            // 从DM内容中提取multimedia XML
+            String multimediaXml = extractMultimediaXml(dmId, lineno);
+            if (multimediaXml == null || multimediaXml.trim().isEmpty()) {
+                log.debug("未找到Multimedia内容 - dmId:{}, lineno:{}", dmId, lineno);
+                return Result.OK(new MultimediaResponseVO());
+            }
+
+            // 解析XML为对象
+            MultimediaResponseVO multimediaData = MultimediaConverter.xmlToMultimedia(multimediaXml);
+
+            log.info("获取Multimedia成功 - dmId:{}, lineno:{}, multimediaId:{}",
+                     dmId, lineno, multimediaData.getId());
+            return Result.OK(multimediaData);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("参数验证失败: {}", e.getMessage());
+            return Result.error("参数错误: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("获取Multimedia失败 - dmId:{}, lineno:{}", dmId, lineno, e);
+            return Result.error("获取Multimedia失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存Multimedia内容（Multimedia设计器）
+     *
+     * @param editVO 编辑数据
+     * @return 保存后的XML和行号信息
+     */
+    @AutoLog(value = "Multimedia设计器-保存内容")
+    @ApiOperation("保存Multimedia内容")
+    @PostMapping("/saveMultimediaContent")
+    public Result<Map<String, Object>> saveMultimediaContent(
+            @RequestBody MultimediaEditVO editVO) {
+        try {
+            // 验证请求体
+            if (editVO == null || editVO.getMultimediaData() == null) {
+                log.warn("请求数据为空");
+                return Result.error("请求数据不能为空");
+            }
+
+            MultimediaResponseVO multimediaData = editVO.getMultimediaData();
+
+            // 数据验证
+            MultimediaValidator.ValidationResult validationResult =
+                MultimediaValidator.validateMultimedia(multimediaData);
+
+            if (!validationResult.isValid()) {
+                String errorMsg = validationResult.getErrors().get(0);
+                log.warn("Multimedia数据验证失败 - firstError:{}", errorMsg);
+                return Result.error("数据验证失败: " + errorMsg);
+            }
+
+            // 生成XML
+            String multimediaXml = MultimediaConverter.multimediaToXml(multimediaData);
+
+            // 多语言处理
+            String locale = editVO.getLocale();
+            if ("cn".equals(locale)) {
+                multimediaXml = MultimediaConverter.toCnMultimediaXml(multimediaXml);
+            }
+
+            // 返回响应(前端负责更新CodeMirror)
+            Map<String, Object> response = new HashMap<>();
+            response.put("lineno", editVO.getLineno());
+            response.put("endline", editVO.getEndline());
+            response.put("multimediaXml", multimediaXml);
+            response.put("multimediaId", multimediaData.getId());
+
+            log.info("保存Multimedia成功 - dmId:{}, lineno:{}, multimediaId:{}",
+                     editVO.getDmId(), editVO.getLineno(), multimediaData.getId());
+            return Result.OK(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("参数验证失败: {}", e.getMessage());
+            return Result.error("参数错误: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("保存Multimedia失败", e);
+            return Result.error("保存失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 从DM内容中提取multimedia XML
+     *
+     * @param dmId DM文件ID
+     * @param lineno multimedia所在行号
+     * @return Multimedia XML字符串
+     */
+    private String extractMultimediaXml(String dmId, Integer lineno) throws Exception {
+        // 从数据库获取DM内容
+        DmEditorLoadVO vo = contentService.loadEditorData(dmId, null);
+        if (!"success".equals(vo.getFlag())) {
+            throw new Exception("DM文件不存在: " + dmId);
+        }
+
+        String dmContent = vo.getXml();
+        if (dmContent == null || dmContent.isEmpty()) {
+            throw new Exception("DM内容为空");
+        }
+
+        // 按行分割
+        String[] lines = dmContent.split("\n");
+        if (lineno < 0 || lineno >= lines.length) {
+            throw new Exception("行号超出范围: " + lineno);
+        }
+
+        // 定位并提取multimedia XML块
+        String startLine = lines[lineno];
+
+        // 检查是否是单行还是多行
+        if (startLine.contains("<multimedia") && startLine.contains("</multimedia>")) {
+            // 单行multimedia
+            return startLine;
+        } else if (startLine.contains("<multimedia")) {
+            // 多行multimedia - 查找结束标签
+            StringBuilder multimediaXml = new StringBuilder(startLine);
+            int endLine = -1;
+
+            for (int i = lineno + 1; i < lines.length; i++) {
+                multimediaXml.append("\n").append(lines[i]);
+                if (lines[i].contains("</multimedia>")) {
+                    endLine = i;
+                    break;
+                }
+            }
+
+            if (endLine == -1) {
+                throw new Exception("找不到</multimedia>结束标签");
+            }
+
+            return multimediaXml.toString();
+        } else {
+            throw new Exception("第" + lineno + "行不包含multimedia标签");
         }
     }
 }

@@ -180,6 +180,17 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
             String cmNodeId, String includeChildren, Integer pageNo, Integer pageSize);
 
     /**
+     * 多媒体弹窗-分页查询多媒体类ICN（排除普通位图图像）
+     * @param cmNodeId 构型节点ID
+     * @param includeChildren 是否包含子节点（1：是，0：否）
+     * @param pageNo 页码
+     * @param pageSize 每页大小
+     * @return 分页结果（排除bmp/jpg/jpeg/png/gif/tif/tiff等普通图像，保留视频/音频/CGM/SVG等所有其他文件）
+     */
+    com.baomidou.mybatisplus.core.metadata.IPage<IetmIcnManage> listMultimediaForDialog(
+            String cmNodeId, String includeChildren, Integer pageNo, Integer pageSize);
+
+    /**
      * 加载ICN的附件信息（用于预览时按需加载）
      * @param icn ICN实体（会设置其ietmAttachment属性）
      * @return true表示成功加载附件，false表示未找到附件

@@ -378,6 +378,20 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     }
 
     @Override
+    public IPage<IetmIcnManage> listMultimediaForDialog(String cmNodeId, String includeChildren,
+                                                         Integer pageNo, Integer pageSize) {
+        Page<IetmIcnManage> page = new Page<>(pageNo, pageSize);
+
+        if ("1".equals(includeChildren)) {
+            // 查询当前节点及所有子节点的多媒体类ICN
+            return this.baseMapper.listMultimediaForDialogIncludeChildren(cmNodeId, page);
+        } else {
+            // 只查询当前节点的多媒体类ICN
+            return this.baseMapper.listMultimediaForDialog(cmNodeId, page);
+        }
+    }
+
+    @Override
     public IetmIcnManage getByIdWithAttachment(String id) {
         return this.baseMapper.getByIdWithAttachment(id);
     }
