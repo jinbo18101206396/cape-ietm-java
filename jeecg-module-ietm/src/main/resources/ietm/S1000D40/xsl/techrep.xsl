@@ -1143,6 +1143,9 @@ path=file:///E:/IETM4/xsl/java/" exclude-result-prefixes="tir-node"-->
                 <xsl:value-of select="@boardno|@infoEntityIdent"/>
             </xsl:attribute>
             <xsl:attribute name="src">images/dmodule/image.gif</xsl:attribute>
+            <!-- 🔧 2026-11-02修复P0：添加data-icn-code属性和boardno属性 -->
+            <xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+            <xsl:attribute name="data-icn-code"><xsl:value-of select="@infoEntityIdent"/></xsl:attribute>
             <xsl:attribute name="onclick">tearOffTIRFigure('<xsl:value-of
                     select="@boardno|@infoEntityIdent"/>', '<xsl:value-of select="$Publication"
             />');</xsl:attribute>

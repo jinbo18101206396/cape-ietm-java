@@ -173,6 +173,27 @@ public class IcnBatchLoader {
             // 3. 读取文件内容
             byte[] fileContent = Files.readAllBytes(file.toPath());
 
+            // 🔧 2026-11-03 修复P1：检查文件是否为Base64编码（同viewIcn逻辑）
+            // 某些ICN文件存储时被Base64编码（带换行符），需要先解码避免二次编码
+            byte[] decodedContent = fileContent;
+            try {
+                if (fileContent.length > 100) {
+                    String sample = new String(fileContent, 0, 100, java.nio.charset.StandardCharsets.UTF_8);
+                    // Base64字符集：A-Z, a-z, 0-9, +, /, =（允许换行符）
+                    if (sample.matches("[A-Za-z0-9+/=\\r\\n]+")) {
+                        // 移除所有空白字符后再解码
+                        String base64String = new String(fileContent, java.nio.charset.StandardCharsets.UTF_8);
+                        base64String = base64String.replaceAll("\\s+", "");
+                        decodedContent = Base64.getDecoder().decode(base64String);
+                        log.debug("检测到Base64编码文件，已解码: icn={}, originalSize={}, decodedSize={}",
+                                icnCode, fileContent.length, decodedContent.length);
+                        fileContent = decodedContent; // 使用解码后的内容
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                log.debug("Base64解码失败，使用原始内容: icn={}, error={}", icnCode, e.getMessage());
+            }
+
             // 4. 检测MIME类型（复用现有工具类）
             String mimeType = MimeTypeDetector.detect(fileContent);
 

@@ -66,6 +66,9 @@
 			</xsl:variable>
 			<img>
 				<xsl:attribute name="id"><xsl:value-of select="@id"/></xsl:attribute>
+				<!-- 🔧 2026-11-02修复P0：添加data-icn-code和boardno属性 -->
+				<xsl:attribute name="data-icn-code"><xsl:value-of select="@infoEntityIdent|@boardno"/></xsl:attribute>
+				<xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 				<xsl:attribute name="onclick">playSound(this)</xsl:attribute>
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
@@ -96,6 +99,9 @@
 			</xsl:call-template>
 			<img>
 				<xsl:attribute name="id"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+				<!-- 🔧 2026-11-02修复P0：添加data-icn-code和boardno属性 -->
+				<xsl:attribute name="data-icn-code"><xsl:value-of select="@infoEntityIdent|@boardno"/></xsl:attribute>
+				<xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 				<xsl:attribute name="onclick"><xsl:text>showMultimediaInfo('</xsl:text><xsl:value-of select="@boardno|@infoEntityIdent"/><xsl:text>');</xsl:text></xsl:attribute>
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
@@ -126,6 +132,9 @@
 			</xsl:call-template>
 			<img>
 				<xsl:attribute name="id"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+				<!-- 🔧 2026-11-02修复P0：添加data-icn-code和boardno属性 -->
+				<xsl:attribute name="data-icn-code"><xsl:value-of select="@infoEntityIdent|@boardno"/></xsl:attribute>
+				<xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 				<xsl:attribute name="onclick"><xsl:text>showMultimediaInfo('</xsl:text><xsl:value-of select="@boardno|@infoEntityIdent"/><xsl:text>');</xsl:text></xsl:attribute>
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
@@ -155,6 +164,9 @@
 			</xsl:call-template>
 			<img>
 				<xsl:attribute name="id"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+				<!-- 🔧 2026-11-02修复P0：添加data-icn-code和boardno属性 -->
+				<xsl:attribute name="data-icn-code"><xsl:value-of select="@infoEntityIdent|@boardno"/></xsl:attribute>
+				<xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 				<xsl:attribute name="onclick"><xsl:text>showMultimediaInfo('</xsl:text><xsl:value-of select="@boardno|@infoEntityIdent"/><xsl:text>');</xsl:text></xsl:attribute>
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>

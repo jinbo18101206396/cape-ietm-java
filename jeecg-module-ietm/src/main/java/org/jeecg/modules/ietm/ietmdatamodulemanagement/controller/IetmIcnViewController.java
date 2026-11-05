@@ -98,7 +98,23 @@ public class IetmIcnViewController {
             // 3. 读取文件内容
             String fileKey = icn.getIetmAttachment().getFileKey();
             String fileName = icn.getIetmAttachment().getFileName();
+
+            // 🔧 2026-11-03 修复P1：ICN文件路径兼容处理
+            // 问题：数据库中fileKey为 "project/xxx/icn/xxx.glb"，但实际存储在 "file/icn/project/xxx/icn/xxx.glb"
+            // 原因：历史数据迁移时，文件存储在icn子目录下，但fileKey没有包含icn前缀
+            // 解决：如果fileKey以"project/"开头且文件不存在，尝试添加"icn/"前缀
             java.io.File file = new java.io.File(uploadPath, fileKey);
+
+            if (!file.exists() && fileKey.startsWith("project/")) {
+                // 尝试添加 icn/ 前缀
+                String altFileKey = "icn/" + fileKey;
+                java.io.File altFile = new java.io.File(uploadPath, altFileKey);
+                if (altFile.exists()) {
+                    log.info("使用备用路径找到文件: originalKey={}, altKey={}", fileKey, altFileKey);
+                    file = altFile;
+                    fileKey = altFileKey;
+                }
+            }
 
             if (!file.exists()) {
                 log.warn("ICN文件不存在: fileKey={}, uploadPath={}, absolutePath={}",
@@ -108,18 +124,54 @@ public class IetmIcnViewController {
 
             byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
 
-            // 4. 检测MIME类型（使用魔数检测，支持18种格式）
-            String mimeType = MimeTypeDetector.detect(fileContent);
+            // 🔧 2026-11-03 修复P1：检查文件是否为Base64编码
+            // 某些ICN文件（如GLB 3D模型）存储时被Base64编码，需要先解码才能正确检测MIME类型
+            byte[] decodedContent = fileContent;
+            try {
+                // 尝试Base64解码：读取前100字节判断是否为Base64字符集
+                if (fileContent.length > 100) {
+                    String sample = new String(fileContent, 0, 100, java.nio.charset.StandardCharsets.UTF_8);
+                    // Base64字符集：A-Z, a-z, 0-9, +, /, =（允许换行符）
+                    if (sample.matches("[A-Za-z0-9+/=\\r\\n]+")) {
+                        // 移除所有空白字符（换行符、空格等）后再解码
+                        String base64String = new String(fileContent, java.nio.charset.StandardCharsets.UTF_8);
+                        base64String = base64String.replaceAll("\\s+", "");
+                        decodedContent = java.util.Base64.getDecoder().decode(base64String);
+                        log.debug("检测到Base64编码文件，已解码: originalSize={}, decodedSize={}",
+                                fileContent.length, decodedContent.length);
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                // 解码失败，使用原始内容
+                log.debug("Base64解码失败，使用原始内容: {}", e.getMessage());
+                decodedContent = fileContent;
+            }
+
+            // 4. 检测MIME类型（使用魔数检测，支持20种格式，含3D模型）
+            String mimeType = MimeTypeDetector.detect(decodedContent);
 
             // 5. 构建返回对象
             MultimediaInfoVO info = new MultimediaInfoVO();
             info.setIcnCode(icnCode);
-            info.setMimeType(mimeType); // 自动设置isVideo/isAudio/isImage
+            info.setMimeType(mimeType); // 自动设置isVideo/isAudio/isImage/is3DModel
             info.setFileSize((long) fileContent.length);
             info.setFileName(fileName);
 
-            log.debug("获取ICN元数据成功: icnCode={}, mimeType={}, size={}",
-                     icnCode, mimeType, fileContent.length);
+            // 🔧 2026-11-04 修复P0：根据 MIME 类型设置 icnType
+            // 根因：前端判断逻辑依赖 icnType 或 mimeType，但后端未设置 icnType
+            // 前端逻辑：if (this.multimediaInfo.icnType === '3D' || this.multimediaInfo.mimeType?.startsWith('model/'))
+            if (mimeType != null && mimeType.startsWith("model/")) {
+                info.setIcnType("3D");
+            } else if (mimeType != null && mimeType.startsWith("video/")) {
+                info.setIcnType("video");
+            } else if (mimeType != null && mimeType.startsWith("audio/")) {
+                info.setIcnType("audio");
+            } else if (mimeType != null && mimeType.startsWith("image/")) {
+                info.setIcnType("image");
+            }
+
+            log.debug("获取ICN元数据成功: icnCode={}, mimeType={}, icnType={}, size={}",
+                     icnCode, mimeType, info.getIcnType(), fileContent.length);
 
             return Result.OK(info);
 
@@ -281,6 +333,18 @@ public class IetmIcnViewController {
             log.info("图符ICN文件路径检查: icnCode={}, fileKey={}, uploadPath={}, absolutePath={}",
                     icnCode, fileKey, uploadPath, file.getAbsolutePath());
 
+            // 🔧 2026-11-03 修复P1：ICN文件路径兼容处理（同metadata接口）
+            if (!file.exists() && fileKey.startsWith("project/")) {
+                // 尝试添加 icn/ 前缀
+                String altFileKey = "icn/" + fileKey;
+                java.io.File altFile = new java.io.File(uploadPath, altFileKey);
+                if (altFile.exists()) {
+                    log.info("使用备用路径找到文件: originalKey={}, altKey={}", fileKey, altFileKey);
+                    file = altFile;
+                    fileKey = altFileKey;
+                }
+            }
+
             if (!file.exists()) {
                 // 检查是否文件存储路径配置错误
                 java.io.File storageDir = new java.io.File(uploadPath);
@@ -292,7 +356,26 @@ public class IetmIcnViewController {
 
             byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
 
-            // 5. MIME类型检测（使用魔数，支持18种格式）
+            // 🔧 2026-11-03 修复P1：检查文件是否为Base64编码（同metadata接口）
+            byte[] decodedContent = fileContent;
+            try {
+                if (fileContent.length > 100) {
+                    String sample = new String(fileContent, 0, 100, java.nio.charset.StandardCharsets.UTF_8);
+                    if (sample.matches("[A-Za-z0-9+/=\\r\\n]+")) {
+                        // 移除所有空白字符后再解码
+                        String base64String = new String(fileContent, java.nio.charset.StandardCharsets.UTF_8);
+                        base64String = base64String.replaceAll("\\s+", "");
+                        decodedContent = java.util.Base64.getDecoder().decode(base64String);
+                        log.debug("检测到Base64编码文件，已解码: originalSize={}, decodedSize={}",
+                                fileContent.length, decodedContent.length);
+                        fileContent = decodedContent; // 使用解码后的内容
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                log.debug("Base64解码失败，使用原始内容: {}", e.getMessage());
+            }
+
+            // 5. MIME类型检测（使用魔数，支持20种格式，含3D模型）
             String mimeType = MimeTypeDetector.detect(fileContent);
             log.debug("ICN: {}, 文件名: {}, 检测到MIME类型: {}, 文件大小: {} bytes",
                      icnCode, fileName, mimeType, fileContent.length);

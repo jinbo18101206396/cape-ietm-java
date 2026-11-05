@@ -12,8 +12,10 @@ import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.modules.ietm.common.IetmConstants;
 import org.jeecg.modules.ietm.icnmanage.entity.IetmIcnManage;
+import org.jeecg.modules.ietm.icnmanage.entity.IetmIcnFormula;
 import org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper;
 import org.jeecg.modules.ietm.icnmanage.service.IIetmIcnManageService;
+import org.jeecg.modules.ietm.icnmanage.service.IIetmIcnFormulaService;
 import org.jeecg.modules.ietm.icnmanage.vo.IcnProjectInfoVO;
 import org.jeecg.modules.ietm.ietmattachment.entity.IetmAttachment;
 import org.jeecg.modules.ietm.ietmattachment.service.IIetmAttachmentService;
@@ -58,6 +60,9 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
 
     @Autowired
     private ISnsCalculateService snsCalculateService;
+
+    @Autowired
+    private IIetmIcnFormulaService icnFormulaService;
 
     @Autowired
     private org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper referenceMapper;
@@ -528,6 +533,12 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
                 return "application/pdf";
             case "wrl":
                 return "model/vrml";
+            case "gltf":
+                return "model/gltf+json";
+            case "glb":
+                return "model/gltf-binary";
+            case "stl":
+                return "model/stl";
 
             default:
                 return "application/octet-stream";
@@ -1474,5 +1485,88 @@ public class IetmIcnManageServiceImpl extends ServiceImpl<IetmIcnManageMapper, I
     @Override
     public IetmIcnManage getByIcnWithContent(String icn) {
         return this.baseMapper.getByIcnWithContent(icn);
+    }
+
+    @Override
+    public org.jeecg.modules.ietm.icnmanage.vo.MultimediaInfoVO getIcnContent(String icnCode) {
+        if (StringUtils.isBlank(icnCode)) {
+            throw new JeecgBootException("ICN编码不能为空");
+        }
+
+        org.jeecg.modules.ietm.icnmanage.vo.MultimediaInfoVO result =
+            new org.jeecg.modules.ietm.icnmanage.vo.MultimediaInfoVO();
+        result.setIcnCode(icnCode);
+
+        // 1. 查询公式ICN表
+        IetmIcnFormula formulaEntity = icnFormulaService.getByIcnWithContent(icnCode);
+        if (formulaEntity != null) {
+            result.setIcnType("formula");
+            result.setFileName("formula.html");
+            if (formulaEntity.getFilecontent() != null) {
+                result.setFileSize((long) formulaEntity.getFilecontent().length);
+            }
+            // 公式类型设置为image
+            result.setMultimediaTypeByFileName("formula.html");
+            log.info("[getIcnContent] 公式ICN查询成功 - ICN: {}, 多媒体类型: {}",
+                icnCode, result.getMultimediaType());
+            return result;
+        }
+
+        // 2. 查询普通ICN表
+        LambdaQueryWrapper<IetmIcnManage> qw = new LambdaQueryWrapper<>();
+        qw.eq(IetmIcnManage::getIcn, icnCode);
+        qw.orderByDesc(IetmIcnManage::getCreateTime);
+        qw.last("LIMIT 1");
+
+        List<IetmIcnManage> icnList = this.list(qw);
+
+        if (icnList == null || icnList.isEmpty()) {
+            log.warn("[getIcnContent] ICN不存在 - ICN: {}", icnCode);
+            throw new JeecgBootException("ICN编码为 " + icnCode + " 的实体不存在");
+        }
+
+        IetmIcnManage icn = icnList.get(0);
+
+        // 加载附件信息
+        if (!this.loadAttachment(icn)) {
+            log.warn("[getIcnContent] 附件未找到 - ICN: {}, icnId: {}", icnCode, icn.getId());
+            throw new JeecgBootException("ICN " + icnCode + " 的附件文件未找到");
+        }
+
+        IetmAttachment attachment = icn.getIetmAttachment();
+        if (attachment == null) {
+            log.warn("[getIcnContent] 附件为空 - ICN: {}", icnCode);
+            throw new JeecgBootException("ICN " + icnCode + " 的附件信息为空");
+        }
+
+        result.setIcnType(icn.getIcnType());
+        result.setFileName(attachment.getFileName());
+        result.setFileSize(attachment.getFileSize() != null ?
+            attachment.getFileSize().longValue() : 0L);
+
+        // 根据文件名设置多媒体类型
+        result.setMultimediaTypeByFileName(attachment.getFileName());
+
+        // 检测MIME类型并设置
+        if (attachment.getFileName() != null && attachment.getFileKey() != null) {
+            try {
+                String normalizedFileKey = attachment.getFileKey().replace("/", java.io.File.separator);
+                File file = new File(fileStorageLocation, normalizedFileKey);
+
+                if (file.exists()) {
+                    byte[] fileContent = java.nio.file.Files.readAllBytes(file.toPath());
+                    String mimeType = org.jeecg.modules.ietm.common.util.MimeTypeDetector.detect(fileContent);
+                    result.setMimeType(mimeType);
+                    log.debug("[getIcnContent] 检测到MIME类型 - ICN: {}, MIME: {}", icnCode, mimeType);
+                }
+            } catch (Exception e) {
+                log.warn("[getIcnContent] 获取MIME类型失败 - ICN: {}, 错误: {}", icnCode, e.getMessage());
+            }
+        }
+
+        log.info("[getIcnContent] 普通ICN查询成功 - ICN: {}, 文件名: {}, 多媒体类型: {}",
+            icnCode, result.getFileName(), result.getMultimediaType());
+
+        return result;
     }
 }

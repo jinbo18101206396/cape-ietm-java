@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
  * - 视频：MP4, WebM, AVI, MOV, FLV, MKV
  * - 音频：MP3, WAV, OGG, FLAC, AAC, M4A
  * - 图片：JPEG, PNG, GIF, BMP, TIFF, SVG
+ * - 3D模型：GLB, GLTF
  *
  * 安全特性：
  * - 不依赖文件扩展名（防止伪装）
@@ -170,6 +171,60 @@ public class MimeTypeDetector {
             }
         }
 
+        // === 3D模型格式检测 ===
+
+        // GLB (GLTF Binary): 魔数 "glTF" (0x67 0x6C 0x54 0x46) 位于字节0-3
+        // GLB 文件格式: [magic(4字节)][version(4字节)][length(4字节)][chunk...]
+        if (content.length >= 4 &&
+            content[0] == 0x67 && content[1] == 0x6C &&
+            content[2] == 0x54 && content[3] == 0x46) {
+            return "model/gltf-binary";
+        }
+
+        // GLTF (JSON): 文本文件，以 "{" 开头并包含 "asset" 和 "version"
+        if (content.length >= 20) {
+            String header = new String(content, 0, Math.min(content.length, 200));
+            if (header.trim().startsWith("{") && header.contains("\"asset\"") && header.contains("\"version\"")) {
+                return "model/gltf+json";
+            }
+        }
+
+        // STL (ASCII): 文本文件，以 "solid" 开头
+        // STL (Binary): 80字节头 + 4字节三角形数量，魔数不固定
+        if (content.length >= 80) {
+            String header = new String(content, 0, Math.min(content.length, 100)).trim().toLowerCase();
+            if (header.startsWith("solid")) {
+                return "model/stl";
+            }
+        }
+        // STL Binary 通过文件结构特征判断（80字节头 + 4字节数量 + 三角形数据）
+        // 简化判断：如果前80字节不是纯ASCII文本，且文件大小符合STL结构
+        if (content.length >= 84) {
+            // 检查是否为二进制STL（前80字节包含非ASCII字符或不以solid开头）
+            boolean isBinaryStl = true;
+            for (int i = 0; i < Math.min(80, content.length); i++) {
+                byte b = content[i];
+                if (b == 0x73 && i < 75) { // 's' at start might be "solid"
+                    String check = new String(content, 0, Math.min(10, content.length)).toLowerCase();
+                    if (check.startsWith("solid")) {
+                        isBinaryStl = false;
+                        break;
+                    }
+                }
+            }
+            if (isBinaryStl) {
+                return "model/stl";
+            }
+        }
+
+        // WRL (VRML): 文本文件，以 "#VRML" 开头
+        if (content.length >= 5) {
+            String header = new String(content, 0, Math.min(content.length, 100));
+            if (header.startsWith("#VRML")) {
+                return "model/vrml";
+            }
+        }
+
         // 未识别的格式
         log.debug("无法识别的文件格式，文件头: {}", bytesToHex(content));
         return "application/octet-stream";
@@ -221,6 +276,16 @@ public class MimeTypeDetector {
      */
     public static boolean isImage(String mimeType) {
         return mimeType != null && mimeType.startsWith("image/");
+    }
+
+    /**
+     * 检查MIME类型是否为3D模型
+     *
+     * @param mimeType MIME类型字符串
+     * @return true=3D模型，false=非3D模型
+     */
+    public static boolean is3DModel(String mimeType) {
+        return mimeType != null && mimeType.startsWith("model/");
     }
 
     /**

@@ -203,4 +203,11 @@ public interface IIetmIcnManageService extends IService<IetmIcnManage> {
      * @return ICN对象（含filecontent BLOB字段）
      */
     IetmIcnManage getByIcnWithContent(String icn);
+
+    /**
+     * 获取ICN内容（含多媒体类型）
+     * @param icnCode ICN编码
+     * @return 多媒体信息VO（含multimediaType字段）
+     */
+    org.jeecg.modules.ietm.icnmanage.vo.MultimediaInfoVO getIcnContent(String icnCode);
 }

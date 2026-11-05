@@ -409,6 +409,22 @@ public class DmXmlHelper {
             String icnCode = matcher.group(2);
             String afterBoardno = matcher.group(3);
 
+            // 🔧 2026-11-03 修复P1：跳过多媒体对象占位图标（audio/video/3d/flash.gif）
+            // 这些图标由XSLT生成，带有onclick事件和avicit/路径，前端会替换为SVG
+            // 如果后端替换了它们的src，前端无法识别，会显示"ICN加载失败"
+            String fullImgTag = matcher.group(0);
+            if (fullImgTag.contains("onclick") &&
+                (fullImgTag.contains("avicit/") ||
+                 fullImgTag.contains("audio.gif") ||
+                 fullImgTag.contains("video.gif") ||
+                 fullImgTag.contains("3d.gif") ||
+                 fullImgTag.contains("flash.gif"))) {
+                log.debug("⏭️ 跳过多媒体占位图标: {}", icnCode);
+                // 保持原样，不替换 - 必须 appendReplacement 原始匹配，否则会丢失这部分HTML
+                matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(fullImgTag));
+                continue;
+            }
+
             // 从批量加载结果中获取
             String base64Data = icnDataMap.get(icnCode);
             if (base64Data == null) {
@@ -523,6 +539,22 @@ public class DmXmlHelper {
             String afterBoardno = matcher.group(3);
 
             count++;
+
+            // 🔧 2026-11-03 修复P1：跳过多媒体对象占位图标（audio/video/3d/flash.gif）
+            // 这些图标由XSLT生成，带有onclick事件和avicit/路径，前端会替换为SVG
+            // 如果后端替换了它们的src，前端无法识别，会显示"ICN加载失败"
+            String fullImgTag = matcher.group(0);
+            if (fullImgTag.contains("onclick") &&
+                (fullImgTag.contains("avicit/") ||
+                 fullImgTag.contains("audio.gif") ||
+                 fullImgTag.contains("video.gif") ||
+                 fullImgTag.contains("3d.gif") ||
+                 fullImgTag.contains("flash.gif"))) {
+                log.debug("⏭️ 跳过多媒体占位图标: {}", icnCode);
+                // 保持原样，不替换
+                matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(fullImgTag));
+                continue;
+            }
 
             // 尝试加载ICN图片并转为base64
             String base64Data = loadIcnAsBase64(icnCode);

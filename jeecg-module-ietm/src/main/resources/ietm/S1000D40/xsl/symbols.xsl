@@ -59,6 +59,10 @@
       <xsl:attribute name="boardno">
         <xsl:value-of select="@boardno|@infoEntityIdent"/>
       </xsl:attribute>
+      <!-- 🔧 2026-11-02修复P0：添加data-icn-code属性，与脚本设置保持一致 -->
+      <xsl:attribute name="data-icn-code">
+        <xsl:value-of select="@infoEntityIdent"/>
+      </xsl:attribute>
 
       <!-- 🔧 2026-10-16修复：为公式ICN添加点击事件，使其可以在预览中正确加载 -->
       <xsl:attribute name="onclick"><xsl:text>showMultimediaInfo('</xsl:text><xsl:value-of select="@boardno|@infoEntityIdent"/><xsl:text>');</xsl:text></xsl:attribute>

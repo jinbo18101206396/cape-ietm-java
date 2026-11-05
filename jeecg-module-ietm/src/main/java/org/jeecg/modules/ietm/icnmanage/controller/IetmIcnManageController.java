@@ -653,6 +653,33 @@ public class IetmIcnManageController extends JeecgController<IetmIcnManage, IIet
      * @param icnCode ICN完整编码（如：ICN-ZB1-A-02-60101-30101-00001-A-001-01）
      */
     /**
+     * 获取ICN内容（含多媒体类型）
+     *
+     * 功能：返回ICN的元数据信息，包括多媒体类型、文件大小、MIME类型等
+     * 用途：前端根据multimediaType判断是否需要特殊处理（如3D模型加载器、视频播放器等）
+     *
+     * @param icnCode ICN编码
+     * @return 多媒体信息VO（包含multimediaType字段）
+     */
+    @ApiOperation(value = "获取ICN内容信息", notes = "返回ICN的多媒体元数据，含multimediaType字段")
+    @GetMapping(value = "/operation/getIcnContent")
+    public Result<org.jeecg.modules.ietm.icnmanage.vo.MultimediaInfoVO> getIcnContent(
+            @RequestParam(name = "icn") @NotBlank(message = "ICN编码不能为空") String icn) {
+        try {
+            org.jeecg.modules.ietm.icnmanage.vo.MultimediaInfoVO vo = ietmIcnManageService.getIcnContent(icn);
+            return Result.OK(vo);
+        } catch (Exception e) {
+            log.error("获取ICN内容失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 预览-查看ICN图片（用于DM预览中的图形显示）
+     *
+     * @param icnCode ICN完整编码（如：ICN-ZB1-A-02-60101-30101-00001-A-001-01）
+     */
+    /**
      * 查看ICN图片/视频/音频 - 编辑器预览专用接口
      *
      * 使用场景：DM编辑器的预览弹窗（用户主动点击"预览"按钮）
