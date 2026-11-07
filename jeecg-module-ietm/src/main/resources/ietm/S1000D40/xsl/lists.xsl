@@ -110,83 +110,15 @@
       </xsl:element>
     </p>
   </xsl:template>
+  <!-- 修复：生成标准 <li> 标签，使用浏览器原生圆点样式 -->
   <xsl:template match="randlist/item | randomList/listItem | attentionRandomListItem">
-    <!--去掉 | attentionSequentialListItem 注释里的条目-->
-    <xsl:variable name="stylingClass">seqItem</xsl:variable>
-    <xsl:element name="span">
-      <xsl:attribute name="class">
-        <xsl:value-of select="$stylingClass"/>
-      </xsl:attribute>
-      <xsl:call-template name="t_changeMarker">
-        <xsl:with-param name="existingClasses">
-          <xsl:value-of select="$stylingClass"/>
-        </xsl:with-param>
-      </xsl:call-template>
+    <li>
+      <xsl:call-template name="t_changeMarker"/>
       <xsl:call-template name="t_inlineApplicability">
         <xsl:with-param name="annotation" select="$v00034"/>
       </xsl:call-template>
-      <xsl:variable name="level">
-        <xsl:value-of select="count(ancestor::seqlist | ancestor::sequentialList | ancestor::attentionSequentialListItem | ancestor::randomList| ancestor::radlist)"/>
-      </xsl:variable>
-      <xsl:if test="(name(.) ='title' or not(preceding-sibling::title)) and not(preceding-sibling::para or preceding-sibling::challeng or preceding-sibling::procd or preceding-sibling::challrsp)">
-        <xsl:choose>
-          <xsl:when test="$level mod 2 = 0">
-           <!-- ●&#160;-->
-            <p>
-              <div>
-                <!--<xsl:value-of select="count(ancestor::seqlist | ancestor::sequentialList| ancestor::randomList| ancestor::radlist)"/>-->
-                <!--<xsl:attribute name="style">
-                  margin-left: 2em;
-                </xsl:attribute>-->
-                <xsl:choose>
-                  <xsl:when test="$level = '1'"></xsl:when>
-                  <xsl:otherwise>
-                    <xsl:attribute name="style">
-                      margin-left: 2em;
-                    </xsl:attribute>
-                  </xsl:otherwise>
-                </xsl:choose>
-                <!--<xsl:attribute name="class">paramargin</xsl:attribute>-->
-                <xsl:call-template name="t_inlineApplicability">
-                  <xsl:with-param name="annotation" select="$v00034"/>
-                </xsl:call-template>
-                <text>●&#160;</text>
-                <xsl:apply-templates/>
-              </div>
-            </p>
-          </xsl:when>
-          <xsl:otherwise>
-            <!--<xsl:number format="――"/>-->
-           <!-- —&#160; -->
-            <p>
-              <div>
-                <!--<xsl:value-of select="count(ancestor::seqlist | ancestor::sequentialList| ancestor::randomList| ancestor::radlist)"/>-->
-                <!--<xsl:attribute name="style">
-                  margin-left: 2em;
-                </xsl:attribute>-->
-                <!--<xsl:attribute name="class">paramargin</xsl:attribute>-->
-                <xsl:choose>
-                  <xsl:when test="$level = '1'"></xsl:when>
-                  <xsl:otherwise>
-                    <xsl:attribute name="style">
-                      margin-left: 2em;
-                    </xsl:attribute>
-                  </xsl:otherwise>
-                </xsl:choose>
-                <xsl:call-template name="t_inlineApplicability">
-                  <xsl:with-param name="annotation" select="$v00034"/>
-                </xsl:call-template>
-                <text>—&#160;</text>
-                <xsl:apply-templates/>
-              </div>
-            </p>
-          </xsl:otherwise>
-        </xsl:choose>
-        <!--<xsl:apply-templates/>-->
-      </xsl:if>
-      <!--<xsl:number count="seqlist/item | sequentialList/listItem | attentionSequentialListItem"
-              level="multiple" format="1"/>. <xsl:apply-templates/>-->
-    </xsl:element>
+      <xsl:apply-templates/>
+    </li>
   </xsl:template>
   <!--===============================================-->
   <xsl:template match="deflist">
@@ -230,33 +162,30 @@
     </thead>
   </xsl:template>
   <!--===============================================-->
+  <!-- 修复：移除多余空行，直接渲染术语和定义 -->
   <xsl:template match="definitionListItem">
-    <tr>
-      <td>
-        <xsl:call-template name="t_changeMarker"/>
-        <xsl:call-template name="t_inlineApplicability">
-          <xsl:with-param name="annotation" select="$v00034"/>
-        </xsl:call-template>
-      </td>
-    </tr>
-    <tr>
-      <td colspan="2">
-        <xsl:apply-templates select="*[not(self::listItemTerm)][not(self::listItemDefinition)]"/>
-      </td>
-    </tr>
+    <!-- 如果有非term/definition的子元素（如注释、applicability等），单独一行显示 -->
+    <xsl:if test="*[not(self::listItemTerm)][not(self::listItemDefinition)]">
+      <tr>
+        <td colspan="2">
+          <xsl:apply-templates select="*[not(self::listItemTerm)][not(self::listItemDefinition)]"/>
+        </td>
+      </tr>
+    </xsl:if>
+    <!-- 渲染术语和定义 -->
     <xsl:apply-templates select="listItemTerm"/>
   </xsl:template>
   <!--=======================定义列表========================-->
   <xsl:template match="listItemTerm">
-    <tr style="vertical-align:top;">
-      <td style="font-weight: bold; width: 50mm;">
+    <tr style="vertical-align:middle;">
+      <td style="font-weight: bold; width: 50mm; vertical-align: middle;">
         <xsl:call-template name="t_changeMarker"/>
         <xsl:call-template name="t_inlineApplicability">
           <xsl:with-param name="annotation" select="$v00034"/>
         </xsl:call-template>
         <xsl:apply-templates/>
       </td>
-      <td style="width: 100mm;">
+      <td style="width: 100mm; vertical-align: middle;">
         <xsl:apply-templates select="following-sibling::listItemDefinition[1]"/>
       </td>
     </tr>

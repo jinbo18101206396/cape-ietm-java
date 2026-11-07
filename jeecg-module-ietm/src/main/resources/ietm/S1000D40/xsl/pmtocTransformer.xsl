@@ -51,7 +51,8 @@
     </xsl:template>
     <!--===============================================-->
     <xsl:template match="dmRef">
-        <xsl:variable name="query">DMC-<xsl:call-template name="t_formatIss4DMC"/>_<xsl:value-of select="./dmRefIdent/issueInfo/@issueNumber"/>.xml</xsl:variable>
+        <!-- 🔧 2026-11-06 修复：t_formatIss4DMC已包含DMC-前缀，避免重复 -->
+        <xsl:variable name="query"><xsl:call-template name="t_formatIss4DMC"/>_<xsl:value-of select="./dmRefIdent/issueInfo/@issueNumber"/>.xml</xsl:variable>
         <div class="refdmDiv">
             <img src="./images/tree/iconLeaf.gif" class="refdmImg" alt=""></img>
             <a class="refdmLink" type="ref" param="{$query}">
@@ -86,7 +87,9 @@
         </xsl:choose>
     </xsl:template>
     <!--===============================================-->
+    <!-- 🔧 2026-11-06 修复：添加DMC-前缀，符合S1000D 4.0标准 -->
     <xsl:template name="t_formatIss4DMC">
+        <xsl:text>DMC-</xsl:text>
         <xsl:value-of select=".//dmCode/@modelIdentCode"/>-<xsl:value-of
             select=".//dmCode/@systemDiffCode"/>-<xsl:value-of select=".//dmCode/@systemCode"
             />-<xsl:value-of select=".//dmCode/@subSystemCode"/><xsl:value-of

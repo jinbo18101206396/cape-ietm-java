@@ -76,7 +76,9 @@
 		</xsl:choose>
 	</xsl:template>
 	<!--===============================================-->
+	<!-- 🔧 2026-11-06 修复：添加DMC-前缀，符合S1000D 4.0标准 -->
 	<xsl:template name="t_formatIss4DMC">
+		<xsl:text>DMC-</xsl:text>
 		<xsl:value-of select=".//dmCode/@modelIdentCode" />-<xsl:value-of select=".//dmCode/@systemDiffCode" />-<xsl:value-of select=".//dmCode/@systemCode" />-<xsl:value-of select=".//dmCode/@subSystemCode" /><xsl:value-of select=".//dmCode/@subSubSystemCode" />-<xsl:value-of select=".//dmCode/@assyCode" />-<xsl:value-of select=".//dmCode/@disassyCode" /><xsl:value-of select=".//dmCode/@disassyCodeVariant" />-<xsl:value-of select=".//dmCode/@infoCode" /><xsl:value-of select="//dmCode/@infoCodeVariant" />-<xsl:value-of select=".//dmCode/@itemLocationCode" />
 		<xsl:if test="//dmCode/@learnCode">-<xsl:value-of select="//dmCode/@learnCode" />
 		</xsl:if>

@@ -311,7 +311,7 @@
 			<xsl:attribute name="style">text-decoration: underline;color:
                 rgb(0,0,255);cursor:pointer;</xsl:attribute>
             <xsl:attribute name="onclick">showDmRefInfo('<xsl:value-of select="normalize-space($refDMTitle)"/>','<xsl:value-of select="@referredFragment"/>')</xsl:attribute>
-			<!-- we do not link refdms in singledm mode 
+			<!-- we do not link refdms in singledm mode
 			<xsl:if test="$SingleDMView='false'">
 				<xsl:attribute name="onclick"> document.getElementById("mainForm:autoXref").value=
                         '<xsl:value-of select="translate(@referredFragment,'-','_')"/>';
@@ -320,8 +320,9 @@
 			<xsl:if test="$SingleDMView='true'">
 				<xsl:attribute name="onclick">alert('<xsl:value-of select="$v01155"/>')</xsl:attribute>
 			</xsl:if> -->
-			<xsl:value-of select="substring($refDMTitle,17,35)"/>
-			
+			<!-- 🔧 2026-11-06 修复：显示完整DMC代码，符合S1000D 4.0标准 -->
+			<xsl:value-of select="$refDMTitle"/>
+
 		</span>
 		<xsl:if test="./dmRefAddressItems/dmTitle"> &#160;<xsl:value-of select=".//techName"/> - <xsl:value-of select=".//infoName"/>
 		</xsl:if>
@@ -386,7 +387,9 @@
 		</xsl:choose>
 	</xsl:template>
 	<!--===============================================-->
+	<!-- 🔧 2026-11-06 修复：添加DMC-前缀，符合S1000D 4.0标准 (ASD S1000D Issue 4.0) -->
 	<xsl:template name="t_formatIss4DMC">
+		<xsl:text>DMC-</xsl:text>
 		<xsl:value-of select=".//dmCode/@modelIdentCode"/>-<xsl:value-of select=".//dmCode/@systemDiffCode"/>-<xsl:value-of select=".//dmCode/@systemCode"/>-<xsl:value-of select=".//dmCode/@subSystemCode"/>
 		<xsl:value-of select=".//dmCode/@subSubSystemCode"/>-<xsl:value-of select=".//dmCode/@assyCode"/>-<xsl:value-of select=".//dmCode/@disassyCode"/>
 		<xsl:value-of select=".//dmCode/@disassyCodeVariant"/>-<xsl:value-of select=".//dmCode/@infoCode"/>
