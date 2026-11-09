@@ -404,6 +404,20 @@ li {
     margin: 4px 0;
 }
 
+/* randomList 符号样式（lists.xsl 的 cssListClass 按 listItemPrefix 给 <ul> 加这些 class）
+   修复：原先无此定义，导致 <ul> 回退到浏览器默认嵌套级联(disc/circle/square)，
+   与 S1000D listItemPrefix 指定的符号不符（见预览符号显示错误问题）。
+   映射依据 lists.xsl：pf01=无 pf02=实心点 pf03/CircleDot≈短横/圆点 pf05=空心圆 pf06=方块 */
+ul.RandListNone { list-style-type: none; }
+ul.RandListBullet { list-style-type: disc; }
+ul.RandListCircle { list-style-type: circle; }
+ul.RandListSquare { list-style-type: square; }
+ul.RandListDash { list-style-type: none; }
+ul.RandListDash > li { position: relative; }
+ul.RandListDash > li::before { content: "–"; position: absolute; left: -1em; }
+ul.RandListCircleDot { list-style-type: circle; }
+
+
 .seqItem {
     display: block;
     padding-top: 10px;

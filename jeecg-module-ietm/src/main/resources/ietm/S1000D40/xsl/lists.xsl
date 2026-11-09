@@ -261,6 +261,9 @@
         <xsl:when test="@prefix='pf04' or @listItemPrefix='pf04' ">RandListCircleDot</xsl:when>
         <xsl:when test="@prefix='pf05' or @listItemPrefix='pf05' ">RandListCircle</xsl:when>
         <xsl:when test="@prefix='pf06' or @listItemPrefix='pf06' ">RandListSquare</xsl:when>
+        <!-- 修复：listItemPrefix 缺省时按 S1000D 默认 pf02 渲染为实心点(disc)。
+             原先无此兜底 → 空class → 浏览器默认嵌套级联，与设计视图所选符号不符。 -->
+        <xsl:otherwise>RandListBullet</xsl:otherwise>
       </xsl:choose>
     </xsl:attribute>
   </xsl:template>
