@@ -89,9 +89,10 @@
 			<xsl:otherwise>images/3d.gif</xsl:otherwise></xsl:choose></xsl:attribute>images/dmodule/image.gifBinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/>-->
 			<xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 			<!-- 🔧 2026-11-02修复P0：添加data-icn-code属性，让DmPreviewModal能识别需要加载的ICN图片 -->
-			<xsl:attribute name="data-icn-code"><xsl:value-of select="@infoEntityIdent"/></xsl:attribute>
+			<!-- 🔧 2026-11-12修复：使用@boardno|@infoEntityIdent兼容旧标准 -->
+			<xsl:attribute name="data-icn-code"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 			<xsl:attribute name="onclick">
-				showMultimediaInfo('<xsl:value-of select="@infoEntityIdent"/>');
+				showMultimediaInfo('<xsl:value-of select="@boardno|@infoEntityIdent"/>');
 			</xsl:attribute>
 
 			<!-- 🔧 2026-09-18修复：应用尺寸属性（符合S1000D标准） -->

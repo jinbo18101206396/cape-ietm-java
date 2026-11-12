@@ -25,32 +25,33 @@
 	</xsl:template>
 	<!-- ===================================================================== -->
 	<!-- 🔧 2026-11-10 P0修复: 添加emphasis标签支持 (S1000D标准格式元素) -->
+	<!-- 🔧 2026-11-11 P0修复: 同时支持 @emph 和 @emphasisType 属性 -->
 	<!-- em01/bold: 粗体 -->
-	<xsl:template match="emphasis[not(@emph)] | emphasis[@emph='em01'] | emphasis[@emph=''] | emphasis[@emph='bold']">
+	<xsl:template match="emphasis[not(@emph) and not(@emphasisType)] | emphasis[@emph='em01'] | emphasis[@emphasisType='em01'] | emphasis[@emph=''] | emphasis[@emph='bold'] | emphasis[@emphasisType='bold']">
 		<span class="boldemphasis">
 			<xsl:apply-templates/>
 		</span>
 	</xsl:template>
 	<!-- em02/italic: 斜体 -->
-	<xsl:template match="emphasis[@emph='em02'] | emphasis[@emph='italic']">
+	<xsl:template match="emphasis[@emph='em02'] | emphasis[@emphasisType='em02'] | emphasis[@emph='italic'] | emphasis[@emphasisType='italic']">
 		<span class="italicemphasis">
 			<xsl:apply-templates/>
 		</span>
 	</xsl:template>
 	<!-- em03/underscr: 下划线 -->
-	<xsl:template match="emphasis[@emph='em03'] | emphasis[@emph='underscr']">
+	<xsl:template match="emphasis[@emph='em03'] | emphasis[@emphasisType='em03'] | emphasis[@emph='underscr'] | emphasis[@emphasisType='underscr']">
 		<span class="underlineemphasis">
 			<xsl:apply-templates/>
 		</span>
 	</xsl:template>
 	<!-- em04: 高亮/上划线 -->
-	<xsl:template match="emphasis[@emph='em04']">
+	<xsl:template match="emphasis[@emph='em04'] | emphasis[@emphasisType='em04']">
 		<span class="overlinemphasis">
 			<xsl:apply-templates/>
 		</span>
 	</xsl:template>
 	<!-- em05: 删除线（emphasis形式） -->
-	<xsl:template match="emphasis[@emph='em05']">
+	<xsl:template match="emphasis[@emph='em05'] | emphasis[@emphasisType='em05']">
 		<span class="strikethroughemphasis">
 			<xsl:apply-templates/>
 		</span>

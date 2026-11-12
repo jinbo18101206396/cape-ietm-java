@@ -70,7 +70,7 @@
     </xsl:template>
     <!--===============================================-->
     <xsl:template
-        match="emphasis[not(@emph)] |emphasis[@emph='em01'] | emphasis[@emph=''] | emphasis[@emph='bold'] | emphasis[@emph='Bold' or @emphasisType='em01']">
+        match="emphasis[not(@emph) and not(@emphasisType)] |emphasis[@emph='em01'] | emphasis[@emph=''] | emphasis[@emph='bold'] | emphasis[@emph='Bold' or @emphasisType='em01']">
         <span class="boldemphasis">
             <xsl:apply-templates/>
         </span>
