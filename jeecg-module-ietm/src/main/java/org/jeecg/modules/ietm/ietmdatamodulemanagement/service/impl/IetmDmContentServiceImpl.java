@@ -346,6 +346,10 @@ public class IetmDmContentServiceImpl implements IIetmDmContentService {
         List<DmValidateItemVO> errors = new ArrayList<>();
         if (!StringUtils.hasText(content)) return errors; // 空内容，controller 侧处理
 
+        // 清理 XML 前导空白：XML 解析器要求 <?xml 必须在文件最开始，不能有前导空白或 BOM
+        // publishDm 直接传原始 dm_content，不经过 validateById 的前置清理，故统一在此处理
+        content = content.replaceAll("^\\s+", "");
+
         if (!StringUtils.hasText(standard)) standard = DEFAULT_STANDARD;
         if (!StringUtils.hasText(schema)) {
             IetmDataModule dm = dmId != null ? dataModuleMapper.selectById(dmId) : null;

@@ -65,11 +65,15 @@
 		</tr>
 	</xsl:template>
 	<!--=============================================== -->
-	<xsl:template match="thead/row | tfoot/row">
-		<tr>
+	<xsl:template match="thead/row">
+		<tr style="background-color: #ADD8E6; font-weight: bold;">
 			<xsl:apply-templates/>
-			<!-- Add a scroll bar shim to the header and footers. 
-			<td class="scrollshim">&#160;</td>-->
+		</tr>
+	</xsl:template>
+	<!--=============================================== -->
+	<xsl:template match="tfoot/row">
+		<tr style="background-color: #98FB98;">
+			<xsl:apply-templates/>
 		</tr>
 	</xsl:template>
 	<!--=============================================== -->
