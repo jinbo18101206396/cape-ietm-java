@@ -6,6 +6,11 @@
 			<xsl:with-param name="annotation">
 				<xsl:value-of select="$v00034"/>:&#160;</xsl:with-param>
 		</xsl:call-template>
+		<!-- 多媒体目录跳转锚点：与 print_lom 中的 generate-id(.) 对应 -->
+		<div style="height:0px;">
+			<xsl:attribute name="id"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
+			&#160;
+		</div>
 		<xsl:variable name="multimediaNumb">
 		<xsl:number count="multimedia" from="content" format="1"/>
 		</xsl:variable>

@@ -34,7 +34,7 @@
 				<!--<xsl:value-of select="$v00355"/>-->
 				<xsl:text>图</xsl:text>
 				<!--<xsl:text>&#160;</xsl:text>-->
-				<xsl:value-of select="@count"/>
+				<xsl:number count="figure" level="any" from="dmodule"/>
 				<xsl:text>&#160;</xsl:text>
 				<xsl:value-of select="./title"/>
 			</div>

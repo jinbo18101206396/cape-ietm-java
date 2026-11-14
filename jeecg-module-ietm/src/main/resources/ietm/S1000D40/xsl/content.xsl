@@ -30,6 +30,10 @@
 					<!--================表格目录==================-->
 					<xsl:call-template name="print_lot"/>
 				</xsl:if>
+				<xsl:if test=".//multimedia">
+					<!--================多媒体目录==================-->
+					<xsl:call-template name="print_lom"/>
+				</xsl:if>
 			</xsl:if>
 			<br/>
 			<xsl:apply-templates/>
@@ -186,23 +190,23 @@
 	</xsl:template>
 	<!--======================插图目录=========================-->
 	<xsl:template name="print_lof">
-		<div class="para0Title">
+		<div class="para0Title" style="padding-left:5em;">
 				插图目录
 			</div>
 		<!--<center>-->
-		<div align="left">
-			<table width="60%" class="toc-table">
+		<div align="left" style="padding-left:7em;">
+			<table width="100%" class="toc-table">
 				<tbody>
 					<tr>
 						<td colspan="2"/>
 					</tr>
 					<xsl:for-each select=".//figure">
 						<tr>
-							<td class="loclefttd" style="width:5%;">
+							<td class="loclefttd">
 								<span class="xrefLink">
                   <xsl:attribute name="style">white-space:nowrap;</xsl:attribute>
 									<xsl:attribute name="onclick">getPos("<xsl:value-of select="./@id"/>")</xsl:attribute>
-									图&#160;&#160;<xsl:value-of select="@count"/>&#160;&#160;
+									图&#160;<xsl:number count="figure" level="any" from="dmodule"/>&#160;
 								</span>
 							</td>
 							<td class="locrighttd" style="width:95%;">
@@ -220,28 +224,61 @@
 	</xsl:template>
 	<!--======================表格目录=========================-->
 	<xsl:template name="print_lot">
-		<div class="para0Title">
+		<div class="para0Title" style="padding-left:5em;">
 				表格目录
 			</div>
-		<div align="left">
-			<table width="60%" class="toc-table">
+		<div align="left" style="padding-left:7em;">
+			<table width="100%" class="toc-table">
 				<tbody>
 					<tr>
 						<td colspan="2"/>
 					</tr>
 					<xsl:for-each select=".//table">
 						<tr>
-							<td class="loclefttd" style="width:5%;">
+							<td class="loclefttd">
 								<span class="xrefLink">
                   <xsl:attribute name="style">white-space:nowrap;</xsl:attribute>
-									<xsl:attribute name="onclick">getPos("<xsl:value-of select="./@id"/>")</xsl:attribute>
-									表&#160;&#160;<xsl:number count="table" level="any" from="content" format="1"/>&#160;&#160;
+									<xsl:attribute name="onclick">getPos("<xsl:value-of select="translate(normalize-space(concat('dmtoc表格', ./title)), '&#x20;&#x9;&#xD;&#xA;&#160;', '')"/>")</xsl:attribute>
+									表&#160;<xsl:number count="table" level="any" from="content" format="1"/>&#160;
 								</span>
 							</td>
 							<td class="locrighttd" style="width:95%;">
 								<span class="xrefLink">
                     <xsl:attribute name="style">white-space:nowrap;</xsl:attribute>
-									<xsl:attribute name="onclick">getPos("<xsl:value-of select="./@id"/>")</xsl:attribute>
+									<xsl:attribute name="onclick">getPos("<xsl:value-of select="translate(normalize-space(concat('dmtoc表格', ./title)), '&#x20;&#x9;&#xD;&#xA;&#160;', '')"/>")</xsl:attribute>
+									<xsl:value-of select="./title"/>
+								</span>
+							</td>
+						</tr>
+					</xsl:for-each>
+				</tbody>
+			</table>
+		</div>
+	</xsl:template>
+	<!--======================多媒体目录=========================-->
+	<xsl:template name="print_lom">
+		<div class="para0Title" style="padding-left:5em;">
+				多媒体目录
+			</div>
+		<div align="left" style="padding-left:7em;">
+			<table width="100%" class="toc-table">
+				<tbody>
+					<tr>
+						<td colspan="2"/>
+					</tr>
+					<xsl:for-each select=".//multimedia">
+						<tr>
+							<td class="loclefttd">
+								<span class="xrefLink">
+									<xsl:attribute name="style">white-space:nowrap;</xsl:attribute>
+									<xsl:attribute name="onclick">getPos("<xsl:value-of select="generate-id(.)"/>")</xsl:attribute>
+									多媒体&#160;<xsl:number count="multimedia" level="any" from="dmodule"/>&#160;
+								</span>
+							</td>
+							<td class="locrighttd" style="width:95%;">
+								<span class="xrefLink">
+									<xsl:attribute name="style">white-space:nowrap;</xsl:attribute>
+									<xsl:attribute name="onclick">getPos("<xsl:value-of select="generate-id(.)"/>")</xsl:attribute>
 									<xsl:value-of select="./title"/>
 								</span>
 							</td>
