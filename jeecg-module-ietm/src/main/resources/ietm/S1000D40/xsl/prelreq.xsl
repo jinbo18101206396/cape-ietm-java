@@ -21,13 +21,73 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<!--===============================================-->
 	<xsl:template name="prelreqblock">
 		<!--<xsl:value-of select="$v00687"/>-->
-		<div class="prelreqTitle">
+		<div class="prelreqTitle" style="text-align:center;font-weight:bold;">
 			<xsl:attribute name="id"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
-        操作准备
+        准备工作
         </div>
 		<!--<hr/>-->
 		<xsl:apply-templates/>
 		<!--<hr/>-->
+	</xsl:template>
+	<!--===============================================-->
+	<!-- 问题2/3/4修复：productionMaintData 基本信息模块 -->
+	<xsl:template match="productionMaintData">
+		<div class="para0Title basicInfoBlock" style="border:1px solid #ccc;padding:10px;margin-bottom:10px;">
+			<xsl:attribute name="id"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
+			<div style="font-weight:bold;margin-bottom:8px;">基本信息</div>
+			<xsl:apply-templates/>
+		</div>
+	</xsl:template>
+	<!--===============================================-->
+	<xsl:template match="productionMaintData/workArea">
+		<div style="margin:4px 0;">
+			<span style="display:inline-block;width:80px;font-weight:normal;">工作区域：</span>
+			<xsl:apply-templates/>
+		</div>
+	</xsl:template>
+	<!--===============================================-->
+	<xsl:template match="productionMaintData/taskDuration">
+		<div style="margin:4px 0;">
+			<div style="margin-bottom:4px;">维护任务持续时间：</div>
+			<xsl:if test="@startupDuration">
+				<div style="margin-left:40px;">
+					<span style="display:inline-block;width:120px;">准备工作</span>
+					<span><xsl:value-of select="@startupDuration"/><xsl:value-of select="@unitOfMeasure"/></span>
+				</div>
+			</xsl:if>
+			<xsl:if test="@procedureDuration">
+				<div style="margin-left:40px;">
+					<span style="display:inline-block;width:120px;">维护过程</span>
+					<span><xsl:value-of select="@procedureDuration"/><xsl:value-of select="@unitOfMeasure"/></span>
+				</div>
+			</xsl:if>
+			<xsl:if test="@closeupDuration">
+				<div style="margin-left:40px;">
+					<span style="display:inline-block;width:120px;">收尾工作时间</span>
+					<span><xsl:value-of select="@closeupDuration"/><xsl:value-of select="@unitOfMeasure"/></span>
+				</div>
+			</xsl:if>
+		</div>
+	</xsl:template>
+	<!--===============================================-->
+	<xsl:template match="productionMaintData/zoneRef">
+		<div style="margin:4px 0;">
+			<span style="display:inline-block;width:80px;font-weight:normal;">区域：</span>
+			<xsl:choose>
+				<xsl:when test="name"><xsl:value-of select="name"/></xsl:when>
+				<xsl:otherwise><xsl:value-of select="@zoneNumber"/></xsl:otherwise>
+			</xsl:choose>
+		</div>
+	</xsl:template>
+	<!--===============================================-->
+	<xsl:template match="productionMaintData/accessPointRef">
+		<div style="margin:4px 0;">
+			<span style="display:inline-block;width:80px;font-weight:normal;">口盖：</span>
+			<xsl:choose>
+				<xsl:when test="name"><xsl:value-of select="name"/></xsl:when>
+				<xsl:otherwise><xsl:value-of select="@accessPointNumber"/></xsl:otherwise>
+			</xsl:choose>
+		</div>
 	</xsl:template>
 	<!--===============================================-->
 	<xsl:template match="reqconds|reqCondGroup">
@@ -47,19 +107,16 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 				</xsl:when>
 				<xsl:otherwise>
 					<table class="reqcondTable">
-						<!--<thead>
+						<thead>
                             <tr>
-                                <th class="title" width="50%">
-                                    <xsl:value-of select="$v00963"/>
+                                <th class="title" style="text-align:center;border:1px solid #ddd;padding:6px;" width="50%">
+                                    动作/条件
                                 </th>
-                                <th class="dataModule">
-                                    <xsl:value-of select="$v00206"/>
-                                </th>
-                                <th>
-                                    <xsl:value-of select="$v00034"/>
+                                <th class="dataModule" style="text-align:center;border:1px solid #ddd;padding:6px;">
+                                    数据模块/技术出版物
                                 </th>
                             </tr>
-                        </thead>-->
+                        </thead>
 						<tbody>
 							<xsl:apply-templates/>
 						</tbody>
@@ -71,23 +128,20 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<!--===============================================-->
 	<xsl:template match="reqcondm|reqCondDm">
 		<tr>
-      <td>
-        <xsl:number level="multiple" format="1.1" count="reqCondDm|reqCondNoRef"/>
-      </td>
 			<td>
-        <xsl:value-of select="reqcond|reqCond"/>&#160;<xsl:apply-templates select="reqdm|refdm|dmRef"/>
+        <xsl:value-of select="reqcond|reqCond"/>
 			</td>
-			<!--<td>
-				<xsl:call-template name="t_inlineApplicability">
-					<xsl:with-param name="class"/>
-				</xsl:call-template>
-				<xsl:apply-templates select="applic"/>
-			</td>-->
+			<td>
+        <xsl:apply-templates select="reqdm|refdm|dmRef"/>
+			</td>
 		</tr>
 	</xsl:template>
 	<!--===============================================-->
 	<xsl:template match="reqCondNoRef | reqCondCircuitBreaker | reqCondExternalPub">
-		<xsl:apply-templates/>
+		<tr>
+			<td><xsl:value-of select="reqCond|reqcond"/></td>
+			<td></td>
+		</tr>
 	</xsl:template>
 	<!--===============================================-->
 	<xsl:template match="reqcond | reqCond">
@@ -410,7 +464,7 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 		<div class="para0Title">
 			<xsl:attribute name="id"><xsl:value-of select="generate-id(.)"/></xsl:attribute>
 			<!--<xsl:value-of select="$v00174"/>-->
-            消耗品（件）、材料  <xsl:apply-templates/>
+            耗材  <xsl:apply-templates/>
 		</div>
 	</xsl:template>
 	<!--===============================================-->
@@ -453,28 +507,24 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<xsl:template match="reqPersons/person| reqPersons/personnel">
 		<tr>
 			<td>
-				<xsl:value-of select="personnel/@numRequired"/>
-				<!--<xsl:value-of select="@man"/>-->
-			</td>
-			<td>
 				<xsl:value-of select="personCategory/@personCategoryCode"/>
 			</td>
 			<td>
-				<xsl:call-template name="t_resolve_skill_level">
-					<xsl:with-param name="skill">
-						<xsl:value-of select="personSkill/@skillLevelCode"/>
-					</xsl:with-param>
-				</xsl:call-template>
+				<xsl:value-of select="@numRequired"/>
 			</td>
-			<!--<td>
+			<td>
+				<xsl:value-of select="personSkill/@skillLevelCode"/>
+			</td>
+			<td>
 				<xsl:value-of select="trade"/>
-			</td>-->
+			</td>
 			<td>
 				<xsl:value-of select="estimatedTime"/>
-				<xsl:value-of select="estimatedTime/@unitOfMeasure"/>
+				<xsl:if test="estimatedTime/@unitOfMeasure">
+					<xsl:value-of select="estimatedTime/@unitOfMeasure"/>
+				</xsl:if>
 			</td>
 		</tr>
-		<!--<xsl:apply-templates/>-->
 	</xsl:template>
 	<!--===============================================-->
 	<xsl:template match="supportEquipDescr|supplyDescr|spareDescr">
@@ -488,10 +538,16 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 				</xsl:element>
 			</td>
 			<td width="30%">
-				<xsl:apply-templates select="identNumber/manufacturerCode"/>
-				<xsl:if test="csnref | catalogSeqNumberRef">
-					<xsl:apply-templates select="csnref | catalogSeqNumberRef"/>
-					<xsl:text>&#x20;</xsl:text>
+				<xsl:if test="identNumber/manufacturerCode or identNumber/partAndSerialNumber/partNumber">
+					<xsl:text>部件：</xsl:text>
+					<xsl:value-of select="identNumber/manufacturerCode"/>
+					<xsl:if test="identNumber/partAndSerialNumber/partNumber">
+						<xsl:text>/</xsl:text>
+						<xsl:element name="a">
+							<xsl:attribute name="href">#<xsl:value-of select="identNumber/partAndSerialNumber/partNumber"/></xsl:attribute>
+							<xsl:value-of select="identNumber/partAndSerialNumber/partNumber"/>
+						</xsl:element>
+					</xsl:if>
 				</xsl:if>
 				<xsl:if test=".//fullNatoStockNumber">
 					<xsl:value-of select="$v00600"/>:<xsl:value-of select=".//fullNatoStockNumber"/>
@@ -528,26 +584,20 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 		<thead>
 			<tr>
 				<th>
-					<xsl:value-of select="$v00660"/>
-				</th>
-				<th>
-					<!--<xsl:value-of select="$v00094"/>-->
                     专业类别
                 </th>
 				<th>
-					<!--<xsl:value-of select="$v00868"/>-->
+                    人数
+                </th>
+				<th>
                     技能等级
                 </th>
 				<th>
-					<!--<xsl:value-of select="$v00982"/>-->
+                    职业/职业代码
+                </th>
+				<th>
                     估计用时
                 </th>
-				<!--<th>
-                    <xsl:value-of select="$v00325"/>
-                </th>
-                <th>
-                    <xsl:value-of select="$v00034"/>
-                </th>-->
 			</tr>
 		</thead>
 	</xsl:template>
@@ -555,14 +605,11 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<xsl:template name="T_doEquipTableHead">
 		<thead>
 			<tr>
-				<!--<th class="ref">
-                    <xsl:value-of select="$v00766"/>
-                </th>-->
 				<th class="nomen">
 					<!--<xsl:value-of select="$v00583"/>-->名称
                 </th>
 				<th class="indent">
-					<!--<xsl:value-of select="$v00403"/>-->型号
+					<!--<xsl:value-of select="$v00403"/>-->规格型号
                 </th>
 				<th class="quantity">
 					<xsl:value-of select="$v00744"/>
@@ -571,9 +618,6 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 					<!--<xsl:value-of select="$v00785"/>-->
                     备注
                 </th>
-				<!-- <th>
-                    <xsl:value-of select="$v00034"/>
-                </th>-->
 			</tr>
 		</thead>
 	</xsl:template>
