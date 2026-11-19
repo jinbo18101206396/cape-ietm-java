@@ -7,9 +7,9 @@
 	<xsl:include href="common.xsl"/>
 	<xsl:include href="base.xsl"/>
 	<xsl:include href="descript.xsl"/>
-	<xsl:include href="paras.xsl"/>	
+	<xsl:include href="paras.xsl"/>
 	<xsl:include href="lists.xsl"/>
-	<xsl:include href="capgrp.xsl"/>	
+	<xsl:include href="capgrp.xsl"/>
 	<xsl:include href="content.xsl"/>
-	<!--===============================================-->	
+	<!--===============================================-->
 </xsl:stylesheet>

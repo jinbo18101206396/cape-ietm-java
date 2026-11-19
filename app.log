@@ -1,0 +1,616 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------< org.jeecgframework.boot:jeecg-system-start >-------------
+[INFO] Building jeecg-system-start 3.4.4
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:2.6.14:run (default-cli) > test-compile @ jeecg-system-start >>>
+[INFO] 
+[INFO] --- maven-resources-plugin:3.1.0:resources (default-resources) @ jeecg-system-start ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 10 resources
+[INFO] Copying 0 resource
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.8.1:compile (default-compile) @ jeecg-system-start ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- maven-resources-plugin:3.1.0:testResources (default-testResources) @ jeecg-system-start ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory D:\workspace\IETM\cape-ietm-java\jeecg-module-system\jeecg-system-start\src\test\resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.8.1:testCompile (default-testCompile) @ jeecg-system-start ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 3 source files to D:\workspace\IETM\cape-ietm-java\jeecg-module-system\jeecg-system-start\target\test-classes
+[INFO] 
+[INFO] <<< spring-boot-maven-plugin:2.6.14:run (default-cli) < test-compile @ jeecg-system-start <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot-maven-plugin:2.6.14:run (default-cli) @ jeecg-system-start ---
+[INFO] Attaching agents: []
+
+   _____          _____  ______    _____ ______ _______ __  __
+  / ____|   /\   |  __ \|  ____|  |_   _|  ____|__   __|  \/  |
+ | |       /  \  | |__) | |__       | | | |__     | |  | \  / |
+ | |      / /\ \ |  ___/|  __|      | | |  __|    | |  | |\/| |
+ | |____ / ____ \| |    | |____    _| |_| |____   | |  | |  | |
+  \_____/_/    \_\_|    |______|  |_____|______|  |_|  |_|  |_|
+
+
+
+Jeecg  Boot Version: 3.4.4
+Spring Boot Version: 2.6.14 (v2.6.14)
+
+
+2026-11-19 21:30:35.881 [background-preinit] [34mINFO [0;39m [36morg.hibernate.validator.internal.util.Version:21[0;39m - HV000001: Hibernate Validator 6.2.5.Final
+2026-11-19 21:30:35.897 [main] [34mINFO [0;39m [36morg.jeecg.JeecgSystemApplication:55[0;39m - Starting JeecgSystemApplication using Java 1.8.0_121 on LAPTOP-3TIM7F4T with PID 10512 (D:\workspace\IETM\cape-ietm-java\jeecg-module-system\jeecg-system-start\target\classes started by Lenovo in D:\workspace\IETM\cape-ietm-java\jeecg-module-system\jeecg-system-start)
+2026-11-19 21:30:35.897 [main] [34mINFO [0;39m [36morg.jeecg.JeecgSystemApplication:651[0;39m - The following 1 profile is active: "dev"
+2026-11-19 21:30:38.922 [main] [34mINFO [0;39m [36mo.s.d.r.config.RepositoryConfigurationDelegate:262[0;39m - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-11-19 21:30:38.926 [main] [34mINFO [0;39m [36mo.s.d.r.config.RepositoryConfigurationDelegate:132[0;39m - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-11-19 21:30:39.018 [main] [34mINFO [0;39m [36mo.s.d.r.config.RepositoryConfigurationDelegate:201[0;39m - Finished Spring Data repository scanning in 71 ms. Found 0 Redis repository interfaces.
+2026-11-19 21:30:39.157 [main] [34mINFO [0;39m [36mo.j.minidao.auto.MinidaoAutoConfiguration:23[0;39m -  ******************* init miniDao config [ begin ] *********************** 
+2026-11-19 21:30:39.157 [main] [34mINFO [0;39m [36mo.j.minidao.auto.MinidaoAutoConfiguration:25[0;39m -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*
+2026-11-19 21:30:39.165 [main] [34mINFO [0;39m [36mo.j.minidao.auto.MinidaoAutoConfiguration:42[0;39m -  *******************  init miniDao config  [ end ] *********************** 
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysMessageMapper' and 'org.jeecg.modules.message.mapper.SysMessageMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysMessageTemplateMapper' and 'org.jeecg.modules.message.mapper.SysMessageTemplateMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ossFileMapper' and 'org.jeecg.modules.oss.mapper.OssFileMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'quartzJobMapper' and 'org.jeecg.modules.quartz.mapper.QuartzJobMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysAnnouncementMapper' and 'org.jeecg.modules.system.mapper.SysAnnouncementMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysAnnouncementSendMapper' and 'org.jeecg.modules.system.mapper.SysAnnouncementSendMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysCategoryMapper' and 'org.jeecg.modules.system.mapper.SysCategoryMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysCheckRuleMapper' and 'org.jeecg.modules.system.mapper.SysCheckRuleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysCommentMapper' and 'org.jeecg.modules.system.mapper.SysCommentMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDataLogMapper' and 'org.jeecg.modules.system.mapper.SysDataLogMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDataSourceMapper' and 'org.jeecg.modules.system.mapper.SysDataSourceMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDepartMapper' and 'org.jeecg.modules.system.mapper.SysDepartMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDepartPermissionMapper' and 'org.jeecg.modules.system.mapper.SysDepartPermissionMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDepartRoleMapper' and 'org.jeecg.modules.system.mapper.SysDepartRoleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDepartRolePermissionMapper' and 'org.jeecg.modules.system.mapper.SysDepartRolePermissionMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDepartRoleUserMapper' and 'org.jeecg.modules.system.mapper.SysDepartRoleUserMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDictItemMapper' and 'org.jeecg.modules.system.mapper.SysDictItemMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysDictMapper' and 'org.jeecg.modules.system.mapper.SysDictMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysFilesMapper' and 'org.jeecg.modules.system.mapper.SysFilesMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysFillRuleMapper' and 'org.jeecg.modules.system.mapper.SysFillRuleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysFormFileMapper' and 'org.jeecg.modules.system.mapper.SysFormFileMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysGatewayRouteMapper' and 'org.jeecg.modules.system.mapper.SysGatewayRouteMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysLogMapper' and 'org.jeecg.modules.system.mapper.SysLogMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysPermissionDataRuleMapper' and 'org.jeecg.modules.system.mapper.SysPermissionDataRuleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysPermissionMapper' and 'org.jeecg.modules.system.mapper.SysPermissionMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysPositionMapper' and 'org.jeecg.modules.system.mapper.SysPositionMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysRoleIndexMapper' and 'org.jeecg.modules.system.mapper.SysRoleIndexMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysRoleMapper' and 'org.jeecg.modules.system.mapper.SysRoleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysRolePermissionMapper' and 'org.jeecg.modules.system.mapper.SysRolePermissionMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysTenantMapper' and 'org.jeecg.modules.system.mapper.SysTenantMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysThirdAccountMapper' and 'org.jeecg.modules.system.mapper.SysThirdAccountMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysUserAgentMapper' and 'org.jeecg.modules.system.mapper.SysUserAgentMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysUserDepartMapper' and 'org.jeecg.modules.system.mapper.SysUserDepartMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysUserMapper' and 'org.jeecg.modules.system.mapper.SysUserMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'sysUserRoleMapper' and 'org.jeecg.modules.system.mapper.SysUserRoleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlAuthDataMapper' and 'org.jeecg.modules.online.auth.mapper.OnlAuthDataMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlAuthPageMapper' and 'org.jeecg.modules.online.auth.mapper.OnlAuthPageMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlAuthRelationMapper' and 'org.jeecg.modules.online.auth.mapper.OnlAuthRelationMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformButtonMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformButtonMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformEnhanceJavaMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformEnhanceJavaMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformEnhanceJsMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformEnhanceJsMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformEnhanceSqlMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformEnhanceSqlMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformFieldMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformFieldMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformHeadMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformHeadMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgformIndexMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlCgformIndexMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlineMapper' and 'org.jeecg.modules.online.cgform.mapper.OnlineMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgreportHeadMapper' and 'org.jeecg.modules.online.cgreport.mapper.OnlCgreportHeadMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgreportItemMapper' and 'org.jeecg.modules.online.cgreport.mapper.OnlCgreportItemMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'onlCgreportParamMapper' and 'org.jeecg.modules.online.cgreport.mapper.OnlCgreportParamMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmIcnFormulaMapper' and 'org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnFormulaMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmIcnManageMapper' and 'org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnManageMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmIcnReferenceMapper' and 'org.jeecg.modules.ietm.icnmanage.mapper.IetmIcnReferenceMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmAttachmentMapper' and 'org.jeecg.modules.ietm.ietmattachment.mapper.IetmAttachmentMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmDataModuleMapper' and 'org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDataModuleMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmDmCommentMapper' and 'org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmCommentMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmDmRefMapper' and 'org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmRefMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmDmTypeMapper' and 'org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmDmTypeMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmTranslateMapper' and 'org.jeecg.modules.ietm.ietmdatamodulemanagement.mapper.IetmTranslateMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmDdnMapper' and 'org.jeecg.modules.ietm.ietmddn.mapper.IetmDdnMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmProjectCompanyMapper' and 'org.jeecg.modules.ietm.ietmprojectcompany.mapper.IetmProjectCompanyMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmAuthConfigMapper' and 'org.jeecg.modules.ietm.ietmroleauth.mapper.IetmAuthConfigMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.202 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmRoleauthMapper' and 'org.jeecg.modules.ietm.ietmroleauth.mapper.IetmRoleauthMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmStandardConfigurationManagementMapper' and 'org.jeecg.modules.ietm.ietmstandardconfigurationmanagement.mapper.IetmStandardConfigurationManagementMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmProjectConfigurationManagementMapper' and 'org.jeecg.modules.ietm.projectconfigurationmanagement.mapper.IetmProjectConfigurationManagementMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmProjectInformationCodeMapper' and 'org.jeecg.modules.ietm.projectinformationcode.mapper.IetmProjectInformationCodeMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmProjectMapper' and 'org.jeecg.modules.ietm.projectmanagement.mapper.IetmProjectMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmProjectParamsMapper' and 'org.jeecg.modules.ietm.projectmanagement.mapper.IetmProjectParamsMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmStandardInformationCodeMapper' and 'org.jeecg.modules.ietm.standardinformationcode.mapper.IetmStandardInformationCodeMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmStandardDmtypeMapper' and 'org.jeecg.modules.ietm.standardmanagement.mapper.IetmStandardDmtypeMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'ietmStandardMapper' and 'org.jeecg.modules.ietm.standardmanagement.mapper.IetmStandardMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'wfExecuteMapper' and 'org.jeecg.modules.ietm.workflow.mapper.WfExecuteMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'wfInstanceDtlMapper' and 'org.jeecg.modules.ietm.workflow.mapper.WfInstanceDtlMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'wfInstanceMapper' and 'org.jeecg.modules.ietm.workflow.mapper.WfInstanceMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'wfTemplateDtlMapper' and 'org.jeecg.modules.ietm.workflow.mapper.WfTemplateDtlMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'wfTemplateMapper' and 'org.jeecg.modules.ietm.workflow.mapper.WfTemplateMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - Skipping MapperFactoryBean with name 'baseCommonMapper' and 'org.jeecg.modules.base.mapper.BaseCommonMapper' mapperInterface. Bean already defined with the same name!
+2026-11-19 21:30:39.217 [main] [31mWARN [0;39m [36morg.mybatis.spring.mapper.ClassPathMapperScanner:44[0;39m - No MyBatis mapper was found in '[org.jeecg.modules.**.mapper]' package. Please check your configuration.
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDataSourceDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbFieldDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbParamDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictItemDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportLinkDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportMapDao }
+2026-11-19 21:30:39.297 [main] [34mINFO [0;39m [36mo.j.minidao.factory.MiniDaoClassPathMapperScanner:48[0;39m - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportShareDao }
+2026-11-19 21:30:39.665 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#9' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.686 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportShareDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.686 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#8' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.688 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportMapDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.690 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#7' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.690 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportLinkDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.690 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#6' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.692 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDictItemDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.692 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#5' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.692 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDictDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.692 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#4' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDbParamDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#3' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDbFieldDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#2' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDbDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca#1' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDataSourceDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean '(inner bean)#100807ca' of type [org.jeecgframework.minidao.aop.MiniDaoHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.697 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jimuReportDao' of type [org.jeecgframework.minidao.factory.MiniDaoBeanFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.722 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'spring.redis-org.springframework.boot.autoconfigure.data.redis.RedisProperties' of type [org.springframework.boot.autoconfigure.data.redis.RedisProperties] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.722 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'org.springframework.boot.autoconfigure.data.redis.LettuceConnectionConfiguration' of type [org.springframework.boot.autoconfigure.data.redis.LettuceConnectionConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.740 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'org.springframework.boot.actuate.autoconfigure.metrics.redis.LettuceMetricsAutoConfiguration' of type [org.springframework.boot.actuate.autoconfigure.metrics.redis.LettuceMetricsAutoConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.742 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'org.springframework.boot.actuate.autoconfigure.metrics.export.prometheus.PrometheusMetricsExportAutoConfiguration' of type [org.springframework.boot.actuate.autoconfigure.metrics.export.prometheus.PrometheusMetricsExportAutoConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.748 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'management.metrics.export.prometheus-org.springframework.boot.actuate.autoconfigure.metrics.export.prometheus.PrometheusProperties' of type [org.springframework.boot.actuate.autoconfigure.metrics.export.prometheus.PrometheusProperties] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.750 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'prometheusConfig' of type [org.springframework.boot.actuate.autoconfigure.metrics.export.prometheus.PrometheusPropertiesConfigAdapter] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.752 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'collectorRegistry' of type [io.prometheus.client.CollectorRegistry] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.754 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration' of type [org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.754 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'micrometerClock' of type [io.micrometer.core.instrument.Clock$1] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.781 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'prometheusMeterRegistry' of type [io.micrometer.prometheus.PrometheusMeterRegistry] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.781 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'micrometerOptions' of type [io.lettuce.core.metrics.MicrometerOptions] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.781 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'lettuceMetrics' of type [org.springframework.boot.actuate.autoconfigure.metrics.redis.LettuceMetricsAutoConfiguration$$Lambda$450/2085398652] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.881 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'lettuceClientResources' of type [io.lettuce.core.resource.DefaultClientResources] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.967 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'redisConnectionFactory' of type [org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.967 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'jeecgBaseConfig' of type [org.jeecg.config.JeecgBaseConfig] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:39.967 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'shiroConfig' of type [org.jeecg.config.shiro.ShiroConfig$$EnhancerBySpringCGLIB$$129911f4] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:40.258 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'spring.datasource.dynamic-com.baomidou.dynamic.datasource.spring.boot.autoconfigure.DynamicDataSourceProperties' of type [com.baomidou.dynamic.datasource.spring.boot.autoconfigure.DynamicDataSourceProperties] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:40.265 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'com.baomidou.dynamic.datasource.spring.boot.autoconfigure.DynamicDataSourceAutoConfiguration' of type [com.baomidou.dynamic.datasource.spring.boot.autoconfigure.DynamicDataSourceAutoConfiguration$$EnhancerBySpringCGLIB$$1ceb3acc] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:40.274 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'dsProcessor' of type [com.baomidou.dynamic.datasource.processor.DsHeaderProcessor] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:40.327 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'shiroRealm' of type [org.jeecg.config.shiro.ShiroRealm] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:41.406 [main] [34mINFO [0;39m [36morg.jeecg.config.shiro.ShiroConfig:239[0;39m - ===============(1)创建缓存管理器RedisCacheManager
+2026-11-19 21:30:41.406 [main] [34mINFO [0;39m [36morg.jeecg.config.shiro.ShiroConfig:257[0;39m - ===============(2)创建RedisManager,连接Redis..
+2026-11-19 21:30:41.406 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'redisManager' of type [org.crazycake.shiro.RedisManager] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:41.418 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'securityManager' of type [org.apache.shiro.web.mgt.DefaultWebSecurityManager] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:41.465 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'authorizationAttributeSourceAdvisor' of type [org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:41.499 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'org.apache.shiro.spring.boot.autoconfigure.ShiroBeanAutoConfiguration' of type [org.apache.shiro.spring.boot.autoconfigure.ShiroBeanAutoConfiguration$$EnhancerBySpringCGLIB$$c675a7ab] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:41.499 [main] [34mINFO [0;39m [36mo.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker:376[0;39m - Bean 'eventBus' of type [org.apache.shiro.event.support.DefaultEventBus] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2026-11-19 21:30:41.969 [main] [34mINFO [0;39m [36mo.s.boot.web.embedded.tomcat.TomcatWebServer:108[0;39m - Tomcat initialized with port(s): 9999 (http)
+2026-11-19 21:30:41.969 [main] [34mINFO [0;39m [36morg.apache.coyote.http11.Http11NioProtocol:173[0;39m - Initializing ProtocolHandler ["http-nio-9999"]
+2026-11-19 21:30:41.969 [main] [34mINFO [0;39m [36morg.apache.catalina.core.StandardService:173[0;39m - Starting service [Tomcat]
+2026-11-19 21:30:41.969 [main] [34mINFO [0;39m [36morg.apache.catalina.core.StandardEngine:173[0;39m - Starting Servlet engine: [Apache Tomcat/9.0.69]
+2026-11-19 21:30:42.151 [main] [34mINFO [0;39m [36mo.a.c.c.C.[Tomcat].[localhost].[/jeecg-boot]:173[0;39m - Initializing Spring embedded WebApplicationContext
+2026-11-19 21:30:42.151 [main] [34mINFO [0;39m [36mo.s.b.w.s.c.ServletWebServerApplicationContext:290[0;39m - Root WebApplicationContext: initialization completed in 6167 ms
+2026-11-19 21:30:42.355 [main] [34mINFO [0;39m [36mo.j.m.jmreport.config.init.JimuReportConfiguration:99[0;39m -  Init JimuReport Config [ Token Interceptor & Resource Locations ] 
+2026-11-19 21:30:45.333 [main] [1;31mERROR[0;39m [36mcom.alibaba.druid.pool.DruidDataSource:927[0;39m - init datasource error, url: jdbc:mysql://127.0.0.1:3303/jeecg-boot?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at com.mysql.cj.jdbc.exceptions.SQLError.createCommunicationsException(SQLError.java:174)
+	at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:64)
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:828)
+	at com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:448)
+	at com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:241)
+	at com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:198)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:156)
+	at com.alibaba.druid.filter.FilterAdapter.connection_connect(FilterAdapter.java:787)
+	at com.alibaba.druid.filter.FilterEventAdapter.connection_connect(FilterEventAdapter.java:38)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.filter.FilterAdapter.connection_connect(FilterAdapter.java:787)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.filter.stat.StatFilter.connection_connect(StatFilter.java:218)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.pool.DruidAbstractDataSource.createPhysicalConnection(DruidAbstractDataSource.java:1646)
+	at com.alibaba.druid.pool.DruidAbstractDataSource.createPhysicalConnection(DruidAbstractDataSource.java:1710)
+	at com.alibaba.druid.pool.DruidDataSource.init(DruidDataSource.java:923)
+	at com.baomidou.dynamic.datasource.creator.DruidDataSourceCreator.createDataSource(DruidDataSourceCreator.java:158)
+	at com.baomidou.dynamic.datasource.creator.DataSourceCreator.createDruidDataSource(DataSourceCreator.java:174)
+	at com.baomidou.dynamic.datasource.creator.DataSourceCreator.createDataSource(DataSourceCreator.java:92)
+	at com.baomidou.dynamic.datasource.provider.AbstractDataSourceProvider.createDataSourceMap(AbstractDataSourceProvider.java:45)
+	at com.baomidou.dynamic.datasource.provider.YmlDynamicDataSourceProvider.loadDataSources(YmlDynamicDataSourceProvider.java:43)
+	at com.baomidou.dynamic.datasource.DynamicRoutingDataSource.afterPropertiesSet(DynamicRoutingDataSource.java:229)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1863)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1800)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:620)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:887)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:541)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1519)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1417)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.autowireResource(CommonAnnotationBeanPostProcessor.java:544)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.getResource(CommonAnnotationBeanPostProcessor.java:520)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor$ResourceElement.getResourceToInject(CommonAnnotationBeanPostProcessor.java:673)
+	at org.springframework.beans.factory.annotation.InjectionMetadata$InjectedElement.inject(InjectionMetadata.java:228)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:119)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.postProcessProperties(CommonAnnotationBeanPostProcessor.java:329)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1431)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:657)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:640)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:119)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:399)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1431)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:955)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:918)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:583)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:145)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:745)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:423)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:307)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1317)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1306)
+	at org.jeecg.JeecgSystemApplication.main(JeecgSystemApplication.java:33)
+Caused by: com.mysql.cj.exceptions.CJCommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.lang.reflect.Constructor.newInstance(Constructor.java:423)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:61)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:105)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:151)
+	at com.mysql.cj.exceptions.ExceptionFactory.createCommunicationsException(ExceptionFactory.java:167)
+	at com.mysql.cj.protocol.a.NativeSocketConnection.connect(NativeSocketConnection.java:89)
+	at com.mysql.cj.NativeSession.connect(NativeSession.java:120)
+	at com.mysql.cj.jdbc.ConnectionImpl.connectOneTryOnly(ConnectionImpl.java:948)
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:818)
+	... 93 common frames omitted
+Caused by: java.net.ConnectException: Connection refused: connect
+	at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+	at java.net.DualStackPlainSocketImpl.socketConnect(DualStackPlainSocketImpl.java:79)
+	at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+	at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+	at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+	at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:172)
+	at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+	at java.net.Socket.connect(Socket.java:589)
+	at com.mysql.cj.protocol.StandardSocketFactory.connect(StandardSocketFactory.java:153)
+	at com.mysql.cj.protocol.a.NativeSocketConnection.connect(NativeSocketConnection.java:63)
+	... 96 common frames omitted
+2026-11-19 21:30:45.333 [main] [1;31mERROR[0;39m [36mcom.alibaba.druid.pool.DruidDataSource:969[0;39m - {dataSource-1} init error
+com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at com.mysql.cj.jdbc.exceptions.SQLError.createCommunicationsException(SQLError.java:174)
+	at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:64)
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:828)
+	at com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:448)
+	at com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:241)
+	at com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:198)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:156)
+	at com.alibaba.druid.filter.FilterAdapter.connection_connect(FilterAdapter.java:787)
+	at com.alibaba.druid.filter.FilterEventAdapter.connection_connect(FilterEventAdapter.java:38)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.filter.FilterAdapter.connection_connect(FilterAdapter.java:787)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.filter.stat.StatFilter.connection_connect(StatFilter.java:218)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.pool.DruidAbstractDataSource.createPhysicalConnection(DruidAbstractDataSource.java:1646)
+	at com.alibaba.druid.pool.DruidAbstractDataSource.createPhysicalConnection(DruidAbstractDataSource.java:1710)
+	at com.alibaba.druid.pool.DruidDataSource.init(DruidDataSource.java:923)
+	at com.baomidou.dynamic.datasource.creator.DruidDataSourceCreator.createDataSource(DruidDataSourceCreator.java:158)
+	at com.baomidou.dynamic.datasource.creator.DataSourceCreator.createDruidDataSource(DataSourceCreator.java:174)
+	at com.baomidou.dynamic.datasource.creator.DataSourceCreator.createDataSource(DataSourceCreator.java:92)
+	at com.baomidou.dynamic.datasource.provider.AbstractDataSourceProvider.createDataSourceMap(AbstractDataSourceProvider.java:45)
+	at com.baomidou.dynamic.datasource.provider.YmlDynamicDataSourceProvider.loadDataSources(YmlDynamicDataSourceProvider.java:43)
+	at com.baomidou.dynamic.datasource.DynamicRoutingDataSource.afterPropertiesSet(DynamicRoutingDataSource.java:229)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1863)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1800)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:620)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:887)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:541)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1519)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1417)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.autowireResource(CommonAnnotationBeanPostProcessor.java:544)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.getResource(CommonAnnotationBeanPostProcessor.java:520)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor$ResourceElement.getResourceToInject(CommonAnnotationBeanPostProcessor.java:673)
+	at org.springframework.beans.factory.annotation.InjectionMetadata$InjectedElement.inject(InjectionMetadata.java:228)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:119)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.postProcessProperties(CommonAnnotationBeanPostProcessor.java:329)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1431)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:657)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:640)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:119)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:399)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1431)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:955)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:918)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:583)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:145)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:745)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:423)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:307)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1317)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1306)
+	at org.jeecg.JeecgSystemApplication.main(JeecgSystemApplication.java:33)
+Caused by: com.mysql.cj.exceptions.CJCommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.lang.reflect.Constructor.newInstance(Constructor.java:423)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:61)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:105)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:151)
+	at com.mysql.cj.exceptions.ExceptionFactory.createCommunicationsException(ExceptionFactory.java:167)
+	at com.mysql.cj.protocol.a.NativeSocketConnection.connect(NativeSocketConnection.java:89)
+	at com.mysql.cj.NativeSession.connect(NativeSession.java:120)
+	at com.mysql.cj.jdbc.ConnectionImpl.connectOneTryOnly(ConnectionImpl.java:948)
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:818)
+	... 93 common frames omitted
+Caused by: java.net.ConnectException: Connection refused: connect
+	at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+	at java.net.DualStackPlainSocketImpl.socketConnect(DualStackPlainSocketImpl.java:79)
+	at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+	at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+	at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+	at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:172)
+	at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+	at java.net.Socket.connect(Socket.java:589)
+	at com.mysql.cj.protocol.StandardSocketFactory.connect(StandardSocketFactory.java:153)
+	at com.mysql.cj.protocol.a.NativeSocketConnection.connect(NativeSocketConnection.java:63)
+	... 96 common frames omitted
+2026-11-19 21:30:45.341 [main] [34mINFO [0;39m [36mcom.alibaba.druid.pool.DruidDataSource:994[0;39m - {dataSource-1,master} inited
+2026-11-19 21:30:45.341 [main] [31mWARN [0;39m [36mo.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext:591[0;39m - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'jimuReportTokenService': Unsatisfied dependency expressed through field 'sysBaseApi'; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'sysBaseApiImpl': Injection of resource dependencies failed; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sysUserMapper' defined in URL [jar:file:/D:/maven/jeecgboot/org/jeecgframework/boot/jeecg-system-biz/3.4.4/jeecg-system-biz-3.4.4.jar!/org/jeecg/modules/system/mapper/SysUserMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionFactory'; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Unsatisfied dependency expressed through method 'sqlSessionFactory' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [com/baomidou/dynamic/datasource/spring/boot/autoconfigure/DynamicDataSourceAutoConfiguration.class]: Invocation of init method failed; nested exception is com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+2026-11-19 21:30:45.357 [main] [34mINFO [0;39m [36morg.apache.catalina.core.StandardService:173[0;39m - Stopping service [Tomcat]
+2026-11-19 21:30:45.398 [main] [34mINFO [0;39m [36mo.s.b.a.l.ConditionEvaluationReportLoggingListener:136[0;39m - 
+
+Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+2026-11-19 21:30:45.436 [main] [1;31mERROR[0;39m [36morg.springframework.boot.SpringApplication:835[0;39m - Application run failed
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'jimuReportTokenService': Unsatisfied dependency expressed through field 'sysBaseApi'; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'sysBaseApiImpl': Injection of resource dependencies failed; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sysUserMapper' defined in URL [jar:file:/D:/maven/jeecgboot/org/jeecgframework/boot/jeecg-system-biz/3.4.4/jeecg-system-biz-3.4.4.jar!/org/jeecg/modules/system/mapper/SysUserMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionFactory'; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Unsatisfied dependency expressed through method 'sqlSessionFactory' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [com/baomidou/dynamic/datasource/spring/boot/autoconfigure/DynamicDataSourceAutoConfiguration.class]: Invocation of init method failed; nested exception is com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:660)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:640)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:119)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:399)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1431)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:955)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:918)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:583)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:145)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:745)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:423)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:307)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1317)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1306)
+	at org.jeecg.JeecgSystemApplication.main(JeecgSystemApplication.java:33)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'sysBaseApiImpl': Injection of resource dependencies failed; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sysUserMapper' defined in URL [jar:file:/D:/maven/jeecgboot/org/jeecgframework/boot/jeecg-system-biz/3.4.4/jeecg-system-biz-3.4.4.jar!/org/jeecg/modules/system/mapper/SysUserMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionFactory'; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Unsatisfied dependency expressed through method 'sqlSessionFactory' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [com/baomidou/dynamic/datasource/spring/boot/autoconfigure/DynamicDataSourceAutoConfiguration.class]: Invocation of init method failed; nested exception is com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.postProcessProperties(CommonAnnotationBeanPostProcessor.java:332)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1431)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:657)
+	... 20 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sysUserMapper' defined in URL [jar:file:/D:/maven/jeecgboot/org/jeecgframework/boot/jeecg-system-biz/3.4.4/jeecg-system-biz-3.4.4.jar!/org/jeecg/modules/system/mapper/SysUserMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionFactory'; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Unsatisfied dependency expressed through method 'sqlSessionFactory' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [com/baomidou/dynamic/datasource/spring/boot/autoconfigure/DynamicDataSourceAutoConfiguration.class]: Invocation of init method failed; nested exception is com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1534)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1417)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:619)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.autowireResource(CommonAnnotationBeanPostProcessor.java:544)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.getResource(CommonAnnotationBeanPostProcessor.java:520)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor$ResourceElement.getResourceToInject(CommonAnnotationBeanPostProcessor.java:673)
+	at org.springframework.beans.factory.annotation.InjectionMetadata$InjectedElement.inject(InjectionMetadata.java:228)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:119)
+	at org.springframework.context.annotation.CommonAnnotationBeanPostProcessor.postProcessProperties(CommonAnnotationBeanPostProcessor.java:329)
+	... 31 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'sqlSessionFactory' defined in class path resource [com/baomidou/mybatisplus/autoconfigure/MybatisPlusAutoConfiguration.class]: Unsatisfied dependency expressed through method 'sqlSessionFactory' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [com/baomidou/dynamic/datasource/spring/boot/autoconfigure/DynamicDataSourceAutoConfiguration.class]: Invocation of init method failed; nested exception is com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:800)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:541)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1519)
+	... 47 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [com/baomidou/dynamic/datasource/spring/boot/autoconfigure/DynamicDataSourceAutoConfiguration.class]: Invocation of init method failed; nested exception is com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1804)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:620)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208)
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311)
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:887)
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791)
+	... 60 common frames omitted
+Caused by: com.baomidou.dynamic.datasource.exception.ErrorCreateDataSourceException: druid create error
+	at com.baomidou.dynamic.datasource.creator.DruidDataSourceCreator.createDataSource(DruidDataSourceCreator.java:160)
+	at com.baomidou.dynamic.datasource.creator.DataSourceCreator.createDruidDataSource(DataSourceCreator.java:174)
+	at com.baomidou.dynamic.datasource.creator.DataSourceCreator.createDataSource(DataSourceCreator.java:92)
+	at com.baomidou.dynamic.datasource.provider.AbstractDataSourceProvider.createDataSourceMap(AbstractDataSourceProvider.java:45)
+	at com.baomidou.dynamic.datasource.provider.YmlDynamicDataSourceProvider.loadDataSources(YmlDynamicDataSourceProvider.java:43)
+	at com.baomidou.dynamic.datasource.DynamicRoutingDataSource.afterPropertiesSet(DynamicRoutingDataSource.java:229)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1863)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1800)
+	... 71 common frames omitted
+Caused by: com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at com.mysql.cj.jdbc.exceptions.SQLError.createCommunicationsException(SQLError.java:174)
+	at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:64)
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:828)
+	at com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:448)
+	at com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:241)
+	at com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:198)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:156)
+	at com.alibaba.druid.filter.FilterAdapter.connection_connect(FilterAdapter.java:787)
+	at com.alibaba.druid.filter.FilterEventAdapter.connection_connect(FilterEventAdapter.java:38)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.filter.FilterAdapter.connection_connect(FilterAdapter.java:787)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.filter.stat.StatFilter.connection_connect(StatFilter.java:218)
+	at com.alibaba.druid.filter.FilterChainImpl.connection_connect(FilterChainImpl.java:150)
+	at com.alibaba.druid.pool.DruidAbstractDataSource.createPhysicalConnection(DruidAbstractDataSource.java:1646)
+	at com.alibaba.druid.pool.DruidAbstractDataSource.createPhysicalConnection(DruidAbstractDataSource.java:1710)
+	at com.alibaba.druid.pool.DruidDataSource.init(DruidDataSource.java:923)
+	at com.baomidou.dynamic.datasource.creator.DruidDataSourceCreator.createDataSource(DruidDataSourceCreator.java:158)
+	... 78 common frames omitted
+Caused by: com.mysql.cj.exceptions.CJCommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.lang.reflect.Constructor.newInstance(Constructor.java:423)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:61)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:105)
+	at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:151)
+	at com.mysql.cj.exceptions.ExceptionFactory.createCommunicationsException(ExceptionFactory.java:167)
+	at com.mysql.cj.protocol.a.NativeSocketConnection.connect(NativeSocketConnection.java:89)
+	at com.mysql.cj.NativeSession.connect(NativeSession.java:120)
+	at com.mysql.cj.jdbc.ConnectionImpl.connectOneTryOnly(ConnectionImpl.java:948)
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:818)
+	... 93 common frames omitted
+Caused by: java.net.ConnectException: Connection refused: connect
+	at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+	at java.net.DualStackPlainSocketImpl.socketConnect(DualStackPlainSocketImpl.java:79)
+	at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+	at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+	at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+	at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:172)
+	at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+	at java.net.Socket.connect(Socket.java:589)
+	at com.mysql.cj.protocol.StandardSocketFactory.connect(StandardSocketFactory.java:153)
+	at com.mysql.cj.protocol.a.NativeSocketConnection.connect(NativeSocketConnection.java:63)
+	... 96 common frames omitted
+Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  19.644 s
+[INFO] Finished at: 2026-11-19T21:30:46+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:2.6.14:run (default-cli) on project jeecg-system-start: Application finished with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
+Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8

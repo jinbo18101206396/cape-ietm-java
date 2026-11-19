@@ -403,6 +403,6 @@
 	-->
     <xsl:template match="para/variable-ref|para/variableRef">
         <xsl:apply-templates/>
-    </xsl:template>    
+    </xsl:template>
     <!--===============================================-->
 </xsl:stylesheet>

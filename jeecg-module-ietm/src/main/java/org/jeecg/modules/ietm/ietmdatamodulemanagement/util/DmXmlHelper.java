@@ -348,6 +348,12 @@ public class DmXmlHelper {
         if (xmlContent.contains("<procedure")) return "proced";
         if (xmlContent.contains("<faultIsolation")) return "fault";
         if (xmlContent.contains("<illustratedPartsCatalog")) return "ipd";
+        // 🔧 2026-11-19 修复P0：流程类DM（S1000D infoCode 010A，含<process>元素）
+        // 根因：缺少此分支导致流程类DM回退到"descript"，使用descriptSchema.xsl，
+        // 该Schema不含prelreq.xsl，<preliminaryRqmts>/<closeRqmts>无模板匹配，
+        // XSLT默认模板直接输出原始文本，"准备工作"/"后续工作"模块完全不显示。
+        // 修复：路由到processSchema.xsl（含prelreq.xsl + process.xsl），两个模块正常渲染。
+        if (xmlContent.contains("<process")) return "process";
 
         // 默认描述类
         return "descript";

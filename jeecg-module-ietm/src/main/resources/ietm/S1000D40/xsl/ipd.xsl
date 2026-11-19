@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-	xmlns:tir-proc="java:java/com.ptc.arbortext.aad.ietp.tir.IetpTIRProcessor" 
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+    <!-- 🔧 2026-11-19 修复P0：注释掉Arbortext Java扩展函数命名空间
+         根因：Saxon-HE开源版本不支持Java扩展函数（仅Saxon-PE/EE支持）
+         影响：即使不使用这些函数，仅声明命名空间也会导致转换失败
+         解决：注释掉所有java:命名空间声明，确保与Saxon-HE兼容 -->
+    <!--
+	xmlns:tir-proc="java:java/com.ptc.arbortext.aad.ietp.tir.IetpTIRProcessor"
     xmlns:tir-node="java:java/com.ptc.arbortext.aad.ietp.tir.IetpTIRNode"
-    >
+    -->
     <!--2012 xmlns:tir-proc="java:java/com.ptc.arbortext.aad.ietp.tir.IetpTIRProcessor?path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="tir-proc"
     xmlns:tir-node="java:java/com.ptc.arbortext.aad.ietp.tir.IetpTIRNode?
 path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="tir-node"-->
