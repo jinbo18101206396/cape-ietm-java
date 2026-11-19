@@ -409,16 +409,11 @@ public class DmXmlHelper {
             String icnCode = matcher.group(2);
             String afterBoardno = matcher.group(3);
 
-            // 🔧 2026-11-03 修复P1：跳过多媒体对象占位图标（audio/video/3d/flash.gif）
-            // 这些图标由XSLT生成，带有onclick事件和avicit/路径，前端会替换为SVG
-            // 如果后端替换了它们的src，前端无法识别，会显示"ICN加载失败"
+            // 🔧 2026-11-19 修复：跳过多媒体占位符（multimedia-placeholder class）
+            // XSLT 现已改为内联 SVG emoji，不再依赖 GIF 文件路径
+            // 检查 class 属性是最可靠的判断方式
             String fullImgTag = matcher.group(0);
-            if (fullImgTag.contains("onclick") &&
-                (fullImgTag.contains("avicit/") ||
-                 fullImgTag.contains("audio.gif") ||
-                 fullImgTag.contains("video.gif") ||
-                 fullImgTag.contains("3d.gif") ||
-                 fullImgTag.contains("flash.gif"))) {
+            if (fullImgTag.contains("multimedia-placeholder")) {
                 log.debug("⏭️ 跳过多媒体占位图标: {}", icnCode);
                 // 保持原样，不替换 - 必须 appendReplacement 原始匹配，否则会丢失这部分HTML
                 matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(fullImgTag));
@@ -429,7 +424,7 @@ public class DmXmlHelper {
             String base64Data = icnDataMap.get(icnCode);
             if (base64Data == null) {
                 log.warn("ICN未加载成功，使用占位图: boardno={}", icnCode);
-                base64Data = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxNTAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiI+SUNO5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg==";
+                base64Data = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxNTAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiI+54K55Ye75omT5byA5aSa5aqS5L2TPC90ZXh0Pjwvc3ZnPg==";
             }
 
             // 移除现有的src属性（如果存在）
@@ -540,16 +535,9 @@ public class DmXmlHelper {
 
             count++;
 
-            // 🔧 2026-11-03 修复P1：跳过多媒体对象占位图标（audio/video/3d/flash.gif）
-            // 这些图标由XSLT生成，带有onclick事件和avicit/路径，前端会替换为SVG
-            // 如果后端替换了它们的src，前端无法识别，会显示"ICN加载失败"
+            // 🔧 2026-11-19 修復：跳过多媒体占位符（multimedia-placeholder class）
             String fullImgTag = matcher.group(0);
-            if (fullImgTag.contains("onclick") &&
-                (fullImgTag.contains("avicit/") ||
-                 fullImgTag.contains("audio.gif") ||
-                 fullImgTag.contains("video.gif") ||
-                 fullImgTag.contains("3d.gif") ||
-                 fullImgTag.contains("flash.gif"))) {
+            if (fullImgTag.contains("multimedia-placeholder")) {
                 log.debug("⏭️ 跳过多媒体占位图标: {}", icnCode);
                 // 保持原样，不替换
                 matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(fullImgTag));
@@ -565,7 +553,7 @@ public class DmXmlHelper {
             } else {
                 log.warn("ICN加载失败，使用占位图: boardno={}", icnCode);
                 // 使用SVG占位图
-                base64Data = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxNTAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiI+SUNO5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg==";
+                base64Data = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxNTAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiI+54K55Ye75omT5byA5aSa5aqS5L2TPC90ZXh0Pjwvc3ZnPg==";
             }
 
             // 移除现有的src属性（如果存在）

@@ -77,8 +77,9 @@
 				<xsl:attribute name="onclick">playSound(this)</xsl:attribute>
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
-				<!--<xsl:attribute name="src">images/speakers.gif</xsl:attribute>-->
-				<xsl:attribute name="src">avicit/ietm/viewer/images/audio.gif</xsl:attribute>
+				<xsl:attribute name="class">multimedia-placeholder</xsl:attribute>
+				<xsl:attribute name="data-multimedia-type">audio</xsl:attribute>
+				<xsl:attribute name="src">data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'&gt;&lt;rect width='48' height='48' rx='8' fill='%23e6f4ff' stroke='%234096ff' stroke-width='2'/&gt;&lt;text x='24' y='32' text-anchor='middle' font-size='24'&gt;&#127925;&lt;/text&gt;&lt;/svg&gt;</xsl:attribute>
 				<xsl:attribute name="title"><xsl:value-of select="$v00661"/></xsl:attribute>
 				<xsl:attribute name="hspace">10</xsl:attribute>
 				<xsl:attribute name="vspace">10</xsl:attribute>
@@ -111,7 +112,9 @@
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
 				<!--<xsl:attribute name="src" select="'images/filmreel.gif'"/>-->
-				<xsl:attribute name="src">avicit/ietm/viewer/images/video.gif</xsl:attribute>
+				<xsl:attribute name="class">multimedia-placeholder</xsl:attribute>
+				<xsl:attribute name="data-multimedia-type">video</xsl:attribute>
+				<xsl:attribute name="src">data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'&gt;&lt;rect width='48' height='48' rx='8' fill='%23e6f4ff' stroke='%234096ff' stroke-width='2'/&gt;&lt;text x='24' y='32' text-anchor='middle' font-size='24'&gt;&#127916;&lt;/text&gt;&lt;/svg&gt;</xsl:attribute>
 				<xsl:attribute name="title"><xsl:value-of select="$v02464"/></xsl:attribute>
 				<xsl:attribute name="hspace">10</xsl:attribute>
 				<xsl:attribute name="vspace">10</xsl:attribute>
@@ -144,7 +147,9 @@
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
 				<!--<xsl:attribute name="src">images/dmodule/document.gif</xsl:attribute>-->
-				<xsl:attribute name="src">avicit/ietm/viewer/images/flash.gif</xsl:attribute>
+				<xsl:attribute name="class">multimedia-placeholder</xsl:attribute>
+				<xsl:attribute name="data-multimedia-type">other</xsl:attribute>
+				<xsl:attribute name="src">data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'&gt;&lt;rect width='48' height='48' rx='8' fill='%23fff7e6' stroke='%23fa8c16' stroke-width='2'/&gt;&lt;text x='24' y='32' text-anchor='middle' font-size='24'&gt;&#9889;&lt;/text&gt;&lt;/svg&gt;</xsl:attribute>
 				<!--<xsl:attribute name="file"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 				<xsl:attribute name="pub"><xsl:value-of select="$Publication"/></xsl:attribute>-->
 				<xsl:attribute name="title"><xsl:value-of select="$v01112"/></xsl:attribute>
@@ -175,7 +180,9 @@
 				<xsl:attribute name="onclick"><xsl:text>showMultimediaInfo('</xsl:text><xsl:value-of select="@boardno|@infoEntityIdent"/><xsl:text>');</xsl:text></xsl:attribute>
 				<!--<xsl:attribute name="url">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>-->
 				<xsl:attribute name="style">cursor:pointer</xsl:attribute>
-				<xsl:attribute name="src">avicit/ietm/viewer/images/3d.gif</xsl:attribute>
+				<xsl:attribute name="class">multimedia-placeholder</xsl:attribute>
+				<xsl:attribute name="data-multimedia-type">3d</xsl:attribute>
+				<xsl:attribute name="src">data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'&gt;&lt;rect width='48' height='48' rx='8' fill='%23f6ffed' stroke='%2352c41a' stroke-width='2'/&gt;&lt;text x='24' y='32' text-anchor='middle' font-size='24'&gt;&#129514;&lt;/text&gt;&lt;/svg&gt;</xsl:attribute>
 				<!--<xsl:attribute name="file"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 				<xsl:attribute name="pub"><xsl:value-of select="$Publication"/></xsl:attribute>-->
 				<xsl:attribute name="title"><!-- <xsl:value-of select="$v00661"/> -->Open 3D</xsl:attribute>

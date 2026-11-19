@@ -366,7 +366,7 @@ img {
 
 /* ========== IPD表格样式 ========== */
 table.ipcTable {
-    width: 95%;
+    width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
 }

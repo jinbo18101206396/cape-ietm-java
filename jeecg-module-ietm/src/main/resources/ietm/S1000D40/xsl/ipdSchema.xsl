@@ -6,6 +6,7 @@
 <!-- =============================================== -->
 	<xsl:include href="common.xsl"/>
 	<xsl:include href="base.xsl"/>
+	<xsl:include href="multimedia.xsl"/>
 	<xsl:include href="ipd.xsl"/>
 	<xsl:include href="content.xsl"/>
 <!--===============================================-->

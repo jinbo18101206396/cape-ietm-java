@@ -49,8 +49,8 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
                     <xsl:value-of select="./title"/>
                 </xsl:with-param>
             </xsl:call-template>
-            	<!-- now show the title info for the figure 
-				<xsl:call-template name="ipcFigureTitle"/>-->
+            <!-- 🔧 2026-11-19修复：显示图标题（原本被注释掉） -->
+            <xsl:call-template name="ipcFigureTitle"/>
         </xsl:for-each>
         <xsl:for-each select="multimedia">
             <xsl:call-template name="ipcMultimedia"/>
@@ -81,16 +81,6 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 								</xsl:call-template>
                             </td>
                         </tr>
-                        <tr>
-                            <td>
-                                <!-- show image link-->
-                              	<xsl:call-template name="graphicHyperLink">
-									<xsl:with-param name="figCount" select="$figCount"/>
-									<xsl:with-param name="figTitle" select="$figTitle"/>
-									<xsl:with-param name="graphicSheetCountJS" select="@graphicSheetCountJS"/>
-								</xsl:call-template>-->
-                            </td>
-                        </tr>
                     </table>
                 </span>
             </xsl:for-each>
@@ -99,26 +89,31 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
     <!--===============================================-->
     <xsl:template name="ipcMultimedia">
         <div class="ipcMultimedia">
-            <!-- will show all graphics under current firgure -->
+            <!-- 生成多媒体占位图标 + 标题 -->
+            <xsl:variable name="multimediaNumb">
+                <xsl:number count="multimedia" from="content" format="1"/>
+            </xsl:variable>
+            <xsl:variable name="multimediaTitle">
+                <xsl:text>多媒体</xsl:text>
+                <xsl:number level="any"/>&#160;<xsl:value-of select="title"/>
+            </xsl:variable>
             <xsl:for-each select="multimediaobject | multimediaObject">
                 <span>
-                    <!-- display inline shows the tables on one line, will wrap if required-->
-                    <table style="display: none">
+                    <table style="display: inline;">
                         <tr>
                             <td>
-                                <!-- show image-->
-                                <xsl:call-template name="displayGraphic"/>
+                                <xsl:apply-templates select="."/>
                             </td>
                         </tr>
-                       	<!--<tr>
-                            <td>-->
-                                <!-- show image link-->
-                               <!-- <xsl:call-template name="graphicHyperLink"/>
-                            </td>
-                        </tr>-->
                     </table>
                 </span>
             </xsl:for-each>
+            <!-- 多媒体标题（对齐 multimedia.xsl 外层模板的 span.figure 输出） -->
+            <span class="figure">
+                <center>
+                    <xsl:value-of select="$multimediaTitle"/>
+                </center>
+            </span>
         </div>
     </xsl:template>
     <!--===============================================-->
@@ -159,14 +154,15 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
                 <xsl:call-template name="doJPGImage"/>
             </xsl:when>
             <xsl:otherwise>
-                <!-- load the the alternative jpg image when we have a CGM file and ISOview is NOT available. -->
-                <img width="100px" height="100px" border="0">
-                    <xsl:attribute name="alt">BinaryResourceStreamer?pub=<xsl:value-of
-                            select="$Publication"/>&amp;string=<xsl:value-of select="$boardnum"
-                        /></xsl:attribute>
-                    <xsl:attribute name="src">BinaryResourceStreamer?pub=<xsl:value-of
-                            select="$Publication"/>&amp;string=<xsl:value-of select="$boardnum"
-                        /></xsl:attribute>
+                <!-- 修复：添加 boardno/data-icn-code 属性，让前端 DmPreviewModal 能通过选择器
+                     img[data-icn-code], img.figureLinkGraphic[boardno] 识别并加载真实图片。
+                     对齐 fig_tabFigure.xsl 第90-93行的处理方式。 -->
+                <img style="max-width:100%;height:auto;cursor:pointer;" border="0" class="figureLinkGraphic">
+                    <xsl:attribute name="alt"><xsl:value-of select="$boardnum"/></xsl:attribute>
+                    <xsl:attribute name="src">ShowSmallImage</xsl:attribute>
+                    <xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+                    <xsl:attribute name="data-icn-code"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+                    <xsl:attribute name="onclick">showMultimediaInfo('<xsl:value-of select="@boardno|@infoEntityIdent"/>');</xsl:attribute>
                 </img>
             </xsl:otherwise>
         </xsl:choose>
@@ -174,10 +170,11 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
     </xsl:template>
     <!--===============================================-->
     	<xsl:template name="doJPGImage">
-		<!--<img width="100px" height="100px" border="0">-->
-		<img border="0">
-			<xsl:attribute name="alt">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="substring-before(@boardno|@infoEntityIdent,'.')"/>.jpg</xsl:attribute>
-			<xsl:attribute name="src">BinaryResourceStreamer?pub=<xsl:value-of select="$Publication"/>&amp;string=<xsl:value-of select="substring-before(@boardno|@infoEntityIdent,'.')"/>.jpg</xsl:attribute>
+		<img border="0" class="figureLinkGraphic">
+			<xsl:attribute name="alt"><xsl:value-of select="substring-before(@boardno|@infoEntityIdent,'.')"/></xsl:attribute>
+			<xsl:attribute name="src">ShowSmallImage</xsl:attribute>
+			<xsl:attribute name="boardno"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
+			<xsl:attribute name="data-icn-code"><xsl:value-of select="@boardno|@infoEntityIdent"/></xsl:attribute>
 		</img>
 	</xsl:template>
     <!--===============================================-->
@@ -263,42 +260,16 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
         <!-- do ipd table -->
         <table class="ipcTable">
             <tr>
-                <th class="ipcTableTH1">
-                    <xsl:value-of select="$v00354"/>
-                </th>
-                <th class="ipcTableTH2">
-                    <xsl:value-of select="$v00475"/>
-                </th>
-                <th class="ipcTableTH3">
-                    <xsl:value-of select="$v01125"/>
-                </th>
-                <th class="ipcTableTH4">
-                    <xsl:value-of select="$v00558"/>
-                </th>
-                <th class="ipcTableTH5">
-                    <xsl:value-of select="$v01114"/>
-                </th>
-                <th class="ipcTableTH6">
-                    <xsl:value-of select="$v00583"/>
-                </th>
-                <th class="ipcTableTH7">*<xsl:value-of select="$v01017"/>
-                </th>
-                <th class="ipcTableTH8">
-                    <xsl:value-of select="$v00550"/>
-                </th>
-                <th class="ipcTableTH9">
-                    <xsl:value-of select="$v00401"/>
-                </th>
+                <th class="ipcTableTH1">目录号</th>
+                <th class="ipcTableTH2">条目顺序码</th>
+                <th class="ipcTableTH3">数量</th>
+                <th class="ipcTableTH4">厂商码</th>
+                <th class="ipcTableTH5">部件码</th>
+                <th class="ipcTableTH6">层级</th>
+                <th class="ipcTableTH7">名称</th>
+                <th class="ipcTableTH8">单位</th>
             </tr>
             <tbody>
-                <tr>
-                    <td>
-                    	<xsl:call-template name="t_changeMarker"/>
-                        <xsl:value-of
-                            select="substring(csn/@csn|catalogSeqNumber/@catalogSeqNumberValue,7,3)"
-                        />
-                    </td>
-                </tr>
                 <!-- each csn holds an isn which is a table row -->
                 <xsl:apply-templates select="csn|catalogSeqNumber"/>
             </tbody>
@@ -407,24 +378,14 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
                             select="$ISOViewInstalled"/>');</xsl:attribute>
                 </xsl:otherwise>
             </xsl:choose>
-            <xsl:call-template name="nilColumn"/>
             <xsl:call-template name="csnItemNumber"/>
+            <xsl:call-template name="isnItemSeqColumn"/>
             <xsl:call-template name="qnaColumn"/>
             <xsl:call-template name="mfcColumn"/>
             <xsl:call-template name="pnrColumn"/>
+            <xsl:call-template name="indentureColumn"/>
             <xsl:call-template name="nomenclatureColumn"/>
-            <xsl:call-template name="ucaColumn"/>
-            <xsl:call-template name="cesColumn"/>
-            <xsl:call-template name="icyColumn"/>
-            <td>
-                <span>
-                    <xsl:attribute name="id">isoLegendDiv<xsl:value-of select="generate-id(.)"/></xsl:attribute>
-                    <xsl:attribute name="style">display:none</xsl:attribute>
-                    <xsl:call-template name="ParamLegendContent">
-                        <xsl:with-param name="boardno" select="$boardno"/>
-                    </xsl:call-template>
-                </span>
-            </td>
+            <xsl:call-template name="serviceColumn"/>
         </tr>
 
     </xsl:template>
@@ -458,7 +419,6 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 				</xsl:choose>
 			-->
             <!-- each named template call creates a table cell and then applies templates-->
-            <xsl:call-template name="nilColumn"/>
             <xsl:call-template name="csnItemNumber"/>
             <xsl:call-template name="vendorColumn"/>
             <xsl:call-template name="pnrColumnATA100"/>
@@ -524,16 +484,6 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
         </xsl:if>
     </xsl:template>
     <!--===============================================-->
-    <xsl:template name="nilColumn">
-        <td>
-        	<xsl:call-template name="t_changeMarker"/>
-            <xsl:attribute name="id">csnref<xsl:value-of
-                    select="translate(normalize-space(../@csn|../@catalogSeqNumberValue), ' ', '_') "
-                /></xsl:attribute>
-            <xsl:apply-templates select=".//nil | .//notIllustrated"/>
-        </td>
-    </xsl:template>
-    <!--===============================================-->
     <xsl:template name="csnItemNumber">
         <!-- called from isn level -->
         <td id="itemName">
@@ -541,6 +491,20 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 			<xsl:call-template name="getCsnItemNumber"/>
 		</td>
 	</xsl:template>
+	<!--===============================================-->
+	<xsl:template name="isnItemSeqColumn">
+	    <!-- 条目顺序码：itemSequenceNumber/@itemSeqNumberValue -->
+        <td>
+            <xsl:value-of select="@isn|@itemSeqNumberValue"/>
+        </td>
+    </xsl:template>
+    <!--===============================================-->
+    <xsl:template name="indentureColumn">
+        <!-- 层级：catalogSeqNumber/@indenture（父节点属性） -->
+        <td>
+            <xsl:value-of select="../@ind|../@indenture"/>
+        </td>
+    </xsl:template>
 	
 	
 	<xsl:template name="getCsnItemNumber">
@@ -560,10 +524,16 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
                     <xsl:variable name="variant">
                         <xsl:value-of select="substring(../@item | ../@catalogItemNumber,4,1)"/>
                     </xsl:variable>
-					<xsl:if test="not($itemnum = '0') and not($itemnum = 'NaN')">
-                        <xsl:value-of select="$itemnum"/>
-						<xsl:value-of select="translate($variant,'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')"/>
-                    </xsl:if>
+                    <xsl:choose>
+                        <xsl:when test="not($itemnum = '0') and not($itemnum = 'NaN')">
+                            <xsl:value-of select="$itemnum"/>
+                            <xsl:value-of select="translate($variant,'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <!-- 无法格式化为数字时（如纯字母值），直接输出原始值 -->
+                            <xsl:value-of select="../@item|../@catalogItemNumber"/>
+                        </xsl:otherwise>
+                    </xsl:choose>
                 </xsl:otherwise>
             </xsl:choose>
     </xsl:template>
@@ -661,6 +631,22 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
         </td>
     </xsl:template>
     <!--===============================================-->
+    <xsl:template name="serviceColumn">
+        <!-- 单位：三种结构均兼容
+             1. ../ces/srv                              — ces 是 catalogSeqNumber 的直接子元素（老格式）
+             2. ../locationRcmd/service                 — locationRcmd 是 catalogSeqNumber 的直接子元素
+             3. locationRcmdSegment/locationRcmd/service — 设计器生成格式：locationRcmdSegment 在 isn 内部 -->
+        <td>
+            <xsl:call-template name="t_changeMarker"/>
+            <xsl:apply-templates select="../ces/srv | ../locationRcmd/service | locationRcmdSegment/locationRcmd/service"/>
+        </td>
+    </xsl:template>
+    <!--===============================================-->
+    <xsl:template match="srv | service">
+        <!-- 输出单位字段值 -->
+        <xsl:value-of select="text()"/>
+    </xsl:template>
+    <!--===============================================-->
     <xsl:template name="vendorColumn">
         <td>
         	<xsl:call-template name="t_changeMarker"/>
@@ -720,12 +706,8 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
     <xsl:template name="nomenclatureColumn">
         <td>
         	<xsl:call-template name="t_changeMarker"/>
-            <xsl:call-template name="dfpContent"/>
-            <!-- store the DFP in a hidden div. this will be used to as search value when the row is selected. -->
-            <div style="display:none">
-                <!--<xsl:value-of select="pas/dfp|partIdentSegment/descrForPart"/>-->
-                <xsl:call-template name="t_ipd_name"/>
-            </div>
+            <!-- 直接输出名称，去掉嵌套 dfpContentTable -->
+            <xsl:call-template name="t_ipd_name"/>
         </td>
     </xsl:template>
     <!--===============================================-->
@@ -904,48 +886,13 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
     </xsl:template>
     <!--===============================================-->
     <xsl:template name="t_ipd_name">
-        <!--2012<xsl:choose>
-            <xsl:when
-                test="(child::mfc|child::manufacturerCode) and (child::pnr|child::partNumber) and tir-proc:validateTIRReference(.)">
-                <xsl:variable name="tirItem" select="tir-proc:dereferenceTIRNode(.)"/>
-                <xsl:variable name="tirName">
-                    <xsl:value-of select="tir-node:query($tirItem, '//itemIdentData/name/text()|//nomdata/nomen/text()')"/>
-                </xsl:variable>
-                <xsl:variable name="pnr" select="pnr/text()|partNumber/text()"/>
-                <xsl:variable name="mfc" select="mfc/text()|manufacturerCode/text()"></xsl:variable>
-                <span class="tirRef" title="Reference to part: MFC: {$mfc} / Pt No: {$pnr}, {$tirName}">
-                    <xsl:call-template name="t_generate_tir_click_event">
-                        <xsl:with-param name="tirItem" select="$tirItem"/>
-                    </xsl:call-template> MFC:&#160;<xsl:value-of select="$mfc"
-                    /> / Pt No:<xsl:value-of select="$pnr"/><xsl:if test="$tirName"
-                            >,&#160;<xsl:value-of select="$tirName"/></xsl:if>
-                </span>
-            </xsl:when>
-            <xsl:when
-                test="(child::mfc|child::manufacturerCode) and (child::pnr|child::partNumber) ">
-                <xsl:variable name="tirItem" select="tir-proc:dereferenceTIRNode(.)"/>
-                <xsl:variable name="tirName">
-                    <xsl:value-of select="tir-node:query($tirItem, '//itemIdentData/name/text()|//nomdata/nomen/text()')"/>
-                </xsl:variable>
-                <xsl:variable name="pnr" select="pnr/text()|partNumber/text()"/>
-                <xsl:variable name="mfc" select="mfc/text()|manufacturerCode/text()"></xsl:variable>
-                <span class="tirRef" title="Reference to part: MFC: {$mfc} / Pt No: {$pnr}, {$tirName}">
-                    <xsl:call-template name="t_generate_tir_click_event">
-                        <xsl:with-param name="tirItem" select="$tirItem"/>
-                    </xsl:call-template> MFC:&#160;<xsl:value-of select="$mfc"
-                    /> / Pt No:<xsl:value-of select="$pnr"/><xsl:if test="$tirName"
-                            >,&#160;<xsl:value-of select="$tirName"/></xsl:if>
-                </span>
-            </xsl:when>
-            <xsl:otherwise> &#160;<xsl:apply-templates
-                    select="pas/dfp|partIdentSegment/descrForPart"/>
-            </xsl:otherwise>
-        </xsl:choose>-->
+        <!-- 2026-11-19 修复：去掉 TIR 扩展函数注释块，直接输出名称字段 descrForPart -->
+        <xsl:apply-templates select="pas/dfp|partIdentSegment/descrForPart"/>
     </xsl:template>
     <!--===============================================-->
     <!-- Default Template matches-->
     <xsl:template
-        match="csn | catalogSeqNumber | rfs | reasonForSelection | pas | dfp | pcs | qui | str | ftc | psc | cmk | icy | cbs | asp | nil | rtx | ippref | smf | mfm | dfl | ccs | applicabilitySegment | uce | ctl | srv | service | smr | sourceMaintRecoverability | rfd | ils | can ">
+        match="csn | catalogSeqNumber | rfs | reasonForSelection | pas | dfp | pcs | qui | str | ftc | psc | cmk | icy | cbs | asp | nil | rtx | ippref | smf | mfm | dfl | ccs | applicabilitySegment | uce | ctl | smr | sourceMaintRecoverability | rfd | ils | can ">
         <xsl:apply-templates/>
     </xsl:template>
     <!--===============================================-->
