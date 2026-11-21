@@ -8,8 +8,15 @@
     <xsl:include href="uom.xsl"/>
     <xsl:include href="fig_tab.xsl"/>
     <!--===============================================-->
-    <xsl:template match="schedule|maintPlanning">
-        <!-- import css first -->
+    <!-- S1000D 4.0 maintPlanning：不输出"日程"标题（DM标题已由identAndStatusSection提供），与procedure渲染保持一致 -->
+    <xsl:template match="maintPlanning">
+        <xsl:call-template name="importCSS"/>
+        <xsl:apply-templates/>
+        <xsl:call-template name="initOutPutArea"/>
+    </xsl:template>
+    <!--===============================================-->
+    <!-- 旧版 S1000D 2.x schedule元素：保留"日程"标题以向后兼容 -->
+    <xsl:template match="schedule">
         <xsl:call-template name="importCSS"/>
         <div class="scheduleTitle">
             <xsl:value-of select="$v00818"/>

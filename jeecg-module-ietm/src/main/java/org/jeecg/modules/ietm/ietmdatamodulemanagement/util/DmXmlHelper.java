@@ -246,8 +246,11 @@ public class DmXmlHelper {
             PreviewPerformanceMonitor.setSessionContext(standard, dmType);
             PreviewPerformanceMonitor.recordStageEnd("detect", t1, xmlSize,
                 (standard + dmType).length());
-            log.debug("① 检测完成: standard={}, dmType={}, 耗时: {}ms",
-                    standard, dmType, System.currentTimeMillis() - t1);
+            // 🔍 2026-11-20 调试日志：验证XSLT路由修复
+            boolean hasScheduledMaintenance = content.contains("<scheduledMaintenance");
+            boolean hasPreliminaryRqmts = content.contains("<preliminaryRqmts");
+            log.info("🔍 [DM预览] standard={}, dmType={}, hasScheduledMaintenance={}, hasPreliminaryRqmts={}, 耗时: {}ms",
+                    standard, dmType, hasScheduledMaintenance, hasPreliminaryRqmts, System.currentTimeMillis() - t1);
 
             // ② XSLT转换
             long t2 = PreviewPerformanceMonitor.recordStageStart("xslt");
@@ -354,6 +357,11 @@ public class DmXmlHelper {
         // XSLT默认模板直接输出原始文本，"准备工作"/"后续工作"模块完全不显示。
         // 修复：路由到processSchema.xsl（含prelreq.xsl + process.xsl），两个模块正常渲染。
         if (xmlContent.contains("<process")) return "process";
+        // 🔧 2026-11-20 修复P0：维护计划类DM（S1000D infoCode 011A，含<scheduledMaintenance>或<maintPlanning>元素）
+        // 根因：缺少此分支导致维护计划类DM回退到"descript"，使用descriptSchema.xsl，
+        // 该Schema不含prelreq.xsl，<preliminaryRqmts>无模板匹配，"准备工作"模块完全不显示。
+        // 修复：路由到schedulSchema.xsl（含schedul.xsl + prelreq.xsl），准备工作模块正常渲染。
+        if (xmlContent.contains("<scheduledMaintenance") || xmlContent.contains("<maintPlanning")) return "schedul";
 
         // 默认描述类
         return "descript";

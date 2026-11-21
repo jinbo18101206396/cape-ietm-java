@@ -128,10 +128,10 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<!--===============================================-->
 	<xsl:template match="reqcondm|reqCondDm">
 		<tr>
-			<td>
+			<td style="border:1px solid #ddd;padding:6px;">
         <xsl:value-of select="reqcond|reqCond"/>
 			</td>
-			<td>
+			<td style="border:1px solid #ddd;padding:6px;">
         <xsl:apply-templates select="reqdm|refdm|dmRef"/>
 			</td>
 		</tr>
@@ -139,8 +139,8 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<!--===============================================-->
 	<xsl:template match="reqCondNoRef | reqCondCircuitBreaker | reqCondExternalPub">
 		<tr>
-			<td><xsl:value-of select="reqCond|reqcond"/></td>
-			<td></td>
+			<td style="border:1px solid #ddd;padding:6px;"><xsl:value-of select="reqCond|reqcond"/></td>
+			<td style="border:1px solid #ddd;padding:6px;"></td>
 		</tr>
 	</xsl:template>
 	<!--===============================================-->
@@ -488,7 +488,7 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<!--====================操作设备中的支持设备的表格===========================-->
 	<xsl:template match="supportEquipDescrGroup|spareDescrGroup">
 		<xsl:if test="not(ancestor::stepview)">
-			<table width="100%;" class="equipmentTable">
+			<table width="100%" class="equipmentTable">
 				<xsl:call-template name="T_doEquipTableHead"/>
 				<tbody>
 					<xsl:apply-templates/>
@@ -529,15 +529,15 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<!--===============================================-->
 	<xsl:template match="supportEquipDescr|supplyDescr|spareDescr">
 		<tr>
-			<td width="50%">
+			<td style="border:1px solid #ddd;padding:6px;">
 				<!--<xsl:number/>-->
 				<xsl:element name="a">
 					<xsl:attribute name="id"><xsl:value-of select="translate(@id,'-','-')"/></xsl:attribute>
 					<xsl:attribute name="name">TOC<xsl:value-of select="translate(@id,'-','-')"/></xsl:attribute>
-					<xsl:call-template name="t_extract_name"/>
 				</xsl:element>
+				<xsl:value-of select="name|nomen"/>
 			</td>
-			<td width="30%">
+			<td style="border:1px solid #ddd;padding:6px;">
 				<xsl:if test="identNumber/manufacturerCode or identNumber/partAndSerialNumber/partNumber">
 					<xsl:text>部件：</xsl:text>
 					<xsl:value-of select="identNumber/manufacturerCode"/>
@@ -555,10 +555,10 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 				</xsl:if>
 				<xsl:apply-templates select="refs"/>
 			</td>
-			<td width="10%">
+			<td style="border:1px solid #ddd;padding:6px;">
 				<xsl:apply-templates select="reqQuantity"/>
 			</td>
-			<td width="10%">
+			<td style="border:1px solid #ddd;padding:6px;">
 				<xsl:apply-templates select="remarks" mode="prelreq"/>
 			</td>
 			<!--<td>
@@ -605,16 +605,16 @@ path=file:///E:/IETM4/IETP/IETP_Data_Update/xsl/java/" exclude-result-prefixes="
 	<xsl:template name="T_doEquipTableHead">
 		<thead>
 			<tr>
-				<th class="nomen">
+				<th class="nomen" style="text-align:center;border:1px solid #ddd;padding:6px;width:20%;">
 					<!--<xsl:value-of select="$v00583"/>-->名称
                 </th>
-				<th class="indent">
+				<th class="indent" style="text-align:center;border:1px solid #ddd;padding:6px;width:40%;">
 					<!--<xsl:value-of select="$v00403"/>-->规格型号
                 </th>
-				<th class="quantity">
+				<th class="quantity" style="text-align:center;border:1px solid #ddd;padding:6px;width:15%;">
 					<xsl:value-of select="$v00744"/>
 				</th>
-				<th class="remarks">
+				<th class="remarks" style="text-align:center;border:1px solid #ddd;padding:6px;width:25%;">
 					<!--<xsl:value-of select="$v00785"/>-->
                     备注
                 </th>
